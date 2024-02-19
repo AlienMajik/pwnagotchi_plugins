@@ -1,0 +1,2 @@
+# pwnagotchi_plugins
+adsbsniffer
