@@ -66,6 +66,10 @@ This disclaimer is subject to changes and updates. Users are advised to review i
 
 
 
+
+
+
+
 Neurolyzer Plugin:
 The Neurolyzer plugin introduces a significant enhancement to the Pwnagotchi platform, aiming to augment the device's stealth and privacy capabilities. Its main function is to automate the randomization of the MAC address for the designated Wi-Fi interface. This action helps make the Pwnagotchi less visible to network monitoring systems, thereby decreasing its digital footprint within the networks it scans. The plugin offers several noteworthy features:
 
