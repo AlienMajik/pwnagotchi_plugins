@@ -1,4 +1,81 @@
 # pwnagotchi_plugins
+
+Age.py:
+
+Age, Strength, and Network Points Plugin for Pwnagotchi
+
+Author: AlienMajik
+Version: 1.0.4
+License: MIT
+Description
+
+This Pwnagotchi plugin extends your Pwnagotchi’s user interface and functionality by adding three key stats:
+
+    Age (♥ Age): Tracks how many epochs your Pwnagotchi has lived.
+    Strength (Str): Indicates how much your Pwnagotchi has "trained," increasing every 10 epochs by default.
+    Network Points (★ Pts): Awards points based on the type of network handshakes your Pwnagotchi captures. Stronger encryptions yield more points, weaker encryptions yield fewer. The points are logged for your reference.
+
+Network Points Scoring:
+
+    WPA3: +10 points
+    WPA2: +5 points
+    WEP/WPA: +2 points
+    Open/Unknown: +1 point
+
+Each time points are awarded, an entry is appended to /root/network_points.log with the ESSID, encryption type, points gained, and the updated total.
+
+All stats (age, strength, network points) are saved to /root/age_strength.json, ensuring that your Pwnagotchi remembers these values across reboots.
+Features
+
+    Persistent Stats: Age, Strength, and Points survive restarts.
+    UI Integration: Displays stats directly on the Pwnagotchi screen.
+    Logging: Keeps a dedicated log file of network-related point gains.
+    Customizable: You can tweak increments and positions via config options.
+
+Installation
+
+    Copy the Plugin File:
+    Place the age.py file into your Pwnagotchi’s custom plugins directory:
+
+    sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+
+Update config.toml:
+Add the following lines to your /etc/pwnagotchi/config.toml:
+
+    [plugins.age]
+    main.plugins.age.enabled = true
+    main.plugins.age.age_x_coord = 101
+    main.plugins.age.age_y_coord = 80
+    main.plugins.age.str_x_coord = 160
+    main.plugins.age.str_y_coord = 80
+
+You can change these coordinates to position the stats where you want them on the display.
+
+Restart Pwnagotchi:
+Once the plugin is in place and enabled, restart your Pwnagotchi:
+
+    sudo systemctl restart pwnagotchi
+
+Usage
+
+    Over time, as your Pwnagotchi runs, you'll see the Age and Strength values increase on the screen.
+    When your Pwnagotchi captures handshakes, it will update the Points stat according to the network’s encryption strength.
+    A status message will display briefly, and details about the gained points will be logged to /root/network_points.log.
+
+Logs and Data
+
+    Stats Data: /root/age_strength.json
+        Contains epochs lived, training epochs, and total network points.
+    Points Log: /root/network_points.log
+        Each handshake event that grants points is appended here with ESSID, encryption, points gained, and the total.
+
+
+
+
+
+
+
+ADSBsniffer.py:
 A plugin that captures ADS-B data from aircraft using RTL-SDR and logs it.
 a RTL-SDR Dongle is required to run plugin
 1. Connect the RTL-SDR Dongle
@@ -59,6 +136,15 @@ By using the Plugin, you agree to indemnify and hold harmless the creators, cont
 
 This disclaimer is subject to changes and updates. Users are advised to review it periodically.
  
+
+
+
+
+
+
+
+
+
 
 
 
