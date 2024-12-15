@@ -11,20 +11,34 @@ from pwnagotchi.ui.view import BLACK
 
 class Age(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.0.4'
+    __version__ = '1.0.6'
     __license__ = 'MIT'
-    __description__ = 'A plugin that adds age, strength, and network points stats with a dedicated log of point increments.'
+    __description__ = 'A plugin that adds age, strength, network points, and stars. It also initializes handshake_count from existing handshakes.'
 
     def __init__(self):
         self.epochs = 0
         self.train_epochs = 0
-        self.network_points = 0  # Stat to track points from network encounters
+        self.network_points = 0
+        self.handshake_count = 0
         self.data_path = '/root/age_strength.json'
-        self.log_path = '/root/network_points.log'  # Dedicated log file
+        self.log_path = '/root/network_points.log'
+        self.max_stars = 5
+        self.star_interval = 1000  # 1000 handshakes per star
+        self.handshake_dir = '/root/handshakes'  # directory containing old handshake files
 
     def on_loaded(self):
-        # Load stored data from file if available
         self.load_data()
+        # After loading data, if handshake_count is zero but we have existing handshakes, count them.
+        # This will only run if you haven't done it before. If you have some logic for not re-counting,
+        # you can store a flag in the JSON file that indicates if we've already initialized from old handshakes.
+        if self.handshake_count == 0 and os.path.isdir(self.handshake_dir):
+            # Count how many handshake files are there
+            existing_handshakes = [f for f in os.listdir(self.handshake_dir) if os.path.isfile(os.path.join(self.handshake_dir, f))]
+            # Assume each file corresponds to one handshake. Adjust if your naming scheme differs.
+            if existing_handshakes:
+                self.handshake_count = len(existing_handshakes)
+                logging.info(f"[Age plugin] Initialized handshake_count from existing handshakes: {self.handshake_count}")
+                self.save_data()
 
     def on_ui_setup(self, ui):
         ui.add_element('Age', LabeledValue(
@@ -43,14 +57,19 @@ class Age(plugins.Plugin):
             label_font=fonts.Bold,
             text_font=fonts.Medium
         ))
-        # Using a simpler label instead of an emoji for points
-        points_x = int(self.options.get("points_x_coord", 10))
-        points_y = int(self.options.get("points_y_coord", 100))
         ui.add_element('Points', LabeledValue(
             color=BLACK,
-            label='★ Pts',  # ASCII-friendly label
+            label='★ Pts',
             value=0,
-            position=(points_x, points_y),
+            position=(int(self.options.get("points_x_coord", 10)), int(self.options.get("points_y_coord", 100))),
+            label_font=fonts.Bold,
+            text_font=fonts.Medium
+        ))
+        ui.add_element('Stars', LabeledValue(
+            color=BLACK,
+            label='Stars',
+            value=self.get_star_string(),
+            position=(int(self.options.get("stars_x_coord", 10)), int(self.options.get("stars_y_coord", 120))),
             label_font=fonts.Bold,
             text_font=fonts.Medium
         ))
@@ -60,34 +79,30 @@ class Age(plugins.Plugin):
             ui.remove_element('Age')
             ui.remove_element('Strength')
             ui.remove_element('Points')
-        # Save data on unload
+            ui.remove_element('Stars')
         self.save_data()
 
     def on_ui_update(self, ui):
         ui.set('Age', str(self.abrev_number(self.epochs)))
         ui.set('Strength', str(self.abrev_number(self.train_epochs)))
         ui.set('Points', str(self.abrev_number(self.network_points)))
+        ui.set('Stars', self.get_star_string())
 
     def on_epoch(self, agent, epoch, epoch_data):
         self.epochs += 1
-        # Example: Increase strength every 10 epochs
         if self.epochs % 10 == 0:
             self.train_epochs += 1
 
-        # Checkpoints
         if self.epochs % 100 == 0:
             self.age_checkpoint(agent)
         if self.train_epochs != 0 and self.train_epochs % 10 == 0:
             self.strength_checkpoint(agent)
 
-        # Save data each epoch
         self.save_data()
 
     def on_handshake(self, agent, filename, access_point, client):
-        # Determine encryption type and award points
         enc = access_point.get('encryption', '').lower()
         essid = access_point.get('essid', 'unknown')
-        old_points = self.network_points
 
         if 'wpa3' in enc:
             increment = 10
@@ -105,11 +120,33 @@ class Age(plugins.Plugin):
         self.network_points += increment
         self.display_encounter(agent, f"{desc} network discovered! +{increment} pts")
 
-        # Log the event to a dedicated file
+        old_stars = self.get_stars_count()
+        self.handshake_count += 1
+        new_stars = self.get_stars_count()
+        if new_stars > old_stars:
+            self.new_star_checkpoint(agent, new_stars)
+
         with open(self.log_path, 'a') as f:
-            f.write(f"ESSID: {essid}, ENC: {enc}, Points Gained: {increment}, Total Points: {self.network_points}\n")
+            f.write(f"ESSID: {essid}, ENC: {enc}, Points Gained: {increment}, Total Points: {self.network_points}, Handshake Count: {self.handshake_count}\n")
 
         self.save_data()
+
+    def new_star_checkpoint(self, agent, stars):
+        if stars <= self.max_stars:
+            star_str = '★' * stars
+            view = agent.view()
+            view.set('face', faces.HAPPY)
+            view.set('status', f"You've earned a new star! Now at {star_str}")
+            view.update(force=True)
+
+    def get_stars_count(self):
+        stars = self.handshake_count // self.star_interval
+        if stars > self.max_stars:
+            stars = self.max_stars
+        return stars
+
+    def get_star_string(self):
+        return '★' * self.get_stars_count()
 
     def abrev_number(self, num):
         if num < 100000:
@@ -135,7 +172,6 @@ class Age(plugins.Plugin):
         view.update(force=True)
 
     def display_encounter(self, agent, message):
-        # A helper method to display a quick status update when points are awarded
         view = agent.view()
         view.set('face', faces.EXCITED)
         view.set('status', message)
@@ -148,12 +184,14 @@ class Age(plugins.Plugin):
                 self.epochs = data.get('epochs_lived', 0)
                 self.train_epochs = data.get('epochs_trained', 0)
                 self.network_points = data.get('network_points', 0)
+                self.handshake_count = data.get('handshake_count', 0)
 
     def save_data(self):
         data = {
             'epochs_lived': self.epochs,
             'epochs_trained': self.train_epochs,
-            'network_points': self.network_points
+            'network_points': self.network_points,
+            'handshake_count': self.handshake_count
         }
         with open(self.data_path, 'w') as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
