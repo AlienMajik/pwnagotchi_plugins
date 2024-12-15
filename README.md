@@ -2,52 +2,62 @@
 
 Age.py:
 
-Age, Strength, and Network Points Plugin for Pwnagotchi
+Age, Strength, Network Points, and Stars Plugin for Pwnagotchi
 
 Author: AlienMajik
 Version: 1.0.4
-License: MIT
+
 Description
 
 This Pwnagotchi plugin extends your Pwnagotchi’s user interface and functionality by adding three key stats:
 
-    Age (♥ Age): Tracks how many epochs your Pwnagotchi has lived.
-    Strength (Str): Indicates how much your Pwnagotchi has "trained," increasing every 10 epochs by default.
-    Network Points (★ Pts): Awards points based on the type of network handshakes your Pwnagotchi captures. Stronger encryptions yield more points, weaker encryptions yield fewer. The points are logged for your reference.
+    - **Age (♥ Age):** Tracks how many epochs your Pwnagotchi has lived, now without any reliance on the AI brain.
+    - **Strength (Str):** Reflects how much your Pwnagotchi has "trained," increasing every 10 epochs.
+    - **Network Points (★ Pts):** Earn points by capturing handshakes, with the number of points determined by the encryption strength of the networks encountered:
+    - **WPA3:** +10 points
+    - **WPA2:** +5 points
+    - **WEP/WPA:** +2 points
+    - **Open/Unknown:** +1 point
+    - **Stars (GTA-Style):** Every 1000 handshakes grants you an additional star, up to 5 total. This gives you a fun, visible progression metric. The plugin even counts existing handshakes in `/root/handshakes` so you don’t start from zero!
 
-Network Points Scoring:
 
-    WPA3: +10 points
-    WPA2: +5 points
-    WEP/WPA: +2 points
-    Open/Unknown: +1 point
+All stats (age, strength, network points, and handshake count) are persisted in `/root/age_strength.json`, ensuring that your Pwnagotchi remembers these values across reboots. Every points increment is also logged in `/root/network_points.log` for easy review.
 
-Each time points are awarded, an entry is appended to /root/network_points.log with the ESSID, encryption type, points gained, and the updated total.
+**No AI Brain Required**: Age and strength calculations no longer rely on the AI model, making the plugin simpler and more stable.
 
-All stats (age, strength, network points) are saved to /root/age_strength.json, ensuring that your Pwnagotchi remembers these values across reboots.
-Features
+**Works on Jayofelony 2.9.2 Image**: Fully compatible with the jayofelony 2.9.2 Pwnagotchi image.
 
-    Persistent Stats: Age, Strength, and Points survive restarts.
-    UI Integration: Displays stats directly on the Pwnagotchi screen.
-    Logging: Keeps a dedicated log file of network-related point gains.
-    Customizable: You can tweak increments and positions via config options.
+## Features
 
-Installation
+    - **Persistent Stats:** Age, Strength, Points, and Stars survive restarts.
+    - **UI Integration:** Stats are displayed directly on the Pwnagotchi screen.
+    - **Points Logging:** A dedicated log file (`/root/network_points.log`) records each points increment, along with network details.
+    - **Stars System:** Gain a star for every 1000 handshakes (up to 5 stars), inspired by GTA’s wanted level system.
+    - **Initialization from Existing Handshakes:** Already have a collection of handshakes in `/root/handshakes`? The plugin counts them once on load, so you don’t lose progress..
+
+Installation Methods
 
     Copy the Plugin File:
-    Place the age.py file into your Pwnagotchi’s custom plugins directory:
+    
+    Place the age.py file into your Pwnagotchi’s custom plugins directory: /usr/local/share/pwnagotchi/custom-plugins/
 
+    Add to main.custom_plugin_repos = https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip
+    
     sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
 
 Update config.toml:
 Add the following lines to your /etc/pwnagotchi/config.toml:
 
-    [plugins.age]
+
     main.plugins.age.enabled = true
     main.plugins.age.age_x_coord = 101
     main.plugins.age.age_y_coord = 80
     main.plugins.age.str_x_coord = 160
     main.plugins.age.str_y_coord = 80
+    main.plugins.age.points_x_coord = 10
+    main.plugins.age.points_y_coord = 100
+    main.plugins.age.stars_x_coord = 10
+    main.plugins.age.stars_y_coord = 120
 
 You can change these coordinates to position the stats where you want them on the display.
 
@@ -58,16 +68,26 @@ Once the plugin is in place and enabled, restart your Pwnagotchi:
 
 Usage
 
-    Over time, as your Pwnagotchi runs, you'll see the Age and Strength values increase on the screen.
-    When your Pwnagotchi captures handshakes, it will update the Points stat according to the network’s encryption strength.
-    A status message will display briefly, and details about the gained points will be logged to /root/network_points.log.
+    As your Pwnagotchi runs, watch the Age and Strength values increase.
+    When handshakes are captured, the Points stat updates based on the network encryption:
+        WPA3: +10 pts
+        WPA2: +5 pts
+        WEP/WPA: +2 pts
+        Open/Unknown: +1 pt
+    Every 1000 handshakes grants an additional star (up to 5), showing off your Pwnagotchi’s “rep.”
+    All increments and achievements are displayed momentarily on the screen.
 
 Logs and Data
 
     Stats Data: /root/age_strength.json
-        Contains epochs lived, training epochs, and total network points.
+    Contains epochs lived, training epochs, total network points, and handshake count.
+
     Points Log: /root/network_points.log
-        Each handshake event that grants points is appended here with ESSID, encryption, points gained, and the total.
+    Each handshake event granting points is recorded here with ESSID, encryption, points gained, and total points.
+
+Support & Contributions
+
+Feel free to open issues or pull requests to improve this plugin or suggest new features. Enjoy leveling up your Pwnagotchi’s stats!
 
 
 
