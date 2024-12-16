@@ -18,8 +18,13 @@ This Pwnagotchi plugin extends your Pwnagotchi’s user interface and functional
     - **WPA2:** +5 points
     - **WEP/WPA:** +2 points
     - **Open/Unknown:** +1 point
-    - **Stars (GTA-Style):** Every 1000 handshakes grants you an additional star, up to 5 total. This gives you a fun, visible progression metric. The plugin even counts existing handshakes in `/root/handshakes` so you don’t start from zero!
+    - Stars (GTA-Style) with Tiered Symbols:
+    Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+    0–4,999 handshakes: Stars appear as ★.
+    5,000–9,999 handshakes: Stars appear as ♦.
+    10,000+ handshakes: Stars appear as ♣.
 
+This provides a fun, evolving visual progression as your handshake count climbs. The plugin also counts existing handshakes in /root/handshakes, so you never start from zero!
 
 All stats (age, strength, network points, and handshake count) are persisted in `/root/age_strength.json`, ensuring that your Pwnagotchi remembers these values across reboots. Every points increment is also logged in `/root/network_points.log` for easy review.
 
@@ -32,7 +37,11 @@ All stats (age, strength, network points, and handshake count) are persisted in 
     - **Persistent Stats:** Age, Strength, Points, and Stars survive restarts.
     - **UI Integration:** Stats are displayed directly on the Pwnagotchi screen.
     - **Points Logging:** A dedicated log file (`/root/network_points.log`) records each points increment, along with network details.
-    - **Stars System:** Gain a star for every 1000 handshakes (up to 5 stars), inspired by GTA’s wanted level system.
+    - **Stars System:**  - Stars (GTA-Style) with Tiered Symbols:
+    Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+    0–4,999 handshakes: Stars appear as ★.
+    5,000–9,999 handshakes: Stars appear as ♦.
+    10,000+ handshakes: Stars appear as ♣., inspired by GTA’s wanted level system.
     - **Initialization from Existing Handshakes:** Already have a collection of handshakes in `/root/handshakes`? The plugin counts them once on load, so you don’t lose progress..
 
 Installation Methods
