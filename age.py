@@ -11,9 +11,9 @@ from pwnagotchi.ui.view import BLACK
 
 class Age(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.0.6'
+    __version__ = '1.0.7'
     __license__ = 'MIT'
-    __description__ = 'A plugin that adds age, strength, network points, and stars. It also initializes handshake_count from existing handshakes.'
+    __description__ = 'A plugin that adds age, strength, network points, stat display, and tiered symbols for stars based on handshake counts.'
 
     def __init__(self):
         self.epochs = 0
@@ -28,13 +28,9 @@ class Age(plugins.Plugin):
 
     def on_loaded(self):
         self.load_data()
-        # After loading data, if handshake_count is zero but we have existing handshakes, count them.
-        # This will only run if you haven't done it before. If you have some logic for not re-counting,
-        # you can store a flag in the JSON file that indicates if we've already initialized from old handshakes.
+        # Initialize handshake_count from existing handshakes if needed
         if self.handshake_count == 0 and os.path.isdir(self.handshake_dir):
-            # Count how many handshake files are there
             existing_handshakes = [f for f in os.listdir(self.handshake_dir) if os.path.isfile(os.path.join(self.handshake_dir, f))]
-            # Assume each file corresponds to one handshake. Adjust if your naming scheme differs.
             if existing_handshakes:
                 self.handshake_count = len(existing_handshakes)
                 logging.info(f"[Age plugin] Initialized handshake_count from existing handshakes: {self.handshake_count}")
@@ -65,9 +61,10 @@ class Age(plugins.Plugin):
             label_font=fonts.Bold,
             text_font=fonts.Medium
         ))
-        ui.add_element('Stars', LabeledValue(
+        # Changed from 'Stars' to 'Stat'
+        ui.add_element('Stat', LabeledValue(
             color=BLACK,
-            label='Stars',
+            label='Stat',
             value=self.get_star_string(),
             position=(int(self.options.get("stars_x_coord", 10)), int(self.options.get("stars_y_coord", 120))),
             label_font=fonts.Bold,
@@ -79,14 +76,14 @@ class Age(plugins.Plugin):
             ui.remove_element('Age')
             ui.remove_element('Strength')
             ui.remove_element('Points')
-            ui.remove_element('Stars')
+            ui.remove_element('Stat')  # changed from 'Stars'
         self.save_data()
 
     def on_ui_update(self, ui):
         ui.set('Age', str(self.abrev_number(self.epochs)))
         ui.set('Strength', str(self.abrev_number(self.train_epochs)))
         ui.set('Points', str(self.abrev_number(self.network_points)))
-        ui.set('Stars', self.get_star_string())
+        ui.set('Stat', self.get_star_string())  # changed from 'Stars'
 
     def on_epoch(self, agent, epoch, epoch_data):
         self.epochs += 1
@@ -133,7 +130,8 @@ class Age(plugins.Plugin):
 
     def new_star_checkpoint(self, agent, stars):
         if stars <= self.max_stars:
-            star_str = '★' * stars
+            symbol = self.get_symbol_for_handshakes()
+            star_str = symbol * stars
             view = agent.view()
             view.set('face', faces.HAPPY)
             view.set('status', f"You've earned a new star! Now at {star_str}")
@@ -145,8 +143,18 @@ class Age(plugins.Plugin):
             stars = self.max_stars
         return stars
 
+    def get_symbol_for_handshakes(self):
+        if self.handshake_count >= 10000:
+            return '♣'
+        elif self.handshake_count >= 5000:
+            return '♦'
+        else:
+            return '★'
+
     def get_star_string(self):
-        return '★' * self.get_stars_count()
+        star_count = self.get_stars_count()
+        symbol = self.get_symbol_for_handshakes()
+        return symbol * star_count
 
     def abrev_number(self, num):
         if num < 100000:
@@ -195,3 +203,4 @@ class Age(plugins.Plugin):
         }
         with open(self.data_path, 'w') as f:
             json.dump(data, f, indent=2)
+
