@@ -61,10 +61,10 @@ class Age(plugins.Plugin):
             label_font=fonts.Bold,
             text_font=fonts.Medium
         ))
-        # Changed from 'Stars' to 'Stat'
-        ui.add_element('Stat', LabeledValue(
+        # Changed from 'Stat' to 'ReP'
+        ui.add_element('ReP', LabeledValue(
             color=BLACK,
-            label='Stat',
+            label='ReP',
             value=self.get_star_string(),
             position=(int(self.options.get("stars_x_coord", 10)), int(self.options.get("stars_y_coord", 120))),
             label_font=fonts.Bold,
@@ -76,7 +76,7 @@ class Age(plugins.Plugin):
             ui.remove_element('Age')
             ui.remove_element('Strength')
             ui.remove_element('Points')
-            ui.remove_element('Stat')  # changed from 'Stars'
+            ui.remove_element('ReP')  # changed from 'Stars'
         self.save_data()
 
     def on_ui_update(self, ui):
