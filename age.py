@@ -17,19 +17,19 @@ class Age(plugins.Plugin):
     __description__ = 'Enhanced plugin with achievement tiers, configurable titles, decay mechanics, and progress tracking.'
 
     DEFAULT_AGE_TITLES = {
-        500: "Newborn",
-        1000: "Script Kiddie",
-        2000: "WiFi Hobo", 
-        5000: "Packet Wizard",
-        10000: "Elder Hacker",
+        1000: "Newborn",
+        2000: "Script Kiddie",
+        5000: "WiFi Hobo", 
+        10000: "Packet Wizard",
+        20000: "Elder Hacker",
         33333: "WiFi Deity"
     }
 
     DEFAULT_STRENGTH_TITLES = {
-        500: "Weakling",
-        1000: "Lightweight",
-        2000: "Deauth King",
-        5000: "Handshake Titan",
+        1000: "Weakling",
+        2000: "Lightweight",
+        5000: "Deauth King",
+        10000: "Handshake Titan",
         20000: "Unstoppable"
     }
 
@@ -180,6 +180,13 @@ class Age(plugins.Plugin):
         
         self.save_data()
 
+    def age_checkpoint(self, agent):
+        # Status update at every epoch milestone (for example every 100 epochs)
+        view = agent.view()
+        view.set('face', faces.HAPPY)
+        view.set('status', f"Epoch milestone: {self.epochs} epochs!")
+        view.update(force=True)
+
     def on_handshake(self, agent, *args):
         self.last_active_epoch = self.epochs
         enc = args[2].get('encryption', '').lower()
@@ -278,5 +285,6 @@ class Age(plugins.Plugin):
                 return f"{num:.1f}{unit}".rstrip('.0')
             num /= 1000.0
         return f"{num:.1f}T"
+
 
 
