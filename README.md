@@ -3,46 +3,71 @@
 Age.py:
 
 Age, Strength, Network Points, and Stars Plugin for Pwnagotchi
+**NEW**: Enhanced plugin with achievement tiers, configurable titles, decay mechanics, and progress tracking.
 
 Author: AlienMajik
-Version: 1.0.4
-
+Version: 2.0.1
 Description
 
-This Pwnagotchi plugin extends your Pwnagotchi’s user interface and functionality by adding three key stats:
+This Pwnagotchi plugin extends your Pwnagotchi’s user interface and functionality by adding several exciting stats and features:
+Key Stats:
 
-    - **Age (♥ Age):** Tracks how many epochs your Pwnagotchi has lived, now without any reliance on the AI brain.
-    - **Strength (Str):** Reflects how much your Pwnagotchi has "trained," increasing every 10 epochs.
-    - **Network Points (★ Pts):** Earn points by capturing handshakes, with the number of points determined by the encryption strength of the networks encountered:
-    - **WPA3:** +10 points
-    - **WPA2:** +5 points
-    - **WEP/WPA:** +2 points
-    - **Open/Unknown:** +1 point
-    - Stars (GTA-Style) with Tiered Symbols:
-    Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
-    0–4,999 handshakes: Stars appear as ★.
-    5,000–9,999 handshakes: Stars appear as ♦.
-    10,000+ handshakes: Stars appear as ♣.
+    Age (♥ Age): Tracks how many epochs your Pwnagotchi has lived, now without any reliance on the AI brain.
+    Strength (Str): Reflects how much your Pwnagotchi has "trained," increasing every 10 epochs.
+    Network Points (★ Pts): Earn points by capturing handshakes, with the number of points determined by the encryption strength of the networks encountered:
+        WPA3: +10 points
+        WPA2: +5 points
+        WEP/WPA: +2 points
+        Open/Unknown: +1 point
+    Stars (GTA-Style) with Tiered Symbols: Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+        0–4,999 handshakes: Stars appear as ★.
+        5,000–9,999 handshakes: Stars appear as ♦.
+        10,000+ handshakes: Stars appear as ♣.
 
 This provides a fun, evolving visual progression as your handshake count climbs. The plugin also counts existing handshakes in /root/handshakes, so you never start from zero!
 
-All stats (age, strength, network points, and handshake count) are persisted in `/root/age_strength.json`, ensuring that your Pwnagotchi remembers these values across reboots. Every points increment is also logged in `/root/network_points.log` for easy review.
+All stats (age, strength, network points, and handshake count) are persisted in /root/age_strength.json, ensuring that your Pwnagotchi remembers these values across reboots. Every points increment is also logged in /root/network_points.log for easy review.
 
-**No AI Brain Required**: Age and strength calculations no longer rely on the AI model, making the plugin simpler and more stable.
+No AI Brain Required: Age and strength calculations no longer rely on the AI model, making the plugin simpler and more stable.
 
-**Works on Jayofelony 2.9.2 Image**: Fully compatible with the jayofelony 2.9.2 Pwnagotchi image.
+Works on Jayofelony 2.9.2 and up Images: Fully compatible with the Jayofelony 2.9.2 Pwnagotchi and up images.
 
-## Features
+New Enhancements in v2.0.1:
 
-    - **Persistent Stats:** Age, Strength, Points, and Stars survive restarts.
-    - **UI Integration:** Stats are displayed directly on the Pwnagotchi screen.
-    - **Points Logging:** A dedicated log file (`/root/network_points.log`) records each points increment, along with network details.
-    - **Stars System:**  - Stars (GTA-Style) with Tiered Symbols:
-    Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
-    0–4,999 handshakes: Stars appear as ★.
-    5,000–9,999 handshakes: Stars appear as ♦.
-    10,000+ handshakes: Stars appear as ♣., inspired by GTA’s wanted level system.
-    - **Initialization from Existing Handshakes:** Already have a collection of handshakes in `/root/handshakes`? The plugin counts them once on load, so you don’t lose progress..
+    Achievement Tiers:
+        Unlock new titles based on your activity. Titles like WiFi Deity, Handshake Titan, and Unstoppable await!
+    Configurable Titles:
+        Adjust and customize your Age and Strength titles to match your style.
+    Decay Mechanics:
+        Stay active or lose points! Inactivity for too many epochs results in points decay to encourage ongoing engagement.
+    Progress Tracking:
+        Track your network points and handshakes using a star system. Reach milestones and level up with stars!
+    UI Enhancements:
+        Dynamic updates for when you level up or change titles. Get motivational messages when you reach new achievement tiers.
+    Persistent Stats:
+        Age, Strength, Points, and Stars survive restarts.
+    Points Logging:
+        A dedicated log file (/root/network_points.log) records each points increment, along with network details.
+    Stars System:
+        Earn stars as you collect handshakes, with tiered symbols inspired by GTA’s wanted level system.
+    Initialization from Existing Handshakes:
+        Already have a collection of handshakes in /root/handshakes? The plugin counts them once on load, so you don’t lose progress.
+
+Features:
+
+    Persistent Stats: Age, Strength, Points, and Stars survive restarts.
+    UI Integration: Stats are displayed directly on the Pwnagotchi screen.
+    Points Logging: A dedicated log file (/root/network_points.log) records each points increment, along with network details.
+    Stars System:
+        Stars (GTA-Style) with Tiered Symbols: Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+            0–4,999 handshakes: Stars appear as ★.
+            5,000–9,999 handshakes: Stars appear as ♦.
+            10,000+ handshakes: Stars appear as ♣.
+        Inspired by GTA’s wanted level system.
+    Initialization from Existing Handshakes:
+        Already have a collection of handshakes in /root/handshakes? The plugin counts them once on load, so you don’t lose progress.
+
+With Version 2.0.1, your Pwnagotchi can now level up in style with achievements, new titles, and a decay system that keeps things exciting! Update now to track your progress and show off your milestones. 🎮🔥
 
 Installation Methods
 
@@ -63,6 +88,8 @@ Add the following lines to your /etc/pwnagotchi/config.toml:
     main.plugins.age.age_y_coord = 80
     main.plugins.age.str_x_coord = 160
     main.plugins.age.str_y_coord = 80
+    main.plugins.age.decay_interval = 50
+    main.plugins.age.decay_amount = 5
     main.plugins.age.points_x_coord = 10
     main.plugins.age.points_y_coord = 100
     main.plugins.age.stars_x_coord = 10
