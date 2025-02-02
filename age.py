@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 
 import pwnagotchi
 import pwnagotchi.plugins as plugins
@@ -11,196 +12,271 @@ from pwnagotchi.ui.view import BLACK
 
 class Age(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.0.7'
+    __version__ = '2.0.1'
     __license__ = 'MIT'
-    __description__ = 'A plugin that adds age, strength, network points, stat display, and tiered symbols for stars based on handshake counts.'
+    __description__ = 'Enhanced plugin with achievement tiers, configurable titles, decay mechanics, and progress tracking.'
+
+    DEFAULT_AGE_TITLES = {
+        500: "Newborn",
+        1000: "Script Kiddie",
+        2000: "WiFi Hobo", 
+        5000: "Packet Wizard",
+        10000: "Elder Hacker",
+        33333: "WiFi Deity"
+    }
+
+    DEFAULT_STRENGTH_TITLES = {
+        500: "Weakling",
+        1000: "Lightweight",
+        2000: "Deauth King",
+        5000: "Handshake Titan",
+        20000: "Unstoppable"
+    }
 
     def __init__(self):
+        # Default positions (x, y)
+        self.default_positions = {
+            'age': (10, 40),
+            'strength': (80, 40),
+            'points': (10, 60),
+            'stars': (10, 80)
+        }
+        
         self.epochs = 0
         self.train_epochs = 0
         self.network_points = 0
         self.handshake_count = 0
+        self.last_active_epoch = 0
         self.data_path = '/root/age_strength.json'
         self.log_path = '/root/network_points.log'
+        self.handshake_dir = '/home/pi/handshakes'
+        
+        # Configurable settings with defaults
         self.max_stars = 5
-        self.star_interval = 1000  # 1000 handshakes per star
-        self.handshake_dir = '/root/handshakes'  # directory containing old handshake files
+        self.star_interval = 1000
+        self.decay_interval = 50
+        self.decay_amount = 10
+        self.age_titles = self.DEFAULT_AGE_TITLES
+        self.strength_titles = self.DEFAULT_STRENGTH_TITLES
 
     def on_loaded(self):
+        # Load configuration with fallbacks
+        self.max_stars = self.options.get('max_stars', 5)
+        self.star_interval = self.options.get('star_interval', 1000)
+        self.decay_interval = self.options.get('decay_interval', 50)
+        self.decay_amount = self.options.get('decay_amount', 10)
+        self.age_titles = self.options.get('age_titles', self.DEFAULT_AGE_TITLES)
+        self.strength_titles = self.options.get('strength_titles', self.DEFAULT_STRENGTH_TITLES)
+        
         self.load_data()
-        # Initialize handshake_count from existing handshakes if needed
+        self.initialize_handshakes()
+
+    def initialize_handshakes(self):
         if self.handshake_count == 0 and os.path.isdir(self.handshake_dir):
-            existing_handshakes = [f for f in os.listdir(self.handshake_dir) if os.path.isfile(os.path.join(self.handshake_dir, f))]
-            if existing_handshakes:
-                self.handshake_count = len(existing_handshakes)
-                logging.info(f"[Age plugin] Initialized handshake_count from existing handshakes: {self.handshake_count}")
+            existing = [f for f in os.listdir(self.handshake_dir) if f.endswith('.pcap')]
+            if existing:
+                self.handshake_count = len(existing)
+                logging.info(f"[Age] Initialized with {self.handshake_count} handshakes")
+                self.save_data()
+
+    def get_age_title(self):
+        thresholds = sorted(self.age_titles.keys(), reverse=True)
+        for t in thresholds:
+            if self.epochs >= t:
+                return self.age_titles[t]
+        return "Unborn"
+
+    def get_strength_title(self):
+        thresholds = sorted(self.strength_titles.keys(), reverse=True)
+        for t in thresholds:
+            if self.train_epochs >= t:
+                return self.strength_titles[t]
+        return "Untrained"
+
+    def check_achievements(self, agent):
+        current_age = self.get_age_title()
+        current_strength = self.get_strength_title()
+        
+        if current_age != self.prev_age_title:
+            agent.view().set('face', faces.HAPPY)
+            agent.view().set('status', f"Promoted to {current_age}!")
+            self.prev_age_title = current_age
+            
+        if current_strength != self.prev_strength_title:
+            agent.view().set('face', faces.MOTIVATED)
+            agent.view().set('status', f"Evolved to {current_strength}!")
+            self.prev_strength_title = current_strength
+
+    def apply_decay(self, agent):
+        inactive_epochs = self.epochs - self.last_active_epoch
+        if inactive_epochs >= self.decay_interval:
+            decay_cycles = inactive_epochs // self.decay_interval
+            points_lost = decay_cycles * self.decay_amount
+            self.network_points = max(0, self.network_points - points_lost)
+            
+            if points_lost > 0:
+                agent.view().set('face', faces.SAD)
+                agent.view().set('status', f"Inactivity decay: -{points_lost} points!")
+                self.last_active_epoch = self.epochs
                 self.save_data()
 
     def on_ui_setup(self, ui):
-        ui.add_element('Age', LabeledValue(
-            color=BLACK,
-            label='♥ Age',
-            value=0,
-            position=(int(self.options["age_x_coord"]), int(self.options["age_y_coord"])),
-            label_font=fonts.Bold,
-            text_font=fonts.Medium
-        ))
-        ui.add_element('Strength', LabeledValue(
-            color=BLACK,
-            label='Str',
-            value=0,
-            position=(int(self.options["str_x_coord"]), int(self.options["str_y_coord"])),
-            label_font=fonts.Bold,
-            text_font=fonts.Medium
-        ))
-        ui.add_element('Points', LabeledValue(
-            color=BLACK,
-            label='★ Pts',
-            value=0,
-            position=(int(self.options.get("points_x_coord", 10)), int(self.options.get("points_y_coord", 100))),
-            label_font=fonts.Bold,
-            text_font=fonts.Medium
-        ))
-        # Changed from 'Stat' to 'ReP'
-        ui.add_element('ReP', LabeledValue(
-            color=BLACK,
-            label='ReP',
-            value=self.get_star_string(),
-            position=(int(self.options.get("stars_x_coord", 10)), int(self.options.get("stars_y_coord", 120))),
-            label_font=fonts.Bold,
-            text_font=fonts.Medium
-        ))
+        def get_position(element):
+            x = self.options.get(
+                f"{element}_x",
+                self.options.get(
+                    f"{element}_x_coord",  # Backwards compatibility
+                    self.default_positions[element][0]
+                )
+            )
+            y = self.options.get(
+                f"{element}_y",
+                self.options.get(
+                    f"{element}_y_coord",  # Backwards compatibility
+                    self.default_positions[element][1]
+                )
+            )
+            return (int(x), int(y))
 
-    def on_unload(self, ui):
-        with ui._lock:
-            ui.remove_element('Age')
-            ui.remove_element('Strength')
-            ui.remove_element('Points')
-            ui.remove_element('ReP')  # changed from 'Stars'
-        self.save_data()
+        positions = {
+            'age': get_position('age'),
+            'strength': get_position('strength'),
+            'points': get_position('points'),
+            'stars': get_position('stars')
+        }
+
+        ui.add_element('Age', LabeledValue(
+            color=BLACK, label='Age', value="Newborn",
+            position=positions['age'], label_font=fonts.Bold, text_font=fonts.Medium))
+
+        ui.add_element('Strength', LabeledValue(
+            color=BLACK, label='Str', value="Rookie",
+            position=positions['strength'], label_font=fonts.Bold, text_font=fonts.Medium))
+
+        ui.add_element('Points', LabeledValue(
+            color=BLACK, label='★ Pts', value="0",
+            position=positions['points'], label_font=fonts.Bold, text_font=fonts.Medium))
+
+        ui.add_element('ReP', LabeledValue(
+            color=BLACK, label='ReP', value="★",
+            position=positions['stars'], label_font=fonts.Bold, text_font=fonts.Medium))
 
     def on_ui_update(self, ui):
-        ui.set('Age', str(self.abrev_number(self.epochs)))
-        ui.set('Strength', str(self.abrev_number(self.train_epochs)))
-        ui.set('Points', str(self.abrev_number(self.network_points)))
-        ui.set('Stat', self.get_star_string())  # changed from 'Stars'
+        ui.set('Age', self.get_age_title())
+        ui.set('Strength', self.get_strength_title())
+        ui.set('Points', self.abrev_number(self.network_points))
+        ui.set('ReP', self.get_star_string())
 
+    # Modified Event Handlers
     def on_epoch(self, agent, epoch, epoch_data):
         self.epochs += 1
-        if self.epochs % 10 == 0:
-            self.train_epochs += 1
-
+        self.train_epochs += 1 if self.epochs % 10 == 0 else 0
+        
+        self.apply_decay(agent)
+        self.check_achievements(agent)
+        
         if self.epochs % 100 == 0:
             self.age_checkpoint(agent)
-        if self.train_epochs != 0 and self.train_epochs % 10 == 0:
-            self.strength_checkpoint(agent)
-
+        
         self.save_data()
 
-    def on_handshake(self, agent, filename, access_point, client):
-        enc = access_point.get('encryption', '').lower()
-        essid = access_point.get('essid', 'unknown')
-
-        if 'wpa3' in enc:
-            increment = 10
-            desc = "WPA3"
-        elif 'wpa2' in enc:
-            increment = 5
-            desc = "WPA2"
-        elif 'wep' in enc or 'wpa' in enc:
-            increment = 2
-            desc = "WEP/WPA"
-        else:
-            increment = 1
-            desc = "Open/Unknown"
-
-        self.network_points += increment
-        self.display_encounter(agent, f"{desc} network discovered! +{increment} pts")
-
-        old_stars = self.get_stars_count()
+    def on_handshake(self, agent, *args):
+        self.last_active_epoch = self.epochs
+        enc = args[2].get('encryption', '').lower()
+        
+        points = {
+            'wpa3': 10, 'wpa2': 5, 
+            'wep': 2, 'wpa': 2
+        }.get(enc, 1)
+        
+        self.network_points += points
         self.handshake_count += 1
-        new_stars = self.get_stars_count()
-        if new_stars > old_stars:
-            self.new_star_checkpoint(agent, new_stars)
-
+        
+        # Log details
         with open(self.log_path, 'a') as f:
-            f.write(f"ESSID: {essid}, ENC: {enc}, Points Gained: {increment}, Total Points: {self.network_points}, Handshake Count: {self.handshake_count}\n")
-
+            essid = args[2].get('essid', 'unknown')
+            f.write(f"{time.time()},{essid},{enc},{points}\n")
+        
+        self.new_star_checkpoint(agent)
         self.save_data()
 
-    def new_star_checkpoint(self, agent, stars):
-        if stars <= self.max_stars:
+    # Star System
+    def new_star_checkpoint(self, agent):
+        stars = self.get_stars_count()
+        if stars > self.prev_stars:
             symbol = self.get_symbol_for_handshakes()
-            star_str = symbol * stars
-            view = agent.view()
-            view.set('face', faces.HAPPY)
-            view.set('status', f"You've earned a new star! Now at {star_str}")
-            view.update(force=True)
+            agent.view().set('face', faces.EXCITED)
+            agent.view().set('status', f"New {symbol} Tier Achieved!")
+            self.prev_stars = stars
 
-    def get_stars_count(self):
-        stars = self.handshake_count // self.star_interval
-        if stars > self.max_stars:
-            stars = self.max_stars
-        return stars
-
-    def get_symbol_for_handshakes(self):
-        if self.handshake_count >= 10000:
-            return '♣'
-        elif self.handshake_count >= 5000:
-            return '♦'
-        else:
-            return '★'
-
-    def get_star_string(self):
-        star_count = self.get_stars_count()
-        symbol = self.get_symbol_for_handshakes()
-        return symbol * star_count
-
-    def abrev_number(self, num):
-        if num < 100000:
-            return str(num)
-        else:
-            magnitude = 0
-            while abs(num) >= 1000:
-                magnitude += 1
-                num /= 1000.0
-            abbr = ['', 'K', 'M', 'B', 'T', 'P'][magnitude]
-            return '{}{}'.format('{:.2f}'.format(num).rstrip('0').rstrip('.'), abbr)
-
-    def age_checkpoint(self, agent):
-        view = agent.view()
-        view.set('face', faces.HAPPY)
-        view.set('status', f"Living for them {self.abrev_number(self.epochs)} epochs!")
-        view.update(force=True)
-
-    def strength_checkpoint(self, agent):
-        view = agent.view()
-        view.set('face', faces.MOTIVATED)
-        view.set('status', f"Getting them Gains Sucka!\nThey Drew First {self.abrev_number(self.train_epochs)} Epochs!")
-        view.update(force=True)
-
-    def display_encounter(self, agent, message):
-        view = agent.view()
-        view.set('face', faces.EXCITED)
-        view.set('status', message)
-        view.update(force=True)
-
+    # Data Management
     def load_data(self):
-        if os.path.exists(self.data_path):
-            with open(self.data_path, 'r') as f:
-                data = json.load(f)
-                self.epochs = data.get('epochs_lived', 0)
-                self.train_epochs = data.get('epochs_trained', 0)
-                self.network_points = data.get('network_points', 0)
-                self.handshake_count = data.get('handshake_count', 0)
+        try:  # <- Added indentation here
+            if os.path.exists(self.data_path):
+                with open(self.data_path, 'r') as f:
+                    data = json.load(f)
+                    
+                    # Handle old format compatibility
+                    self.epochs = data.get('epochs', data.get('epochs_lived', 0))
+                    self.train_epochs = data.get('train_epochs', data.get('epochs_trained', 0))
+                    self.network_points = data.get('points', data.get('network_points', 0))
+                    self.handshake_count = data.get('handshakes', data.get('handshake_count', 0))
+                    
+                    # New fields with defaults
+                    self.last_active_epoch = data.get('last_active', 0)
+                    self.prev_age_title = data.get('prev_age', self.get_age_title())
+                    self.prev_strength_title = data.get('prev_strength', self.get_strength_title())
+                    self.prev_stars = data.get('prev_stars', self.get_stars_count())
+
+                # Migrate old format to new format
+                if 'epochs_lived' in data:
+                    self.save_data()  # Resave in new format
+                    logging.info("[Age] Migrated old data format to new format")
+
+        except Exception as e:
+            logging.error(f"[Age] Load error: {str(e)}")
 
     def save_data(self):
-        data = {
+        data = {  # <- Added indentation here
+            # New format keys
+            'epochs': self.epochs,
+            'train_epochs': self.train_epochs,
+            'points': self.network_points,
+            'handshakes': self.handshake_count,
+            
+            # Old format aliases for compatibility
             'epochs_lived': self.epochs,
             'epochs_trained': self.train_epochs,
             'network_points': self.network_points,
-            'handshake_count': self.handshake_count
+            'handshake_count': self.handshake_count,
+            
+            # New fields
+            'last_active': self.last_active_epoch,
+            'prev_age': self.get_age_title(),
+            'prev_strength': self.get_strength_title(),
+            'prev_stars': self.get_stars_count()
         }
-        with open(self.data_path, 'w') as f:
-            json.dump(data, f, indent=2)
+        try:
+            with open(self.data_path, 'w') as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logging.error(f"[Age] Save error: {str(e)}")
+
+    # Helper Methods
+    def get_stars_count(self):
+        return min(self.handshake_count // self.star_interval, self.max_stars)
+
+    def get_symbol_for_handshakes(self):
+        return '♣' if self.handshake_count >= 10000 else '♦' if self.handshake_count >= 5000 else '★'
+
+    def get_star_string(self):
+        return self.get_symbol_for_handshakes() * self.get_stars_count()
+
+    def abrev_number(self, num):
+        for unit in ['','K','M','B']:
+            if abs(num) < 1000:
+                return f"{num:.1f}{unit}".rstrip('.0')
+            num /= 1000.0
+        return f"{num:.1f}T"
+
 
