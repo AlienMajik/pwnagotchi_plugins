@@ -270,3 +270,50 @@ Please read this disclaimer carefully before using the Neurolyzer plugin ("Plugi
 By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If you do not agree with these terms, you are advised not to use the Plugin.
 
 
+
+🚀 Probenpwn Plugin - Enhanced Wi-Fi Hacking with Pwnagotchi! 🚀
+
+The Probenpwn Plugin is a more aggressive and enhanced version of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥
+
+If you’ve used Instattack, you’ll love Probenpwn — it combines deauthentication and association attacks in one powerful tool, designed to help you capture handshakes faster and more efficiently.
+Key Features:
+
+    Efficient Deauthentication & Association Attacks:
+        Launch deauth and association attacks at the same time, ensuring you capture more handshakes in less time.
+        Dynamic attack delay ensures you hit stronger signals faster, while giving weaker signals more time to reconnect.
+
+    Concurrent Attack Threads:
+        Start multiple attacks simultaneously with separate threads, making it easier to handle several networks and clients at once. Simultaneous pwnage is now within reach! 💻💥
+
+    Customizable Settings:
+        Control whether you use deauth or focus only on association attacks via the config.toml.
+        Whitelist networks or clients to exclude them from attacks.
+
+    Capture More Handshakes:
+        Designed to increase the success rate of handshake captures by applying aggressive attack methods that make sure devices reconnect and give you what you need.
+
+    Comprehensive Logging:
+        Track every attack and handshake capture with detailed logs, so you can see exactly what’s working.
+
+    Lightweight and Easy to Use:
+        Fully integrated with Pwnagotchi for seamless operation in your existing setup.
+
+What Probenpwn Does Differerently than Instattack:
+
+    More aggressive, simultaneous attacks thanks to multithreading, which allows you to target multiple APs and clients at once.
+    
+    Dynamic attack delays based on signal strength, ensuring more efficient attacks and better targeting of weak or strong signals.
+    
+    Greater handshake capture success rate through dual attacks (deauth + association) and a refined attack strategy that adapts to real-time conditions.
+    
+    Full control over your attack strategy, including the ability to exclude specific networks and clients via whitelists.
+    
+    Enhanced logging for better tracking of every handshake capture and attack attempt, providing deeper insights into your progress.
+
+Huge Thanks to Sniffleupagus!
+
+This plugin is based on the Instattack plugin by Sniffleupagus. The original concept has been enhanced and adapted to capture more handshakes and improve attack performance. Thank you, Sniffleupagus, for laying the groundwork! 🙏
+
+All you have to do is install the plugin in /usr/local/share/pwnagotchi/cusstom-plugins then edit your config.toml file with:
+
+     main.plugins.probenpwn.enabled = true
