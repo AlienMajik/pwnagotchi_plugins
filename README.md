@@ -317,3 +317,11 @@ This plugin is based on the Instattack plugin by Sniffleupagus. The original con
 All you have to do is install the plugin in /usr/local/share/pwnagotchi/cusstom-plugins then edit your config.toml file with:
 
      main.plugins.probenpwn.enabled = true
+
+
+DISCLAIMER: This software is provided for educational and research purposes only.
+Use of this plugin on networks or devices that you do not own or have explicit permission
+to test is strictly prohibited. The author(s) and contributors are not responsible for any 
+misuse, damages, or legal consequences that may result from unauthorized or improper usage.
+By using this plugin, you agree to assume all risks and take full responsibility for ensuring
+that all applicable laws and regulations are followed.
