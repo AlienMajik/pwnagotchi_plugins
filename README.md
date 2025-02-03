@@ -310,14 +310,89 @@ What Probenpwn Does Differerently than Instattack:
     
     Enhanced logging for better tracking of every handshake capture and attack attempt, providing deeper insights into your progress.
 
-Huge Thanks to Sniffleupagus!
 
+
+Full Control Over Attack Strategies
+
+With Probenpwn, you can fine-tune several aspects of the attack process to adapt to different environments and target behaviors. The following parameters in your config.toml give you complete control:
+
+1. Enabling/Disabling the Plugin
+
+In your config.toml, enable or disable the plugin under the [main.plugins.probenpwn] section:
+
+    main.plugins.probenpwn.enabled = true
+
+
+2. Attack Timing and Delays
+
+Probenpwn uses a dynamic delay for its attacks:
+
+Dynamic Attack Delay:
+The delay for each attack is adjusted based on the client’s signal strength.
+For clients with weak signals (e.g., signal < -60 dBm), a longer delay is used (e.g., 0.5 seconds) to account for slower response times. For clients with stronger signals, a shorter delay is used (e.g., 0.25 seconds) for a faster attack.
+
+You can customize these base delay values by adding your own parameters if you wish to further fine-tune the behavior. For example, you might include:
+
+    main.plugins.probenpwn.associate_attack_delay = 0.2    # Base delay for association attacks
+    main.plugins.probenpwn.deauth_attack_delay = 0.75      # Base delay for deauthentication attacks
+    main.plugins.probenpwn.dynamic_delay_threshold = -60   # Signal threshold for dynamic delay adjustment
+
+Note: Although these parameters are not explicitly read in the provided script, you can extend the plugin to read such values from config if needed.
+
+3. Target Whitelisting
+
+You can set up a list of network hostnames or MAC addresses that should not be attacked. This is useful if you want to protect trusted networks or devices:
+
+    main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
+
+The plugin checks against this whitelist before launching any attack.
+
+4. Epoch Duration and Recent Tracking
+
+The plugin uses an epoch duration parameter to manage the cleanup of recently targeted devices. The default value is set to 60 seconds:
+
+    main.plugins.probenpwn.epoch_duration = 60
+
+This value controls how long an attack record is retained before it’s automatically removed from the tracking list. Adjusting this value may help optimize the targeting frequency depending on your environment.
+
+5. Personality Settings
+
+Probenpwn relies on the Pwnagotchi personality settings defined in your main configuration to determine whether to perform association and deauthentication attacks. For example:
+
+    personality.advertise = true
+    personality.deauth = true
+
+These settings directly influence the behavior of the plugin—if deauth is set to false, only association attacks will be performed.
+Example config.toml Snippet
+
+Below is an example snippet that combines these options:
+
+    main.plugins.probenpwn.enabled = true
+    main.plugins.probenpwn.associate_attack_delay = 0.2
+    main.plugins.probenpwn.deauth_attack_delay = 0.75
+    main.plugins.probenpwn.dynamic_delay_threshold = -60
+    main.plugins.probenpwn.epoch_duration = 60
+    main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
+
+
+Summary
+
+The Probenpwn plugin gives you full control over your Wi-Fi attack strategies by allowing you to:
+
+    Enable or disable the plugin as needed.
+    Dynamically adjust attack timing based on client signal strength.
+    Launch simultaneous attacks using multi-threading.
+    Whitelist specific networks or devices to avoid unintended targeting.
+    Configure the frequency of attack records cleanup via epoch duration.
+    Rely on your Pwnagotchi personality settings to determine whether association and/or deauthentication attacks are executed.
+    
 This plugin is based on the Instattack plugin by Sniffleupagus. The original concept has been enhanced and adapted to capture more handshakes and improve attack performance. Thank you, Sniffleupagus, for laying the groundwork! 🙏
 
 All you have to do is install the plugin in /usr/local/share/pwnagotchi/custom-plugins then edit your config.toml file with:
 
      main.plugins.probenpwn.enabled = true
 
+Huge Thanks to Sniffleupagus!
 
 DISCLAIMER: This software is provided for educational and research purposes only.
 Use of this plugin on networks or devices that you do not own or have explicit permission
