@@ -1,12 +1,3 @@
-"""
-DISCLAIMER: This software is provided for educational and research purposes only.
-Use of this plugin on networks or devices that you do not own or have explicit permission
-to test is strictly prohibited. The author(s) and contributors are not responsible for any 
-misuse, damages, or legal consequences that may result from unauthorized or improper usage.
-By using this plugin, you agree to assume all risks and take full responsibility for ensuring
-that all applicable laws and regulations are followed.
-"""
-
 import logging
 import time
 import threading
