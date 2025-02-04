@@ -388,10 +388,6 @@ The Probenpwn plugin gives you full control over your Wi-Fi attack strategies by
     
 This plugin is based on the Instattack plugin by Sniffleupagus. The original concept has been enhanced and adapted to capture more handshakes and improve attack performance. Thank you, Sniffleupagus, for laying the groundwork! 🙏
 
-All you have to do is install the plugin in /usr/local/share/pwnagotchi/custom-plugins then edit your config.toml file with:
-
-     main.plugins.probenpwn.enabled = true
-
 Huge Thanks to Sniffleupagus!
 
 DISCLAIMER: This software is provided for educational and research purposes only.
