@@ -275,97 +275,109 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 
 The Probenpwn Plugin is a more aggressive and enhanced version of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥
 
-If you’ve used Instattack, you’ll love Probenpwn — it combines deauthentication and association attacks in one powerful tool, designed to help you capture handshakes faster and more efficiently.
+If you’ve used Instattack, you’ll love Probenpwn — it combines deauthentication and association attacks in one powerful tool, designed to help you capture handshakes faster and more efficiently. With the latest updates, it now features dynamic attack tuning, randomization, watchdog recovery, and more!
 Key Features:
 
-    Efficient Deauthentication & Association Attacks:
-        Launch deauth and association attacks at the same time, ensuring you capture more handshakes in less time.
-        Dynamic attack delay ensures you hit stronger signals faster, while giving weaker signals more time to reconnect.
+Efficient Deauthentication & Association Attacks:
 
-    Concurrent Attack Threads:
-        Start multiple attacks simultaneously with separate threads, making it easier to handle several networks and clients at once. Simultaneous pwnage is now within reach! 💻💥
+    Launch deauth and association attacks simultaneously to capture more handshakes in less time.
+    Dynamic attack delay ensures you hit stronger signals faster, while giving weaker signals more time to reconnect.
 
-    Customizable Settings:
-        Control whether you use deauth or focus only on association attacks via the config.toml.
-        Whitelist networks or clients to exclude them from attacks.
+Concurrent Attack Threads:
 
-    Capture More Handshakes:
-        Designed to increase the success rate of handshake captures by applying aggressive attack methods that make sure devices reconnect and give you what you need.
+    Start multiple attacks simultaneously using separate threads, enabling you to handle several networks and clients at once. Simultaneous pwnage is now within reach! 💻💥
 
-    Comprehensive Logging:
-        Track every attack and handshake capture with detailed logs, so you can see exactly what’s working.
+Customizable Settings:
 
-    Lightweight and Easy to Use:
-        Fully integrated with Pwnagotchi for seamless operation in your existing setup.
+    Control whether you use deauth or focus solely on association attacks via the config.toml.
+    Whitelist networks or clients to exclude them from attacks.
 
-What Probenpwn Does Differerently than Instattack:
+Capture More Handshakes:
 
-    More aggressive, simultaneous attacks thanks to multithreading, which allows you to target multiple APs and clients at once.
-    
-    Dynamic attack delays based on signal strength, ensuring more efficient attacks and better targeting of weak or strong signals.
-    
-    Greater handshake capture success rate through dual attacks (deauth + association) and a refined attack strategy that adapts to real-time conditions.
-    
-    Full control over your attack strategy, including the ability to exclude specific networks and clients via whitelists.
-    
-    Enhanced logging for better tracking of every handshake capture and attack attempt, providing deeper insights into your progress.
+    Aggressive attack methods ensure devices reconnect faster, helping you capture more handshakes.
 
+Comprehensive Logging:
 
+    Track every attack and handshake capture with detailed logs, giving you visibility into what’s working.
 
-Full Control Over Attack Strategies
+Lightweight and Easy to Use:
 
-With Probenpwn, you can fine-tune several aspects of the attack process to adapt to different environments and target behaviors. The following parameters in your config.toml give you complete control:
+    Fully integrated with Pwnagotchi for seamless operation in your existing setup.
 
-1. Enabling/Disabling the Plugin
+What's New in Probenpwn 1.1.0:
+Dynamic Parameter Tuning:
 
-In your config.toml, enable or disable the plugin under the [main.plugins.probenpwn] section:
+    The dynamic_attack_delay method now adjusts the attack delay based not only on the client’s signal strength but also on the number of previous attack attempts for a given AP (Access Point). As the number of attacks increases, the delay between attacks decreases slightly, making the attacks more aggressive while preventing the system from overloading.
+    The delay is further randomized with random.uniform(0.9, 1.1) to prevent detection by automated systems that might look for consistent attack patterns.
+
+Watchdog Thread for Recovery:
+
+    The plugin introduces a watchdog thread that periodically checks for the presence of the wlan0mon interface, which is essential for monitoring Wi-Fi networks. If this interface is missing (likely due to a Wi-Fi adapter crash), the watchdog attempts to restart the Pwnagotchi system automatically by running a systemctl restart command, providing a more robust recovery mechanism.
+
+Tracking and Limiting Attack Attempts:
+
+    The plugin now tracks the number of attack attempts for each AP using a dictionary (attack_attempts). If an AP has been attacked more than a certain number of times, the delay for subsequent attacks is adjusted to prevent excessive and repetitive attacking, reducing the risk of detection.
+    This approach helps balance the aggressiveness of the attacks with performance considerations, ensuring that the plugin remains effective over extended periods.
+
+Tracking Successful Handshakes:
+
+    The plugin now also tracks the number of successful handshakes captured per AP with the success_counts dictionary. Each time a handshake is successfully captured, the count for that AP is incremented. This can be useful for monitoring attack success rates and potentially adjusting attack strategies based on success frequency.
+
+Improved Device Handling:
+
+    The handling of new and updated APs and clients is more refined. The plugin ensures that each device (AP or client) is only attacked if it's not on the whitelist. Devices are also tracked more effectively with better time management, ensuring that only recently seen devices are targeted.
+    The track_recent method tracks both APs and clients, with more granular control over when devices should be removed from the recent list based on activity.
+
+Channel Sanitization:
+
+    The plugin includes a new sanitize_channel_list method, which ensures that only valid Wi-Fi channels (1-14 for 2.4 GHz and 36-165 for 5 GHz) are included in the scan list. This prevents attempts to scan invalid channels and ensures more efficient use of scanning resources.
+
+Enhanced Logging and Error Handling:
+
+    The plugin now includes more detailed logging, especially around the dynamic attack delay, attack attempts, and handshakes. The logging makes it easier to monitor the plugin's behavior and diagnose issues.
+    It also improves error handling by catching and logging exceptions in key methods, ensuring that the plugin can gracefully handle unexpected issues without crashing.
+
+Better UI Integration:
+
+    The plugin continues to update the Pwnagotchi UI with status messages like "Probing!\nPWNING THEM GUTS!" and ensures the UI reflects the state of the plugin, such as when it's probing aggressively.
+
+Full Control Over Attack Strategies:
+
+With Probenpwn, you have more control than ever over the attack process. The following parameters in your config.toml file give you full flexibility:
+Enabling/Disabling the Plugin:
+
+To enable or disable Probenpwn, modify the [main.plugins.probenpwn] section:
 
     main.plugins.probenpwn.enabled = true
 
+Attack Timing and Delays:
 
-2. Attack Timing and Delays
-
-Probenpwn uses a dynamic delay for its attacks:
-
-Dynamic Attack Delay:
-The delay for each attack is adjusted based on the client’s signal strength.
-For clients with weak signals (e.g., signal < -60 dBm), a longer delay is used (e.g., 0.5 seconds) to account for slower response times. For clients with stronger signals, a shorter delay is used (e.g., 0.25 seconds) for a faster attack.
-
-You can customize these base delay values by adding your own parameters if you wish to further fine-tune the behavior. For example, you might include:
+Probenpwn adjusts attack delay dynamically:
 
     main.plugins.probenpwn.associate_attack_delay = 0.2    # Base delay for association attacks
     main.plugins.probenpwn.deauth_attack_delay = 0.75      # Base delay for deauthentication attacks
     main.plugins.probenpwn.dynamic_delay_threshold = -60   # Signal threshold for dynamic delay adjustment
 
-Note: Although these parameters are not explicitly read in the provided script, you can extend the plugin to read such values from config if needed.
+Target Whitelisting:
 
-3. Target Whitelisting
-
-You can set up a list of network hostnames or MAC addresses that should not be attacked. This is useful if you want to protect trusted networks or devices:
+Exempt specific networks or clients from attacks:
 
     main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
 
-The plugin checks against this whitelist before launching any attack.
+Epoch Duration and Recent Tracking:
 
-4. Epoch Duration and Recent Tracking
+Control how long attack records are retained before being automatically removed:
 
-The plugin uses an epoch duration parameter to manage the cleanup of recently targeted devices. The default value is set to 60 seconds:
+    main.plugins.probenpwn.epoch_duration = 60  # Default value in seconds
 
-    main.plugins.probenpwn.epoch_duration = 60
+Personality Settings:
 
-This value controls how long an attack record is retained before it’s automatically removed from the tracking list. Adjusting this value may help optimize the targeting frequency depending on your environment.
-
-5. Personality Settings
-
-Probenpwn relies on the Pwnagotchi personality settings defined in your main configuration to determine whether to perform association and deauthentication attacks. For example:
+The Pwnagotchi personality settings control whether to perform deauth or association attacks:
 
     personality.advertise = true
     personality.deauth = true
 
-These settings directly influence the behavior of the plugin—if deauth is set to false, only association attacks will be performed.
-Example config.toml Snippet
-
-Below is an example snippet that combines these options:
+Example config.toml Snippet:
 
     main.plugins.probenpwn.enabled = true
     main.plugins.probenpwn.associate_attack_delay = 0.2
@@ -374,21 +386,20 @@ Below is an example snippet that combines these options:
     main.plugins.probenpwn.epoch_duration = 60
     main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
 
-
 Summary
 
-The Probenpwn plugin gives you full control over your Wi-Fi attack strategies by allowing you to:
+The Probenpwn plugin gives you full control over your Wi-Fi attack strategies, allowing you to:
 
     Enable or disable the plugin as needed.
     Dynamically adjust attack timing based on client signal strength.
     Launch simultaneous attacks using multi-threading.
     Whitelist specific networks or devices to avoid unintended targeting.
-    Configure the frequency of attack records cleanup via epoch duration.
-    Rely on your Pwnagotchi personality settings to determine whether association and/or deauthentication attacks are executed.
-    
-This plugin is based on the Instattack plugin by Sniffleupagus. The original concept has been enhanced and adapted to capture more handshakes and improve attack performance. Thank you, Sniffleupagus, for laying the groundwork! 🙏
+    Customize attack timing and cleanup frequency via epoch duration.
+    Leverage your Pwnagotchi personality settings to fine-tune attack behavior.
 
-Huge Thanks to Sniffleupagus!
+The plugin now includes advanced features like dynamic tuning, attack attempt tracking, a watchdog recovery system, improved logging, channel sanitization, and better error handling. These changes make the plugin more reliable, flexible, and effective in performing aggressive Wi-Fi probing and attacks.
+
+This plugin is based on the Instattack plugin by Sniffleupagus, with significant enhancements for capturing more handshakes and optimizing attack performance. Huge thanks to Sniffleupagus for the original work! 🙏
 
 DISCLAIMER: This software is provided for educational and research purposes only.
 Use of this plugin on networks or devices that you do not own or have explicit permission
