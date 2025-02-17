@@ -2,14 +2,11 @@
 
 Age.py:
 
-Age, Strength, Network Points, and Stars Plugin for Pwnagotchi
-**NEW**: Enhanced plugin with achievement tiers, configurable titles, decay mechanics, and progress tracking.
+Age, Strength, Network Points, and Stars Plugin for Pwnagotchi v2.0.2
 
 Author: AlienMajik
-Version: 2.0.1
-Description
-
-This Pwnagotchi plugin extends your Pwnagotchi’s user interface and functionality by adding several exciting stats and features:
+Version: 2.0.2
+Description: Enhanced plugin with achievement tiers, configurable titles, decay mechanics, progress tracking, dynamic status messages, quests, and more.
 Key Stats:
 
     Age (♥ Age): Tracks how many epochs your Pwnagotchi has lived, now without any reliance on the AI brain.
@@ -25,63 +22,78 @@ Key Stats:
         10,000+ handshakes: Stars appear as ♣.
 
 This provides a fun, evolving visual progression as your handshake count climbs. The plugin also counts existing handshakes in /root/handshakes, so you never start from zero!
+New Enhancements in v2.0.2:
 
-All stats (age, strength, network points, and handshake count) are persisted in /root/age_strength.json, ensuring that your Pwnagotchi remembers these values across reboots. Every points increment is also logged in /root/network_points.log for easy review.
+1. Dynamic Status Messages:
 
-No AI Brain Required: Age and strength calculations no longer rely on the AI model, making the plugin simpler and more stable.
+       Motivational Quotes: Displayed when the user levels up in age or strength (e.g., "You're a WiFi wizard in the making!").
+       Inactivity Messages: Shown when the agent undergoes decay due to inactivity (e.g., "Time to wake up, you're rusting!").
+       These dynamic messages are randomly chosen and help keep the user engaged, providing a personalized experience as they reach milestones or experience inactivity.
 
-Works on Jayofelony 2.9.2 and up Images: Fully compatible with the Jayofelony 2.9.2 Pwnagotchi and up images.
+2. Quests System:
 
-New Enhancements in v2.0.1:
+       The plugin now includes a quests system where the agent can complete tasks for rewards.
+          Example quest: "Collect 10 WPA3 handshakes" with a reward of "⭐ Extra Star!"
+          Example quest: "Survive 100 epochs without decaying" with a reward of "🛡️ Resilience Badge."
+       Quests provide additional goals beyond epochs and handshakes, making the plugin more engaging and challenging for users.
 
-    Achievement Tiers:
-        Unlock new titles based on your activity. Titles like WiFi Deity, Handshake Titan, and Unstoppable await!
-    Configurable Titles:
-        Adjust and customize your Age and Strength titles to match your style.
-    Decay Mechanics:
-        Stay active or lose points! Inactivity for too many epochs results in points decay to encourage ongoing engagement.
-    Progress Tracking:
-        Track your network points and handshakes using a star system. Reach milestones and level up with stars!
-    UI Enhancements:
-        Dynamic updates for when you level up or change titles. Get motivational messages when you reach new achievement tiers.
-    Persistent Stats:
-        Age, Strength, Points, and Stars survive restarts.
-    Points Logging:
-        A dedicated log file (/root/network_points.log) records each points increment, along with network details.
-    Stars System:
-        Earn stars as you collect handshakes, with tiered symbols inspired by GTA’s wanted level system.
-    Initialization from Existing Handshakes:
-        Already have a collection of handshakes in /root/handshakes? The plugin counts them once on load, so you don’t lose progress.
+3. Improved Age and Strength Titles:
+
+       The titles for both age and strength have been revised to be more interesting and engaging:
+          Age Titles: "Neon Spawn," "WiFi Outlaw," "Data Raider," etc.
+          Strength Titles: "Fleshbag," "Deauth King," "Handshake Hunter," etc.
+       These titles make the progression more varied and fun, allowing users to see their growth in a more exciting way.
+
+4. Updated UI with Quests:
+
+       The UI now includes a section for quests, showing users their quest progress directly on the screen.
+          Completed Quests: Shows rewards for finished quests.
+        Active Quest Progress: Tracks how close the user is to completing their quests.
+
+5. Quest Progress Tracking:
+
+       The plugin now tracks quest progress, showing completion percentages (e.g., "10% complete" for a quest based on handshakes or epochs).
+       Quests are saved as completed once the user achieves the required milestones, and rewards are automatically awarded.
+
+6. Enhanced Data Management for Quests:
+
+       The plugin saves and loads the status of completed quests to ensure progress is maintained between reboots or sessions. This includes:
+        The completed quests list.
+        Other progress data such as epochs, handshakes, and network points.
+       This ensures that the user's quest progress is persistent, providing a more stable and reliable experience across sessions.
+
+7. Updated Logging and Milestones:
+
+       The logging system has been maintained, and now includes milestone tracking for key intervals (e.g., every 100 epochs).
+       Milestones trigger UI updates with faces and messages to keep the agent engaged as they reach new achievements.
 
 Features:
 
-    Persistent Stats: Age, Strength, Points, and Stars survive restarts.
-    UI Integration: Stats are displayed directly on the Pwnagotchi screen.
-    Points Logging: A dedicated log file (/root/network_points.log) records each points increment, along with network details.
-    Stars System:
-        Stars (GTA-Style) with Tiered Symbols: Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
-            0–4,999 handshakes: Stars appear as ★.
-            5,000–9,999 handshakes: Stars appear as ♦.
-            10,000+ handshakes: Stars appear as ♣.
-        Inspired by GTA’s wanted level system.
-    Initialization from Existing Handshakes:
-        Already have a collection of handshakes in /root/handshakes? The plugin counts them once on load, so you don’t lose progress.
+    Persistent Stats: Age, Strength, Points, and Stars survive reboots, ensuring no progress is lost.
+    UI Integration: Stats, progress, and quests are displayed directly on the Pwnagotchi screen.
+    Points Logging: Every points increment is logged in /root/network_points.log along with network details.
+    Star System:
+        Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+        0–4,999 handshakes: Stars appear as ★.
+        5,000–9,999 handshakes: Stars appear as ♦.
+        10,000+ handshakes: Stars appear as ♣.
+    Quest System: Complete quests for unique rewards and track your progress.
+    Decay Mechanism: Inactivity causes points decay after a specified number of epochs.
+    Dynamic Status Messages: Motivational quotes and inactivity messages keep users engaged.
 
-With Version 2.0.1, your Pwnagotchi can now level up in style with achievements, new titles, and a decay system that keeps things exciting! Update now to track your progress and show off your milestones. 🎮🔥
+Installation Instructions:
 
-Installation Methods
+Copy the Plugin File:
+Place the age.py file into your Pwnagotchi’s custom plugins directory:
+        
+     /usr/local/share/pwnagotchi/custom-plugins/
+              
+ Alternatively, clone it from GitHub:
 
-    Copy the Plugin File:
-    
-    Place the age.py file into your Pwnagotchi’s custom plugins directory: /usr/local/share/pwnagotchi/custom-plugins/
-
-    Add to main.custom_plugin_repos = https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip
-    
     sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
 
 Update config.toml:
 Add the following lines to your /etc/pwnagotchi/config.toml:
-
 
     main.plugins.age.enabled = true
     main.plugins.age.age_x_coord = 101
@@ -94,38 +106,41 @@ Add the following lines to your /etc/pwnagotchi/config.toml:
     main.plugins.age.points_y_coord = 100
     main.plugins.age.stars_x_coord = 10
     main.plugins.age.stars_y_coord = 120
-
-You can change these coordinates to position the stats where you want them on the display.
+    main.plugins.age.quests = [
+    ["Collect 10 WPA3 handshakes", 10, "⭐ Extra Star!"],
+    ["Survive 100 epochs without decaying", 100, "🛡️ Resilience Badge"]
+    ]
+    main.plugins.age.max_stars = 5
+    main.plugins.age.star_interval = 1000
 
 Restart Pwnagotchi:
-Once the plugin is in place and enabled, restart your Pwnagotchi:
+
+After adding the plugin and configuring it, restart your Pwnagotchi:
 
     sudo systemctl restart pwnagotchi
 
-Usage
+Usage:
 
-    As your Pwnagotchi runs, watch the Age and Strength values increase.
-    When handshakes are captured, the Points stat updates based on the network encryption:
+    As your Pwnagotchi runs, watch the Age, Strength, and Network Points stats increase.
+    Handshakes are captured to update the Points stat based on network encryption:
         WPA3: +10 pts
         WPA2: +5 pts
         WEP/WPA: +2 pts
         Open/Unknown: +1 pt
-    Every 1000 handshakes grants an additional star (up to 5), showing off your Pwnagotchi’s “rep.”
-    All increments and achievements are displayed momentarily on the screen.
+    Every 1000 handshakes grants an additional star, showing off your Pwnagotchi’s “rep.”
+    Quests: Track and complete quests for rewards. Progress is displayed in the UI, and completed quests are logged with their respective rewards.
 
-Logs and Data
+Logs and Data:
 
     Stats Data: /root/age_strength.json
-    Contains epochs lived, training epochs, total network points, and handshake count.
+    Contains epochs lived, training epochs, total network points, handshake count, and quest progress.
 
     Points Log: /root/network_points.log
     Each handshake event granting points is recorded here with ESSID, encryption, points gained, and total points.
 
-Support & Contributions
+Support & Contributions:
 
 Feel free to open issues or pull requests to improve this plugin or suggest new features. Enjoy leveling up your Pwnagotchi’s stats!
-
-
 
 
 
