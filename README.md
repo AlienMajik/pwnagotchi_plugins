@@ -116,6 +116,7 @@ Feel free to open issues or pull requests to improve this plugin or suggest new 
 ADSBsniffer.py:
 A plugin that captures ADS-B data from aircraft using RTL-SDR and logs it.
 a RTL-SDR Dongle is required to run plugin
+
 1. Connect the RTL-SDR Dongle
 
 First, connect your RTL-SDR dongle to one of the USB ports on your Raspberry Pi (the hardware running Pwnagotchi). Ensure the dongle is properly seated and secure.
@@ -129,14 +130,16 @@ To configure the RTL-SDR and test rtl_adsb, you'll need to access the terminal o
 3. Install RTL-SDR Drivers and Utilities
 
 Once you're in the terminal, you'll likely need to install the RTL-SDR drivers and the rtl_adsb utility. Pwnagotchi is based on Raspbian, so you can use apt-get to install these packages. Run the following commands:
-sudo apt-get update
-sudo apt-get install rtl-sdr
+     
+    sudo apt-get update
+    
+    sudo apt-get install rtl-sdr
 
 4. Verify RTL-SDR Dongle Recognition
 
 After installation, verify that the RTL-SDR dongle is recognized by the system:
 
-rtl_test
+    rtl_test
 
 This command checks if the RTL-SDR dongle is properly recognized. You should see output indicating the detection of the dongle. If there are errors or the dongle is not detected, ensure it's properly connected or try reconnecting it.
 
@@ -144,7 +147,7 @@ This command checks if the RTL-SDR dongle is properly recognized. You should see
 
 Now, try running rtl_adsb to see if you can receive ADS-B signals:
 
-rtl_adsb
+    rtl_adsb
 
 This command starts the ADS-B reception. If your RTL-SDR is set up correctly and there are aircraft in range, you should see ADS-B messages appearing in the terminal.
 
@@ -152,11 +155,11 @@ Add adsbsniffer.py to /usr/local/share/pwnagotchi/installed-plugins and /usr/loc
 
 In /etc/pwnagotchi/config.toml file add: 
 
-main.plugins.adsbsniffer.enabled = true
-main.plugins.adsbsniffer.timer = 60
-main.plugins.adsbsniffer.aircraft_file = "/root/handshakes/adsb_aircraft.json"
-main.plugins.adsbsniffer.adsb_x_coord = 120
-main.plugins.adsbsniffer.adsb_y_coord = 50
+    main.plugins.adsbsniffer.enabled = true
+    main.plugins.adsbsniffer.timer = 60
+    main.plugins.adsbsniffer.aircraft_file = "/root/handshakes/adsb_aircraft.json"
+    main.plugins.adsbsniffer.adsb_x_coord = 120
+    main.plugins.adsbsniffer.adsb_y_coord = 50
 
 **Disclaimer for ADSBSniffer Plugin**
 
