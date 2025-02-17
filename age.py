@@ -15,7 +15,8 @@ class Age(plugins.Plugin):
     __author__ = 'AlienMajik'
     __version__ = '2.0.2'
     __license__ = 'MIT'
-    __description__ = 'Enhanced plugin with achievement tiers, configurable titles, decay mechanics, progress tracking, dynamic status messages, and quests.'
+    __description__ = ('Enhanced plugin with achievement tiers, configurable titles, decay mechanics, '
+                       'progress tracking, and dynamic status messages.')
 
     DEFAULT_AGE_TITLES = {
         1000: "Neon Spawn",
@@ -30,15 +31,9 @@ class Age(plugins.Plugin):
         500: "Fleshbag",
         1500: "Lightweight",
         2000: "Deauth King",
-        2500: "Handshake hunter",
+        2500: "Handshake Hunter",
         3333: "Unstoppable"
     }
-
-    # Example quests
-    DEFAULT_QUESTS = [
-        {"name": "Collect 10 WPA3 handshakes", "goal": 10, "reward": "⭐ Extra Star!"},
-        {"name": "Survive 100 epochs without decaying", "goal": 100, "reward": "🛡️ Resilience Badge"},
-    ]
 
     def __init__(self):
         # Default positions (x, y)
@@ -47,7 +42,6 @@ class Age(plugins.Plugin):
             'strength': (80, 40),
             'points': (10, 60),
             'stars': (10, 80),
-            'quests': (10, 100)
         }
         
         self.epochs = 0
@@ -55,7 +49,6 @@ class Age(plugins.Plugin):
         self.network_points = 0
         self.handshake_count = 0
         self.last_active_epoch = 0
-        self.completed_quests = set()
         self.data_path = '/root/age_strength.json'
         self.log_path = '/root/network_points.log'
         self.handshake_dir = '/home/pi/handshakes'
@@ -67,7 +60,6 @@ class Age(plugins.Plugin):
         self.decay_amount = 10
         self.age_titles = self.DEFAULT_AGE_TITLES
         self.strength_titles = self.DEFAULT_STRENGTH_TITLES
-        self.quests = self.DEFAULT_QUESTS
 
     def on_loaded(self):
         # Load configuration with fallbacks
@@ -77,7 +69,6 @@ class Age(plugins.Plugin):
         self.decay_amount = self.options.get('decay_amount', 10)
         self.age_titles = self.options.get('age_titles', self.DEFAULT_AGE_TITLES)
         self.strength_titles = self.options.get('strength_titles', self.DEFAULT_STRENGTH_TITLES)
-        self.quests = self.options.get('quests', self.DEFAULT_QUESTS)
         
         self.load_data()
         self.initialize_handshakes()
@@ -114,7 +105,7 @@ class Age(plugins.Plugin):
         ]
         return random.choice(quotes)
 
-    def random_inactivity_message(self):
+    def random_inactivity_message(self, points_lost):
         messages = [
             "Time to wake up, you're rusting!",
             "Decayed by {points_lost}, keep it active!",
@@ -122,7 +113,7 @@ class Age(plugins.Plugin):
             "Don't let inactivity hold you back!",
             "Keep moving, no room for decay!"
         ]
-        return random.choice(messages)
+        return random.choice(messages).format(points_lost=points_lost)
 
     def check_achievements(self, agent):
         current_age = self.get_age_title()
@@ -147,7 +138,7 @@ class Age(plugins.Plugin):
             
             if points_lost > 0:
                 agent.view().set('face', faces.SAD)
-                agent.view().set('status', self.random_inactivity_message().format(points_lost=points_lost))
+                agent.view().set('status', self.random_inactivity_message(points_lost))
                 self.last_active_epoch = self.epochs
                 self.save_data()
 
@@ -174,7 +165,6 @@ class Age(plugins.Plugin):
             'strength': get_position('strength'),
             'points': get_position('points'),
             'stars': get_position('stars'),
-            'quests': get_position('quests')
         }
 
         ui.add_element('Age', LabeledValue(
@@ -193,35 +183,11 @@ class Age(plugins.Plugin):
             color=BLACK, label='ReP', value="★",
             position=positions['stars'], label_font=fonts.Bold, text_font=fonts.Medium))
 
-        ui.add_element('Quests', LabeledValue(
-            color=BLACK, label='Quests', value="None completed",
-            position=positions['quests'], label_font=fonts.Bold, text_font=fonts.Medium))
-
     def on_ui_update(self, ui):
         ui.set('Age', self.get_age_title())
         ui.set('Strength', self.get_strength_title())
         ui.set('Points', self.abrev_number(self.network_points))
         ui.set('ReP', self.get_star_string())
-
-        # Update quests status
-        quest_status = self.check_quests()
-        ui.set('Quests', quest_status)
-
-    def check_quests(self):
-        progress = []
-        for quest in self.quests:
-            if quest['name'] not in self.completed_quests:
-                progress.append(f"{quest['name']} ({self.get_quest_progress(quest)}% complete)")
-            else:
-                progress.append(f"✓ {quest['name']} - {quest['reward']}")
-        return "\n".join(progress)
-
-    def get_quest_progress(self, quest):
-        if quest['name'] == "Collect 10 WPA3 handshakes":
-            return min(100, (self.handshake_count // quest['goal']) * 100)
-        elif quest['name'] == "Survive 100 epochs without decaying":
-            return min(100, (self.epochs // quest['goal']) * 100)
-        return 0
 
     def on_epoch(self, agent, epoch, epoch_data):
         self.epochs += 1
@@ -236,7 +202,7 @@ class Age(plugins.Plugin):
         self.save_data()
 
     def age_checkpoint(self, agent):
-        # Status update at every epoch milestone (for example every 100 epochs)
+        # Status update at every epoch milestone (e.g., every 100 epochs)
         view = agent.view()
         view.set('face', faces.HAPPY)
         view.set('status', f"Epoch milestone: {self.epochs} epochs!")
@@ -270,7 +236,6 @@ class Age(plugins.Plugin):
             agent.view().set('status', f"New {symbol} Tier Achieved!")
             self.prev_stars = stars
 
-    # Data Management
     def load_data(self):
         try:
             if os.path.exists(self.data_path):
@@ -288,7 +253,6 @@ class Age(plugins.Plugin):
                     self.prev_age_title = data.get('prev_age', self.get_age_title())
                     self.prev_strength_title = data.get('prev_strength', self.get_strength_title())
                     self.prev_stars = data.get('prev_stars', self.get_stars_count())
-                    self.completed_quests = set(data.get('completed_quests', []))
 
                 # Migrate old format to new format
                 if 'epochs_lived' in data:
@@ -308,7 +272,6 @@ class Age(plugins.Plugin):
             'prev_age': self.get_age_title(),
             'prev_strength': self.get_strength_title(),
             'prev_stars': self.get_stars_count(),
-            'completed_quests': list(self.completed_quests)
         }
         try:
             with open(self.data_path, 'w') as f:
@@ -316,7 +279,6 @@ class Age(plugins.Plugin):
         except Exception as e:
             logging.error(f"[Age] Save error: {str(e)}")
 
-    # Helper Methods
     def get_stars_count(self):
         return min(self.handshake_count // self.star_interval, self.max_stars)
 
