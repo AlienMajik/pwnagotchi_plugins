@@ -1,12 +1,11 @@
 # pwnagotchi_plugins
 
 Age.py:
-
 Age, Strength, Network Points, and Stars Plugin for Pwnagotchi v2.0.2
 
 Author: AlienMajik
 Version: 2.0.2
-Description: Enhanced plugin with achievement tiers, configurable titles, decay mechanics, progress tracking, dynamic status messages, quests, and more.
+Description: Enhanced plugin with achievement tiers, configurable titles, decay mechanics, progress tracking, and dynamic status messages.
 Key Stats:
 
     Age (♥ Age): Tracks how many epochs your Pwnagotchi has lived, now without any reliance on the AI brain.
@@ -16,7 +15,9 @@ Key Stats:
         WPA2: +5 points
         WEP/WPA: +2 points
         Open/Unknown: +1 point
-    Stars (GTA-Style) with Tiered Symbols: Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+    
+Stars (GTA-Style) with Tiered Symbols: Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
+       
         0–4,999 handshakes: Stars appear as ★.
         5,000–9,999 handshakes: Stars appear as ♦.
         10,000+ handshakes: Stars appear as ♣.
@@ -24,76 +25,48 @@ Key Stats:
 This provides a fun, evolving visual progression as your handshake count climbs. The plugin also counts existing handshakes in /root/handshakes, so you never start from zero!
 New Enhancements in v2.0.2:
 
-1. Dynamic Status Messages:
+    Dynamic Status Messages:
+        Motivational Quotes: Displayed when the user levels up in age or strength (e.g., "You're a WiFi wizard in the making!").
+        Inactivity Messages: Shown when the agent undergoes decay due to inactivity (e.g., "Time to wake up, you're rusting!").
+        These dynamic messages are randomly chosen and help keep the user engaged, providing a personalized experience as they reach milestones or experience inactivity.
 
-       Motivational Quotes: Displayed when the user levels up in age or strength (e.g., "You're a WiFi wizard in the making!").
-       Inactivity Messages: Shown when the agent undergoes decay due to inactivity (e.g., "Time to wake up, you're rusting!").
-       These dynamic messages are randomly chosen and help keep the user engaged, providing a personalized experience as they reach milestones or experience inactivity.
+    Improved Age and Strength Titles:
+        The titles for both age and strength have been revised to be more interesting and engaging:
+            Age Titles: "Neon Spawn," "WiFi Outlaw," "Data Raider," etc.
+            Strength Titles: "Fleshbag," "Deauth King," "Handshake Hunter," etc.
+        These titles make the progression more varied and fun, allowing users to see their growth in a more exciting way.
 
-2. Quests System:
+    Updated UI:
+        The UI now includes a section showing users their current stats, including Age, Strength, Network Points, and Stars, as well as dynamic updates reflecting achievements or decay status.
 
-       The plugin now includes a quests system where the agent can complete tasks for rewards.
-          Example quest: "Collect 10 WPA3 handshakes" with a reward of "⭐ Extra Star!"
-          Example quest: "Survive 100 epochs without decaying" with a reward of "🛡️ Resilience Badge."
-       Quests provide additional goals beyond epochs and handshakes, making the plugin more engaging and challenging for users.
-
-3. Improved Age and Strength Titles:
-
-       The titles for both age and strength have been revised to be more interesting and engaging:
-          Age Titles: "Neon Spawn," "WiFi Outlaw," "Data Raider," etc.
-          Strength Titles: "Fleshbag," "Deauth King," "Handshake Hunter," etc.
-       These titles make the progression more varied and fun, allowing users to see their growth in a more exciting way.
-
-4. Updated UI with Quests:
-
-       The UI now includes a section for quests, showing users their quest progress directly on the screen.
-          Completed Quests: Shows rewards for finished quests.
-        Active Quest Progress: Tracks how close the user is to completing their quests.
-
-5. Quest Progress Tracking:
-
-       The plugin now tracks quest progress, showing completion percentages (e.g., "10% complete" for a quest based on handshakes or epochs).
-       Quests are saved as completed once the user achieves the required milestones, and rewards are automatically awarded.
-
-6. Enhanced Data Management for Quests:
-
-       The plugin saves and loads the status of completed quests to ensure progress is maintained between reboots or sessions. This includes:
-        The completed quests list.
-        Other progress data such as epochs, handshakes, and network points.
-       This ensures that the user's quest progress is persistent, providing a more stable and reliable experience across sessions.
-
-7. Updated Logging and Milestones:
-
-       The logging system has been maintained, and now includes milestone tracking for key intervals (e.g., every 100 epochs).
-       Milestones trigger UI updates with faces and messages to keep the agent engaged as they reach new achievements.
+    Updated Logging and Milestones:
+        The logging system has been maintained and now includes milestone tracking for key intervals (e.g., every 100 epochs).
+        Milestones trigger UI updates with faces and messages to keep the agent engaged as they reach new achievements.
 
 Features:
 
     Persistent Stats: Age, Strength, Points, and Stars survive reboots, ensuring no progress is lost.
-    UI Integration: Stats, progress, and quests are displayed directly on the Pwnagotchi screen.
+    UI Integration: Stats, progress, and decay messages are displayed directly on the Pwnagotchi screen.
     Points Logging: Every points increment is logged in /root/network_points.log along with network details.
     Star System:
         Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
         0–4,999 handshakes: Stars appear as ★.
         5,000–9,999 handshakes: Stars appear as ♦.
         10,000+ handshakes: Stars appear as ♣.
-    Quest System: Complete quests for unique rewards and track your progress.
     Decay Mechanism: Inactivity causes points decay after a specified number of epochs.
     Dynamic Status Messages: Motivational quotes and inactivity messages keep users engaged.
 
 Installation Instructions:
 
-Copy the Plugin File:
-Place the age.py file into your Pwnagotchi’s custom plugins directory:
-        
-     /usr/local/share/pwnagotchi/custom-plugins/
-              
- Alternatively, clone it from GitHub:
+ Copy the Plugin File: Place the age.py file into your Pwnagotchi’s custom plugins directory:
+
+    /usr/local/share/pwnagotchi/custom-plugins/
+
+Alternatively, clone it from GitHub:
 
     sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
 
-Update config.toml:
-Add the following lines to your /etc/pwnagotchi/config.toml:
+Update config.toml: Add the following lines to your /etc/pwnagotchi/config.toml:
 
     main.plugins.age.enabled = true
     main.plugins.age.age_x_coord = 101
@@ -106,16 +79,10 @@ Add the following lines to your /etc/pwnagotchi/config.toml:
     main.plugins.age.points_y_coord = 100
     main.plugins.age.stars_x_coord = 10
     main.plugins.age.stars_y_coord = 120
-    main.plugins.age.quests = [
-    ["Collect 10 WPA3 handshakes", 10, "⭐ Extra Star!"],
-    ["Survive 100 epochs without decaying", 100, "🛡️ Resilience Badge"]
-    ]
     main.plugins.age.max_stars = 5
     main.plugins.age.star_interval = 1000
 
-Restart Pwnagotchi:
-
-After adding the plugin and configuring it, restart your Pwnagotchi:
+Restart Pwnagotchi: After adding the plugin and configuring it, restart your Pwnagotchi:
 
     sudo systemctl restart pwnagotchi
 
@@ -128,12 +95,12 @@ Usage:
         WEP/WPA: +2 pts
         Open/Unknown: +1 pt
     Every 1000 handshakes grants an additional star, showing off your Pwnagotchi’s “rep.”
-    Quests: Track and complete quests for rewards. Progress is displayed in the UI, and completed quests are logged with their respective rewards.
+    Decay: Inactivity causes points decay after a specified number of epochs, tracked by the plugin.
 
 Logs and Data:
 
     Stats Data: /root/age_strength.json
-    Contains epochs lived, training epochs, total network points, handshake count, and quest progress.
+    Contains epochs lived, training epochs, total network points, handshake count, and decay progress.
 
     Points Log: /root/network_points.log
     Each handshake event granting points is recorded here with ESSID, encryption, points gained, and total points.
