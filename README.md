@@ -256,11 +256,15 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 
 
 
+
+
+
+
 🚀 Probenpwn Plugin - Enhanced Wi-Fi Hacking with Pwnagotchi! 🚀
 
 The Probenpwn Plugin is a more aggressive and enhanced version of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥
 
-If you’ve used Instattack, you’ll love Probenpwn — it combines deauthentication and association attacks in one powerful tool, designed to help you capture handshakes faster and more efficiently. With the latest updates, it now features dynamic attack tuning, randomization, watchdog recovery, and more!
+If you’ve used Instattack, you’ll love Probenpwn — it combines deauthentication and association attacks in one powerful tool, designed to help you capture handshakes faster and more efficiently. With the latest updates, it now features dynamic attack tuning, randomization, watchdog recovery, performance stats, and more!
 Key Features:
 
 Efficient Deauthentication & Association Attacks:
@@ -289,42 +293,73 @@ Lightweight and Easy to Use:
 
     Fully integrated with Pwnagotchi for seamless operation in your existing setup.
 
-What's New in Probenpwn 1.1.0:
-Dynamic Parameter Tuning:
+What's New in Probenpwn 1.1.1:
 
-    The dynamic_attack_delay method now adjusts the attack delay based not only on the client’s signal strength but also on the number of previous attack attempts for a given AP (Access Point). As the number of attacks increases, the delay between attacks decreases slightly, making the attacks more aggressive while preventing the system from overloading.
-    The delay is further randomized with random.uniform(0.9, 1.1) to prevent detection by automated systems that might look for consistent attack patterns.
+New Features & Enhancements:
 
-Watchdog Thread for Recovery:
+Performance Stats and Feedback Loop:
 
-    The plugin introduces a watchdog thread that periodically checks for the presence of the wlan0mon interface, which is essential for monitoring Wi-Fi networks. If this interface is missing (likely due to a Wi-Fi adapter crash), the watchdog attempts to restart the Pwnagotchi system automatically by running a systemctl restart command, providing a more robust recovery mechanism.
+    self.performance_stats: This new dictionary tracks the performance of each AP, including success and failure rates, as well as the number of attempts. This enables dynamic adjustments based on the performance of attacks against specific APs.
+    
+    self.total_handshakes & self.failed_handshakes: These new counters track the total number of successful and failed handshakes across all APs, contributing to overall performance monitoring.
+    
+    Dynamic Adjustments: The new adjust_attack_parameters method adjusts the aggressiveness of the attack based on the success rate:
+    
+        If the success rate is low (below 20%), the attack becomes more aggressive.
+        
+        If the success rate is high (above 80%), the attack aggressiveness is reduced.
+        
+        For moderate success rates, the current tactics are maintained.
+        
+    Logging Success/Failure Rates: After each handshake is captured, the success and failure rates for each AP are logged. This adds valuable insight into how effectively the plugin is working against different APs.
 
-Tracking and Limiting Attack Attempts:
+Expanded Watchdog Functionality:
 
-    The plugin now tracks the number of attack attempts for each AP using a dictionary (attack_attempts). If an AP has been attacked more than a certain number of times, the delay for subsequent attacks is adjusted to prevent excessive and repetitive attacking, reducing the risk of detection.
-    This approach helps balance the aggressiveness of the attacks with performance considerations, ensuring that the plugin remains effective over extended periods.
+    New Log Check: The watchdog now not only checks for the wlan0mon interface but also monitors the logs for the error wifi.interface not set or not found. If this error occurs, the plugin attempts to restart the Pwnagotchi service. This makes the watchdog more robust by addressing multiple failure scenarios.
+    
+    Logging Improvements: When restarting the service or encountering an error, the plugin logs additional context, such as a success message after restarting the service or the error message if the restart fails.
 
-Tracking Successful Handshakes:
+More Aggressive Attack Tuning:
 
-    The plugin now also tracks the number of successful handshakes captured per AP with the success_counts dictionary. Each time a handshake is successfully captured, the count for that AP is incremented. This can be useful for monitoring attack success rates and potentially adjusting attack strategies based on success frequency.
+    The attack_target method now includes a call to adjust_attack_parameters, which fine-tunes the attack aggressiveness based on the success rate of prior attacks. This allows the plugin to adapt its strategy in real-time based on observed performance, making it more efficient over time.
+    
+    Increased Attack Frequency: For APs with low success rates, the plugin increases the number of attack attempts to try and improve the chances of a successful handshake capture.
 
-Improved Device Handling:
+Expanded Feedback Loop in Handshake Detection:
 
-    The handling of new and updated APs and clients is more refined. The plugin ensures that each device (AP or client) is only attacked if it's not on the whitelist. Devices are also tracked more effectively with better time management, ensuring that only recently seen devices are targeted.
-    The track_recent method tracks both APs and clients, with more granular control over when devices should be removed from the recent list based on activity.
+    The on_handshake method now calculates and logs the handshake success rate (percentage of successful handshakes over total attack attempts) for each AP. This provides better visibility into how effective the attack is and helps inform the dynamic adjustments made by the plugin.
 
-Channel Sanitization:
+General Improvements:
 
-    The plugin includes a new sanitize_channel_list method, which ensures that only valid Wi-Fi channels (1-14 for 2.4 GHz and 36-165 for 5 GHz) are included in the scan list. This prevents attempts to scan invalid channels and ensures more efficient use of scanning resources.
+    Code Robustness: Additional error handling and logging for potential issues that may arise during the execution of the plugin, especially in the watchdog and during the attack execution process.
+    
+    Logging Clarity: Improved logging throughout, providing more detailed feedback for debugging and monitoring the plugin's behavior in various situations.
 
-Enhanced Logging and Error Handling:
+Summary of What’s Better:
 
-    The plugin now includes more detailed logging, especially around the dynamic attack delay, attack attempts, and handshakes. The logging makes it easier to monitor the plugin's behavior and diagnose issues.
-    It also improves error handling by catching and logging exceptions in key methods, ensuring that the plugin can gracefully handle unexpected issues without crashing.
+    Dynamic Attack Strategy: The plugin now adjusts the aggressiveness of its attacks based on real-time performance, leading to better handling of different APs and more successful attacks.
+    
+    Enhanced Logging and Feedback: The plugin logs success and failure rates for handshakes, providing clear insight into its effectiveness. The added performance stats help in tuning attack strategies over time.
+    
+    Improved Robustness: The watchdog is more resilient, with checks for additional errors (e.g., missing wifi.interface) and the ability to restart the service when necessary.
+    
+    Adaptability: By adjusting the attack parameters based on success rates, the plugin can adapt its behavior, making it more intelligent and resource-efficient.
 
-Better UI Integration:
+Summary:
 
-    The plugin continues to update the Pwnagotchi UI with status messages like "Probing!\nPWNING THEM GUTS!" and ensures the UI reflects the state of the plugin, such as when it's probing aggressively.
+The Probenpwn plugin gives you full control over your Wi-Fi attack strategies, allowing you to:
+
+    Enable or disable the plugin as needed.
+    
+    Dynamically adjust attack timing based on client signal strength.
+    
+    Launch simultaneous attacks using multi-threading.
+    
+    Whitelist specific networks or devices to avoid unintended targeting.
+    
+    Customize attack timing and cleanup frequency via epoch duration.
+    
+    Leverage your Pwnagotchi personality settings to fine-tune attack behavior.
 
 Full Control Over Attack Strategies:
 
@@ -343,24 +378,23 @@ Probenpwn adjusts attack delay dynamically:
     main.plugins.probenpwn.deauth_attack_delay = 0.75      # Base delay for deauthentication attacks
     main.plugins.probenpwn.dynamic_delay_threshold = -60   # Signal threshold for dynamic delay adjustment
 
+
 Target Whitelisting:
 
 Exempt specific networks or clients from attacks:
 
+
     main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
+
 
 Epoch Duration and Recent Tracking:
 
 Control how long attack records are retained before being automatically removed:
 
+  
     main.plugins.probenpwn.epoch_duration = 60  # Default value in seconds
 
-Personality Settings:
 
-The Pwnagotchi personality settings control whether to perform deauth or association attacks:
-
-    personality.advertise = true
-    personality.deauth = true
 
 Example config.toml Snippet:
 
@@ -371,16 +405,29 @@ Example config.toml Snippet:
     main.plugins.probenpwn.epoch_duration = 60
     main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
 
-Summary
+ProbeNpwn logs will up in pwnagotchi.log/pwnagotchi-debug.log as shown:
+         
+    [INFO] [Thread-11] : Probed and Pwnd!
+    
+    [INFO] [Thread-27 (attack_target)] : sending association frame to  (xx:xx:xx:xx:xx:xx) on channel 4 [0 clients], -60 dBm...
+    
+    [INFO] [Thread-11] : Captured handshake from Hidden (xx:xx:xx:xx:xx:xx) -> 'Unknown Client' (xx:xx:xx:xx:xx:xx)()
+    
+    [INFO] [Thread-27 (attack_target)] : Low success rate (0.00%) on AP xx:xx:xx:xx:xx:xx. Making attack more aggressive.
+    
+    [INFO] [Thread-272 (attack_target)] : High success rate (100.00%) on AP xx:xx:xx:xx:xx:xx. Reducing attack aggressiveness.
 
-The Probenpwn plugin gives you full control over your Wi-Fi attack strategies, allowing you to:
+Update Summary:
 
-    Enable or disable the plugin as needed.
-    Dynamically adjust attack timing based on client signal strength.
-    Launch simultaneous attacks using multi-threading.
-    Whitelist specific networks or devices to avoid unintended targeting.
-    Customize attack timing and cleanup frequency via epoch duration.
-    Leverage your Pwnagotchi personality settings to fine-tune attack behavior.
+    Dynamic Attack Strategy: The plugin now adjusts the aggressiveness of its attacks based on real-time performance, leading to better handling of different APs and more successful attacks.
+    
+    Enhanced Logging and Feedback: The plugin logs success and failure rates for handshakes, providing clear insight into its effectiveness. The added performance stats help in tuning attack strategies over time.
+    
+    Improved Robustness: The watchdog is more resilient, with checks for additional errors (e.g., missing wifi.interface) and the ability to restart the service when necessary.
+    
+    Adaptability: By adjusting the attack parameters based on success rates, the plugin can adapt its behavior, making it more intelligent and resource-efficient.
+
+Overall, this version is more intelligent and self-correcting. It can now analyze its own performance and adjust its strategies dynamically, leading to better overall efficiency and fewer failed attacks over time. It’s also more robust in dealing with errors, ensuring smoother operation in case of interface or service failures.
 
 The plugin now includes advanced features like dynamic tuning, attack attempt tracking, a watchdog recovery system, improved logging, channel sanitization, and better error handling. These changes make the plugin more reliable, flexible, and effective in performing aggressive Wi-Fi probing and attacks.
 
