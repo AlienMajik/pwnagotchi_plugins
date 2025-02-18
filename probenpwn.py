@@ -8,7 +8,7 @@ import pwnagotchi.plugins as plugins
 
 class probenpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.1.0'
+    __version__ = '1.1.1'
     __license__ = 'GPL3'
     __description__ = (
         'Pwn more aggressively. Launch immediate associate or deauth attack '
