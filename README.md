@@ -260,7 +260,7 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 
 
 
-🚀 Probenpwn Plugin - Enhanced Wi-Fi Hacking with Pwnagotchi! 🚀
+🚀 Probenpwn Plugin - Pwnagotchi! 🚀
 
 The Probenpwn Plugin is a more aggressive and enhanced version of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥
 
@@ -269,7 +269,7 @@ Key Features:
 
 Efficient Deauthentication & Association Attacks:
 
-    Launch deauth and association attacks simultaneously to capture more handshakes in less time.
+    Launch attacks simultaneously to capture more handshakes in less time.
     Dynamic attack delay ensures you hit stronger signals faster, while giving weaker signals more time to reconnect.
 
 Concurrent Attack Threads:
@@ -279,6 +279,7 @@ Concurrent Attack Threads:
 Customizable Settings:
 
     Control whether you use deauth or focus solely on association attacks via the config.toml.
+    
     Whitelist networks or clients to exclude them from attacks.
 
 Capture More Handshakes:
