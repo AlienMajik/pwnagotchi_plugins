@@ -151,7 +151,7 @@ Now, try running rtl_adsb to see if you can receive ADS-B signals:
 
 This command starts the ADS-B reception. If your RTL-SDR is set up correctly and there are aircraft in range, you should see ADS-B messages appearing in the terminal.
 
-Add adsbsniffer.py to /usr/local/share/pwnagotchi/installed-plugins and /usr/local/share/pwnagotchi/availaible-plugins
+Add adsbsniffer.py to /usr/local/share/pwnagotchi/installed-plugins and /usr/local/share/pwnagotchi/available-plugins
 
 In /etc/pwnagotchi/config.toml file add: 
 
