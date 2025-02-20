@@ -294,7 +294,7 @@ Lightweight and Easy to Use:
 
     Fully integrated with Pwnagotchi for seamless operation in your existing setup.
 
-What's New in Probenpwn 1.1.1:
+What's New in Probenpwn 1.1.2:
 
 New Features & Enhancements:
 
@@ -313,7 +313,7 @@ Performance Stats and Feedback Loop:
         For moderate success rates, the current tactics are maintained.
         
     Logging Success/Failure Rates: After each handshake is captured, the success and failure rates for each AP are logged. This adds valuable insight into how effectively the plugin is working against different APs.
-
+      
 Expanded Watchdog Functionality:
 
     New Log Check: The watchdog now not only checks for the wlan0mon interface but also monitors the logs for the error wifi.interface not set or not found. If this error occurs, the plugin attempts to restart the Pwnagotchi service. This makes the watchdog more robust by addressing multiple failure scenarios.
@@ -336,6 +336,8 @@ General Improvements:
     
     Logging Clarity: Improved logging throughout, providing more detailed feedback for debugging and monitoring the plugin's behavior in various situations.
 
+    def load_whitelist: Now loads the whitelist from Pwnagotchi's global config.
+    
 Summary of What’s Better:
 
     Dynamic Attack Strategy: The plugin now adjusts the aggressiveness of its attacks based on real-time performance, leading to better handling of different APs and more successful attacks.
@@ -381,7 +383,7 @@ Probenpwn adjusts attack delay dynamically:
 
 
 Target Whitelisting:
-
+New 1.1.2 Update Now uses /etc/pwnagotchi/config.toml whitelist no need to use this anymore: 
 Exempt specific networks or clients from attacks:
 
 
