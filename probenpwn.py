@@ -4,11 +4,12 @@ import threading
 import os
 import subprocess
 import random
+import toml  
 import pwnagotchi.plugins as plugins
 
 class probenpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.1.1'
+    __version__ = '1.1.2'
     __license__ = 'GPL3'
     __description__ = (
         'Pwn more aggressively. Launch immediate associate or deauth attack '
@@ -21,7 +22,6 @@ class probenpwn(plugins.Plugin):
         self._agent = None
         self.old_name = None
         self.recents = {}
-        self.whitelist = set()
         self.attack_threads = []
         self.epoch_duration = 60  # default epoch duration in seconds
         self._watchdog_thread = None
@@ -34,6 +34,22 @@ class probenpwn(plugins.Plugin):
         self.failed_handshakes = 0
         # Track the performance of each AP for dynamic adjustments
         self.performance_stats = {}
+        self.whitelist = set()
+       
+        # Load whitelist from the global Pwnagotchi config
+        self.load_whitelist()
+
+    def load_whitelist(self):
+        """Load the whitelist from Pwnagotchi's global config."""
+        try:
+            with open('/etc/pwnagotchi/config.toml', 'r') as config_file:
+                data = toml.load(config_file)
+                # Load SSIDs from the whitelist in the global config
+                self.whitelist = set(data.get('main', {}).get('whitelist', []))
+                logging.info(f"Whitelist loaded from Pwnagotchi config: {self.whitelist}")
+        except Exception as e:
+            logging.error(f"Failed to load whitelist from config: {e}")
+            self.whitelist = set()
 
     def on_unload(self, ui):
         if self.old_name:
@@ -104,6 +120,7 @@ class probenpwn(plugins.Plugin):
     def ok_to_attack(self, ap):
         if not self._agent:
             return False
+        # Check if the AP is in the whitelist loaded from the global config
         if ap.get('hostname', '').lower() in self.whitelist or ap['mac'].lower() in self.whitelist:
             return False
         return True
