@@ -197,44 +197,137 @@ This disclaimer is subject to changes and updates. Users are advised to review i
 
 
 
-Neurolyzer Plugin:
-The Neurolyzer plugin introduces a significant enhancement to the Pwnagotchi platform, aiming to augment the device's stealth and privacy capabilities. Its main function is to automate the randomization of the MAC address for the designated Wi-Fi interface. This action helps make the Pwnagotchi less visible to network monitoring systems, thereby decreasing its digital footprint within the networks it scans. The plugin offers several noteworthy features:
+Neurolyzer Plugin: Enhancing Stealth and Privacy on Pwnagotchi
 
-    Varied Operational Modes: It introduces different modes of operation, including a 'stealth' mode. When activated, this mode triggers periodic changes to the device's MAC address, effectively masking its identity. This is particularly useful for operating within networks that are under strict surveillance.
+The Neurolyzer plugin introduces several significant enhancements to the Pwnagotchi platform, elevating the device's stealth and privacy capabilities. It automates the randomization of the MAC address for the designated Wi-Fi interface, helping make the Pwnagotchi less visible to network monitoring systems. This decreases its digital footprint within the networks it scans. Here's a breakdown of the improvements and new features:
+Key Features and Improvements:
 
-    Adjustable MAC Address Change Interval: The plugin allows users to customize how frequently the MAC address changes, providing control over the degree of stealth based on the user's needs.
+1. Realistic MAC Address Generation
 
-    User Interface Enhancements: Leveraging Pwnagotchi's existing UI framework, the Neurolyzer plugin offers immediate visual feedback on the device's screen. It displays the current mode of operation ('stealth' or 'normal') and the time until the next MAC address change. These interface elements are adjustable, enabling users to customize their display positions as needed.
+    Improvement: The updated version uses a more realistic MAC address by incorporating an OUI (Organizationally Unique Identifier) and randomizing the last three bytes within a restricted range.
+   
 
-    Wi-Fi Interface Customization: Users have the flexibility to define which Wi-Fi interface the plugin should manage, catering to devices with multiple or unconventional interface names.
+2. Flexible Randomization Interval
 
-    Seamless Activation/Deactivation: The plugin assesses its activation status upon loading, based on the configured settings, and commences its functions automatically if enabled. This feature allows for a hassle-free transition to stealth mode.
+    Improvement: The randomization interval is now flexible, varying between 30 minutes and 2 hours. Randomizing the interval adds unpredictability, making the MAC address changes harder to detect. This increases stealth.
+    
 
-    Comprehensive Logging: The Neurolyzer plugin meticulously logs key events and potential errors during its operation. This aids in monitoring the plugin's performance and simplifying troubleshooting processes.
+3. Improved MAC Randomization for Monitor Mode
 
-In essence, the Neurolyzer plugin significantly bolsters the Pwnagotchi's capability for stealthy operations, ensuring users can engage in ethical hacking and network exploration with an enhanced level of privacy. Through its thoughtful integration with the Pwnagotchi ecosystem, the plugin elevates the device's functionality, aligning with the objectives of privacy-conscious users and ethical hackers.
+    Improvement: When the Wi-Fi interface is in monitor mode, the plugin temporarily switches to managed mode to change the MAC address and restores monitor mode afterward.
 
-Requirements: Flask
-Sudo apt install macchanger
+4. Updated UI Handling
 
-1.When installing macchanger choose no on change mac address on startup.
+    Improvement: The UI is now updated more effectively by directly modifying the value attribute of the UI components in on_ui_update().
 
-2.Add neurolyzer.py to /usr/local/share/pwnagotchi/custom-plugins
+5. Better Error Handling and Logging
 
-3.Add this to /etc/pwnagotchi/config.toml: 
+    Improvement: The plugin now has enhanced error handling for subprocess calls, such as bringing the interface down or changing the MAC address. More detailed logs are provided for different stages.
 
-main.plugins.neurolyzer.enabled = true
-main.plugins.neurolyzer.wifi_interface = "wlan0mon" #Change this to your wireless adapter
-main.plugins.neurolyzer.operation_mode = "stealth"  #You can choose between stealh and normal
-main.plugins.neurolyzer.mac_change_interval = 3600  #what interval you want you mac address to change in seconds
-main.plugins.neurolyzer.mode_label_x = 0
-main.plugins.neurolyzer.mode_label_y = 50  # Adjust as needed
-main.plugins.neurolyzer.next_mac_change_label_x = 0
-main.plugins.neurolyzer.next_mac_change_label_y = 60  # Adjust as needed
+6. Initial MAC Address Randomization
 
-4.For full stealh mode change: personality.advertise = false
+    Improvement: The plugin now performs an initial MAC address randomization when it is loaded (self.randomize_mac() in on_loaded()). This ensures that the device's MAC address is randomized as soon as the plugin starts, providing enhanced privacy from the start.
+   
 
-5.Reboot or sudo systemctl restart pwnagotchi
+7. Time-Dependent MAC Randomization
+
+    Improvement: The next MAC address change time is now dynamically calculated based on the random interval. This ensures the MAC address change schedule follows the random interval, making it harder to predict.
+
+Other Features:
+
+    Varied Operational Modes: Includes 'normal' and 'stealth' modes, with stealth mode actively changing the MAC address at random intervals.
+    Wi-Fi Interface Customization: Users can define which Wi-Fi interface the plugin should manage, supporting devices with multiple or unconventional interface names.
+    Comprehensive Logging: Logs key events and errors, providing detailed feedback for monitoring and troubleshooting.
+    Seamless Activation/Deactivation: The plugin starts automatically when enabled, making the transition to stealth mode smooth and easy.
+
+How to Install:
+
+Requirements:
+
+    macchanger
+
+Install it using:
+
+    sudo apt install macchanger
+    
+When installing macchanger, choose "No" for changing the MAC address on startup.
+
+
+1.Clone the Plugin Repository, Create the Plugin Manually:
+
+Add repository to /etc/pwnagothci/config.toml:
+
+    main.confd = "/etc/pwnagotchi/conf.d/"
+    main.custom_plugin_repos = [
+     "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+     "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+     "https://github.com/NeonLightning/pwny/archive/master.zip",
+     "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+     "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
+    ]
+    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+
+Next type:
+   
+    sudo pwnagotchi update plugins
+    
+    sudo pwnagotchi install neurolyzer plugins
+
+2.If you have the plugin code locally, you can manually copy it to the Pwnagotchi plugin directory. Alternatively, you can clone it from my repository.
+
+    sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
+    
+    cd pwnagothci_plugins
+
+Copy the neurolyzer.py file to /usr/local/share/pwnagotchi/custom-plugins/:
+
+    sudo cp neurolyzer.py /usr/local/share/pwnagotchi/custom-plugins/
+
+!!!Then, ensure the file is executable or else it wont work!!!:
+
+    sudo chmod +x /usr/local/share/pwnagotchi/custom-plugins/neurolyzer.py
+
+
+Edit the Pwnagotchi configuration (config.toml):
+Open the configuration file and add the following:
+
+    main.plugins.neurolyzer.enabled = true
+    main.plugins.neurolyzer.wifi_interface = "wlan0mon"  # Change this to your wireless adapter
+    main.plugins.neurolyzer.operation_mode = "stealth"  # Choose between 'stealth' and 'normal'
+    main.plugins.neurolyzer.mac_change_interval = 3600  # Set the interval in seconds
+    main.plugins.neurolyzer.mode_label_x = 101
+    main.plugins.neurolyzer.mode_label_y = 50  # Adjust as needed
+    main.plugins.neurolyzer.next_mac_change_label_x = 101
+    main.plugins.neurolyzer.next_mac_change_label_y = 60  # Adjust as needed
+
+For full stealth mode (optional):
+Set the following in config.toml to prevent advertising the device’s presence:
+
+    personality.advertise = false
+
+Reboot or restart Pwnagotchi:
+After applying the configuration, reboot the device or restart the Pwnagotchi service:
+
+    sudo systemctl restart pwnagotchi
+
+Verify the Plugin:
+Check the Pwnagotchi logs to ensure the plugin has loaded successfully and is working as expected:
+
+    [INFO] [Thread-24 (run_once)] : [Neurolyzer] Plugin loaded. Operating in stealth mode.
+    [INFO] [Thread-24 (run_once)] : [Neurolyzer] MAC address changed to xx:xx:xx:xx:xx:xx for wlan0mon via macchanger. 
+
+If Neurolyzer fails logs will look like:
+    
+    [WARNING][Thread-24 (run_once)] : [Neurolyzer] Failed to bring down interface wlan0mon: Command '['sudo', 'ip', 'link', 'set', 'dev', 'wlan0mon', 'down']' returned non-zero exit status 1.
+    [ERROR][Thread-24 (run_once)] : [Neurolyzer] Failed to set wlan0mon to managed mode: Command '['sudo', 'iwconfig', 'wlan0mon', 'mode', 'managed']' returned non-zero exit status 250.
+
+Summary:
+
+The Neurolyzer plugin significantly improves Pwnagotchi’s stealth and privacy features by using realistic MAC addresses, randomizing intervals, handling both monitor and non-monitor mode interfaces, and providing a customizable UI. With enhanced error handling, logging, and seamless activation, the updated version is more versatile, stealthy, and reliable than ever. 
+
+Bugs:
+
+Currently only works with wifi adapters. Not really sure since I was only able to test it on a raspberry pi 5's stock broadcom wifi chip and cant bring it down and put it in managed mode in order to change mac address, it might work on other raspberry pi stock wifi chipsets so if it does let me know.
 
 Neurolyzer Plugin Disclaimer
 
