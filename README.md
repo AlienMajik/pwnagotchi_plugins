@@ -43,6 +43,40 @@ New Enhancements in v2.0.2:
         The logging system has been maintained and now includes milestone tracking for key intervals (e.g., every 100 epochs).
         Milestones trigger UI updates with faces and messages to keep the agent engaged as they reach new achievements.
 
+New Enhancements in v2.0.3:
+
+    Documented Training Logic:
+        In on_epoch, a comment explains why train_epochs increments every 10 epochs: # Increment train_epochs every 10 epochs to simulate slower training progress.
+
+    Enhanced File I/O Safety:
+        In on_handshake, handshake logging is wrapped in a try-except block to handle file writing errors gracefully.
+
+    Refined Decay Mechanics:
+        In apply_decay, decay calculation uses floating-point division for smoother, more proportional point reduction.
+
+    Increased Logging:
+        Added debug and info logs for better transparency:
+
+        on_epoch: Logs epoch number and points (logging.debug).
+        check_achievements: Logs new titles (logging.info).
+        apply_decay: Logs points lost due to decay (logging.info).
+        on_handshake: Logs captured handshake details (logging.info).
+
+    Thread Safety:  
+        Imported threading and added a data_lock in __init__. Used in save_data to ensure thread-safe file writing.
+
+    Accurate Achievement Notifications: 
+        Tracks previous titles and stars to ensure new achievements are detected and announced correctly.
+        
+    Robust Handshake Handling: 
+        Adds type checking and error logging to prevent crashes from unexpected data, making the plugin more stable.
+        
+    Seamless New Installations: 
+        Fully initializes all attributes when starting fresh, improving reliability for new users.
+        
+    Persistent Progress: 
+        Saves achievement states to the data file, maintaining continuity across sessions.
+    
 Features:
 
     Persistent Stats: Age, Strength, Points, and Stars survive reboots, ensuring no progress is lost.
