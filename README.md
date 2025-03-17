@@ -231,138 +231,192 @@ This disclaimer is subject to changes and updates. Users are advised to review i
 
 
 
-Neurolyzer Plugin: Enhancing Stealth and Privacy on Pwnagotchi
+Neurolyzer Plugin: Advanced Stealth and Privacy for Pwnagotchi
 
-The Neurolyzer plugin introduces several significant enhancements to the Pwnagotchi platform, elevating the device's stealth and privacy capabilities. It automates the randomization of the MAC address for the designated Wi-Fi interface, helping make the Pwnagotchi less visible to network monitoring systems. This decreases its digital footprint within the networks it scans. Here's a breakdown of the improvements and new features:
-Key Features and Improvements:
+The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth and privacy of your Pwnagotchi. Now at version 1.5.2, it goes beyond simple MAC address randomization to provide a comprehensive suite of features that minimize your device’s detectability by network monitoring systems, Wireless Intrusion Detection/Prevention Systems (WIDS/WIPS), and other security measures. By reducing its digital footprint while scanning networks, Neurolyzer ensures your Pwnagotchi operates discreetly and efficiently.
 
-1. Realistic MAC Address Generation
+Here’s a detailed look at the updates, what’s new, and how Neurolyzer 1.5.2 improves upon its predecessors.
+Key Features and Improvements
 
-    Improvement: The updated version uses a more realistic MAC address by incorporating an OUI (Organizationally Unique Identifier) and randomizing the last three bytes within a restricted range.
+1. Advanced WIDS/WIPS Evasion
+
+       What’s New: A sophisticated system to detect and evade WIDS/WIPS.
+       How It Works: Scans for known WIDS/WIPS SSIDs (e.g., "wids-guardian", "airdefense") and triggers evasion tactics like MAC address rotation, channel hopping, TX power adjustments, and random delays.
+       What’s Better: Proactively avoids detection in secured environments, making your Pwnagotchi stealthier than ever.
+
+2. Hardware-Aware Adaptive Countermeasures
+
+       What’s New: Adapts to your device’s hardware capabilities.
+       How It Works: Detects support for TX power control, monitor mode, and MAC spoofing at startup, tailoring operations accordingly.
+       What’s Better: Ensures compatibility and stability across diverse Pwnagotchi setups, avoiding errors from unsupported features.
+
+3. Atomic MAC Rotation with Locking Mechanism
+
+       What’s Improved: MAC changes are now atomic, using an exclusive lock.
+       How It Works: A lock file prevents conflicts during MAC updates, ensuring smooth execution.
+       What’s Better: Enhances reliability, especially on resource-constrained devices or with multiple plugins.
+
+4. Realistic MAC Address Generation with Common OUIs
+
+       What’s Improved: Generates MAC addresses using OUIs from popular manufacturers (e.g., Raspberry Pi, Apple, Cisco).
+       How It Works: In noided mode, it combines a real OUI with random bytes to mimic legitimate devices.
+       What’s Better: Blends into network traffic, reducing suspicion compared to fully random MACs in earlier versions.
+
+5. Flexible Operation Modes
+
+    What’s New: Three modes: normal, stealth, and noided.
+
+    How It Works:
    
-
-2. Flexible Randomization Interval
-
-    Improvement: The randomization interval is now flexible, varying between 30 minutes and 2 hours. Randomizing the interval adds unpredictability, making the MAC address changes harder to detect. This increases stealth.
-    
-
-3. Improved MAC Randomization for Monitor Mode
-
-    Improvement: When the Wi-Fi interface is in monitor mode, the plugin temporarily switches to managed mode to change the MAC address and restores monitor mode afterward.
-
-4. Updated UI Handling
-
-    Improvement: The UI is now updated more effectively by directly modifying the value attribute of the UI components in on_ui_update().
-
-5. Better Error Handling and Logging
-
-    Improvement: The plugin now has enhanced error handling for subprocess calls, such as bringing the interface down or changing the MAC address. More detailed logs are provided for different stages.
-
-6. Initial MAC Address Randomization
-
-    Improvement: The plugin now performs an initial MAC address randomization when it is loaded (self.randomize_mac() in on_loaded()). This ensures that the device's MAC address is randomized as soon as the plugin starts, providing enhanced privacy from the start.
+        normal: No randomization or evasion.
+        stealth: Periodic MAC randomization with flexible intervals (30 minutes to 2 hours).
+        noided: Full evasion suite with MAC rotation, channel hopping, TX power tweaks, and traffic throttling.
    
+    What’s Better: Offers customizable stealth levels, unlike the simpler normal and stealth modes in prior versions.
 
-7. Time-Dependent MAC Randomization
+7. Robust Command Execution with Retries and Fallbacks
 
-    Improvement: The next MAC address change time is now dynamically calculated based on the random interval. This ensures the MAC address change schedule follows the random interval, making it harder to predict.
+       What’s Improved: Enhanced reliability for system commands.
+       How It Works: Retries failed commands and uses alternatives (e.g., iwconfig if iw fails).
+       What’s Better: Increases stability across varied setups, fixing issues from inconsistent command execution.
 
-Other Features:
+8. Traffic Throttling for Stealth
 
-    Varied Operational Modes: Includes 'normal' and 'stealth' modes, with stealth mode actively changing the MAC address at random intervals.
-    Wi-Fi Interface Customization: Users can define which Wi-Fi interface the plugin should manage, supporting devices with multiple or unconventional interface names.
-    Comprehensive Logging: Logs key events and errors, providing detailed feedback for monitoring and troubleshooting.
-    Seamless Activation/Deactivation: The plugin starts automatically when enabled, making the transition to stealth mode smooth and easy.
+       What’s New: Limits network traffic in noided mode.
+       How It Works: Uses tc to shape packet rates, mimicking normal activity.
+       What’s Better: Avoids triggering rate-based WIDS/WIPS alarms, a leap beyond basic MAC randomization.
 
-How to Install:
+9. Probe Request Sanitization
 
-Requirements:
+       What’s New: Filters sensitive probe requests.
+       How It Works: Blacklists identifiable probes using tools like hcxdumptool.
+       What’s Better: Hides your device’s identity, adding a privacy layer absent in earlier versions.
 
-    macchanger
+10. Enhanced UI Integration
 
-Install it using:
+        What’s Improved: Displays detailed status on the Pwnagotchi UI.
+        How It Works: Shows mode, next MAC change time, TX power, and channel, with customizable positions.
+        What’s Better: Offers real-time monitoring, improving on the basic UI updates of past releases.
 
+11. Improved Error Handling and Logging
+
+        What’s Improved: Better logging and adaptive error responses.
+        How It Works: Logs detailed errors/warnings and adjusts to hardware limits.
+        What’s Better: Easier troubleshooting and more reliable operation than before.
+
+12. Safe Channel Hopping
+
+        What’s New: Implements safe, regular channel switching.
+        How It Works: Uses safe channels (e.g., 1, 6, 11) or dynamically detected ones.
+        What’s Better: Reduces detection risk by avoiding static channel use.
+
+13. TX Power Adjustment
+
+        What’s New: Randomizes transmission power in noided mode.
+        How It Works: Adjusts TX power within hardware limits using iw or iwconfig.
+        What’s Better: Mimics normal device behavior, enhancing stealth over static signal strength.
+
+14. Comprehensive Cleanup on Unload
+
+        What’s Improved: Restores default settings when disabled.
+        How It Works: Resets traffic shaping, monitor mode, and releases locks.
+        What’s Better: Leaves your device stable post-use, unlike earlier versions with minimal cleanup.
+
+Legacy Improvements Retained and Enhanced
+
+    Initial MAC Randomization: Randomizes the MAC address on load for immediate privacy.
+    Monitor Mode Handling: Temporarily switches to managed mode for MAC changes, then back to monitor mode.
+    Time-Dependent Randomization: Dynamically calculates MAC change schedules for unpredictability.
+
+Other Features
+
+    Varied Operational Modes: Choose normal, stealth, or noided to match your needs.
+    Wi-Fi Interface Customization: Supports custom interface names for flexibility.
+    Comprehensive Logging: Tracks events and errors for easy monitoring.
+    Seamless Activation/Deactivation: Auto-starts when enabled, ensuring smooth transitions.
+
+Installation Instructions
+
+Requirements
+
+ macchanger: Install with:
+   
     sudo apt install macchanger
-    
-When installing macchanger, choose "No" for changing the MAC address on startup.
+        
+Select "No" when asked about changing the MAC on startup.
 
+Steps:
 
-1.Clone the Plugin Repository, Create the Plugin Manually:
+Clone the Plugin Repository:
+Add to /etc/pwnagotchi/config.toml:
+        
 
-Add repository to /etc/pwnagothci/config.toml:
+main.confd = "/etc/pwnagotchi/conf.d/"
+main.custom_plugin_repos = [
+  "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+  "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+  "https://github.com/NeonLightning/pwny/archive/master.zip",
+  "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+  "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
+]
+main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+Update and install:
+bash
 
-    main.confd = "/etc/pwnagotchi/conf.d/"
-    main.custom_plugin_repos = [
-     "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
-     "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
-     "https://github.com/NeonLightning/pwny/archive/master.zip",
-     "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-     "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
-    ]
-    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
-
-Next type:
-   
     sudo pwnagotchi update plugins
-    
     sudo pwnagotchi install neurolyzer plugins
 
-2.If you have the plugin code locally, you can manually copy it to the Pwnagotchi plugin directory. Alternatively, you can clone it from my repository.
+Manual Installation (Alternative)
 
+Clone the repo:
+  
     sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
     
-    cd pwnagothci_plugins
+    cd pwnagotchi_plugins
 
-Copy the neurolyzer.py file to /usr/local/share/pwnagotchi/custom-plugins/:
+Copy and make executable:
 
     sudo cp neurolyzer.py /usr/local/share/pwnagotchi/custom-plugins/
-
-!!!Then, ensure the file is executable or else it wont work!!!:
-
     sudo chmod +x /usr/local/share/pwnagotchi/custom-plugins/neurolyzer.py
 
+Configure the Plugin:
 
-Edit the Pwnagotchi configuration (config.toml):
-Open the configuration file and add the following:
+Edit /etc/pwnagotchi/config.toml:
 
     main.plugins.neurolyzer.enabled = true
-    main.plugins.neurolyzer.wifi_interface = "wlan0mon"  # Change this to your wireless adapter
-    main.plugins.neurolyzer.operation_mode = "stealth"  # Choose between 'stealth' and 'normal'
-    main.plugins.neurolyzer.mac_change_interval = 3600  # Set the interval in seconds
+    main.plugins.neurolyzer.wifi_interface = "wlan0mon"  # Your wireless adapter
+    main.plugins.neurolyzer.operation_mode = "noided"    # 'normal', 'stealth', or 'noided'
+    main.plugins.neurolyzer.mac_change_interval = 3600   # Seconds
     main.plugins.neurolyzer.mode_label_x = 101
-    main.plugins.neurolyzer.mode_label_y = 50  # Adjust as needed
+    main.plugins.neurolyzer.mode_label_y = 50
     main.plugins.neurolyzer.next_mac_change_label_x = 101
-    main.plugins.neurolyzer.next_mac_change_label_y = 60  # Adjust as needed
+    main.plugins.neurolyzer.next_mac_change_label_y = 60
 
-For full stealth mode (optional):
-Set the following in config.toml to prevent advertising the device’s presence:
+For maximum stealth:
 
     personality.advertise = false
 
-Reboot or restart Pwnagotchi:
-After applying the configuration, reboot the device or restart the Pwnagotchi service:
+Restart Pwnagotchi
+
+Run:
 
     sudo systemctl restart pwnagotchi
 
-Verify the Plugin:
-Check the Pwnagotchi logs to ensure the plugin has loaded successfully and is working as expected:
+Verify the Plugin
 
-    [INFO] [Thread-24 (run_once)] : [Neurolyzer] Plugin loaded. Operating in stealth mode.
-    [INFO] [Thread-24 (run_once)] : [Neurolyzer] MAC address changed to xx:xx:xx:xx:xx:xx for wlan0mon via macchanger. 
+Check logs:
+   
 
-If Neurolyzer fails logs will look like:
-    
-    [WARNING][Thread-24 (run_once)] : [Neurolyzer] Failed to bring down interface wlan0mon: Command '['sudo', 'ip', 'link', 'set', 'dev', 'wlan0mon', 'down']' returned non-zero exit status 1.
-    [ERROR][Thread-24 (run_once)] : [Neurolyzer] Failed to set wlan0mon to managed mode: Command '['sudo', 'iwconfig', 'wlan0mon', 'mode', 'managed']' returned non-zero exit status 250.
+        [INFO] [Thread-24 (run_once)] : [Neurolyzer] Plugin loaded. Operating in noided mode.
+        [INFO] [Thread-24 (run_once)] : [Neurolyzer] MAC address changed to xx:xx:xx:xx:xx:xx for wlan0mon via macchanger.
 
-Summary:
+Known Issues
 
-The Neurolyzer plugin significantly improves Pwnagotchi’s stealth and privacy features by using realistic MAC addresses, randomizing intervals, handling both monitor and non-monitor mode interfaces, and providing a customizable UI. With enhanced error handling, logging, and seamless activation, the updated version is more versatile, stealthy, and reliable than ever. 
+    Wi-Fi Adapter Compatibility: Works best with external adapters. Testing on the Raspberry Pi 5’s Broadcom chip showed issues with mode switching and interface control. It may work on other Pi models—please share feedback!
 
-Bugs:
+Summary
 
-Currently only works with wifi adapters. Not really sure since I was only able to test it on a raspberry pi 5's stock broadcom wifi chip and cant bring it down and put it in managed mode in order to change mac address, it might work on other raspberry pi stock wifi chipsets so if it does let me know.
-
+Neurolyzer 1.5.2 elevates Pwnagotchi’s stealth and privacy with advanced WIDS/WIPS evasion, hardware-aware operations, realistic MAC generation, and flexible modes. Compared to earlier versions, it offers superior reliability (via retries and error handling), deeper stealth (traffic throttling, probe sanitization), and better usability (enhanced UI and logging). Whether you’re testing security or keeping a low profile, Neurolyzer 1.5.2 is a significant upgrade—more versatile, stealthy, and robust than ever.
 Neurolyzer Plugin Disclaimer
 
 Please read this disclaimer carefully before using the Neurolyzer plugin ("Plugin") developed for the Pwnagotchi platform.
