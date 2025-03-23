@@ -716,3 +716,193 @@ to test is strictly prohibited. The author(s) and contributors are not responsib
 misuse, damages, or legal consequences that may result from unauthorized or improper usage.
 By using this plugin, you agree to assume all risks and take full responsibility for ensuring
 that all applicable laws and regulations are followed.
+
+
+
+
+SnoopR Plugin for Pwnagotchi
+
+Welcome to SnoopR, a plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! SnoopR supercharges your Pwnagotchi by detecting and logging Wi-Fi and Bluetooth devices, identifying potential snoopers based on movement patterns, and presenting everything on an interactive, real-time map. Whether you're a security enthusiast, a tinkerer, or just curious about the wireless world around you, SnoopR has something to offer.
+
+This plugin is actively developed, community-driven, and packed with features to help you explore and secure your wireless environment. Let’s dive into what SnoopR can do and how you can get started!
+Features
+
+SnoopR is loaded with capabilities to make your wireless adventures both fun and insightful. Here’s what it brings to the table:
+
+    Device Detection: Captures Wi-Fi and Bluetooth devices, logging their details alongside GPS coordinates for precise location tracking.
+    
+    Snooper Identification: Spots potential snoopers by analyzing movement patterns—devices that move beyond a customizable threshold are flagged.
+    
+    Interactive Map: Displays all detected devices and snoopers on a dynamic, auto-refreshing map for easy visualization.
+    
+    Customizable Detection: Fine-tune movement and time thresholds to define what qualifies as a snooper, tailored to your needs.
+    
+    Real-Time Monitoring: Keeps you updated with live counts of detected networks and snoopers directly on the Pwnagotchi UI.
+
+Requirements
+
+    A GPS adapter connected to bettercap, which is easily done with the gps plugin.
+   
+    For Bluetooth scanning:
+    
+    Bluetooth must be enabled on the Pwnagotchi.
+        
+    Internet access on the device viewing the web interface to load map tiles and Leaflet.js (the Pwnagotchi itself does not need internet).
+
+Installation Instructions:
+
+1.Clone the Plugin Repository:
+Add to /etc/pwnagotchi/config.toml:
+        
+
+    main.confd = "/etc/pwnagotchi/conf.d/"
+    main.custom_plugin_repos = [
+    "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+    "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+    "https://github.com/NeonLightning/pwny/archive/master.zip",
+    "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+    "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
+    ]
+    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+
+Update and install:
+
+    sudo pwnagotchi update plugins
+    sudo pwnagotchi install snoopr plugins
+
+Manual Installation (Alternative)
+
+Clone the repo:
+  
+    sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
+    
+    cd pwnagotchi_plugins
+
+ Copy the Plugin File: Place the snoopr.py file into your Pwnagotchi’s custom plugins directory:
+
+    /usr/local/share/pwnagotchi/custom-plugins/
+
+Alternatively, clone it from GitHub:
+
+    sudo scp snoopr.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+
+Enable the Plugin:
+
+Edit the Pwnagotchi configuration file located at /etc/pwnagotchi/config.toml:
+    
+    main.plugins.snoopr.enabled = true
+    main.plugins.snoopr.path = "/root/snoopr"
+    main.plugins.snoopr.ui.enabled = true
+    main.plugins.snoopr.gps.method = "bettercap"          # Uses Bettercap for GPS data. These options will be updated in the future to support other methods.
+    main.plugins.snoopr.movement_threshold = 0.2          # For Wi-Fi snoopers (miles)
+    main.plugins.snoopr.time_threshold_minutes = 5        # For Wi-Fi snoopers (minutes)
+    main.plugins.snoopr.bluetooth_enabled = true          # Enable Bluetooth scanning
+    main.plugins.snoopr.timer = 60                        # Bluetooth scan every 60 seconds
+    main.plugins.snoopr.bluetooth_movement_threshold = 0.1  # For Bluetooth snoopers (miles)
+    main.plugins.snoopr.bluetooth_time_threshold_minutes = 10  # For Bluetooth snoopers (minutes)
+
+
+Restart your Pwnagotchi to load the plugin:
+    
+
+        sudo systemctl restart pwnagotchi
+
+Configuration
+
+You can customize the plugin by adding options under the main.plugins.snoopr section in /etc/pwnagotchi/config.yml. Here are the available options:
+
+    path: Directory where the SQLite database (snoopr.db) is stored.
+        Default: /root/snoopr
+        
+    ui.enabled: Display network and snooper counts on the Pwnagotchi UI.
+        Default: true
+        
+    gps.method: Method to obtain GPS data.
+        Default: bettercap
+        
+    movement_threshold: Minimum distance (in miles) a device must move to be considered a snooper.
+        Default: 0.1
+        
+    time_threshold_minutes: Minimum time interval (in minutes) between detections to check for movement.
+        Default: 5
+        
+    bluetooth_enabled: Enable Bluetooth scanning.
+        Default: false
+        
+    timer: Interval (in seconds) between Bluetooth scans.
+        Default: 45
+
+
+Usage
+
+Once installed, SnoopR integrates seamlessly with your Pwnagotchi. Here’s how to use it:
+
+    Start Pwnagotchi
+    Power up your Pwnagotchi as usual—SnoopR will begin detecting devices automatically.
+    
+    Monitor the UI
+    Check your Pwnagotchi’s display for real-time stats: the number of Wi-Fi networks, Bluetooth devices, and flagged snoopers.
+    Explore the Web Interface
+    
+    Connect to your Pwnagotchi’s network and open a browser to:
+    http://<pwnagotchi-ip>:8080/plugins/snoopr/
+    Here, you’ll find the interactive map and detailed logs of all detections.
+
+Once installed and configured, SnoopR operates automatically:
+
+    Wi-Fi Logging: The plugin logs Wi-Fi access points whenever the Pwnagotchi detects them, provided GPS data is available.
+    
+    Bluetooth Scanning: If bluetooth_enabled is set to true, it scans for Bluetooth devices every timer seconds (e.g., 45 seconds).
+    
+    Snooper Detection: The plugin checks for devices that appear in multiple locations, marking them as snoopers based on the movement_threshold and time_threshold_minutes.
+
+Viewing Logged Networks
+
+To view the networks you've collected:
+
+Access the Web Interface:
+
+Open a web browser on your phone connected through bluetooth tethering and navigate to:
+        
+        http://172.20.10.2:8080/plugins/snoopr/
+
+If you are using a computer:        
+        
+Replace <pwnagotchi-ip> with your Pwnagotchi's IP address (e.g., 10.0.0.2 if connected via USB).
+
+        http://10.0.0.2:8080/plugins/snoopr/
+ 
+        
+The interface shows:
+        
+            A table listing all networks with details like MAC address, type, name, first/last seen times, session count, and snooper status.
+            
+            An interactive map centered on the last known GPS coordinates, with blue markers for regular networks and red markers for snoopers.
+
+Notes
+
+    Database: All data is stored in snoopr.db in the directory specified by path.
+    
+    GPS Dependency: Wi-Fi and Bluetooth logging require GPS data. If GPS is unavailable, logging pauses until coordinates are received.
+    
+    Web Interface Requirements: The map uses Leaflet.js and OpenStreetMap tiles, loaded from the internet. Ensure the device accessing the web interface (e.g., your computer or phone) has an internet connection.
+    
+    Buetooth Setup: If Bluetooth scanning fails, verify that hcitool is installed and Bluetooth is enabled on your Pwnagotchi.
+
+License
+
+This plugin is licensed under the GPL3 license.
+
+Community and Contributions
+
+SnoopR thrives thanks to its community! We’re always improving the plugin with new features and fixes. Want to get involved? Here’s how:
+
+    Contribute: Submit pull requests with enhancements or bug fixes.
+    Report Issues: Found a bug? Let us know on the GitHub Issues page.
+    Suggest Features: Have an idea? Share it with us!
+
+Join the fun and help make SnoopR even better.
+
+Disclaimer
+
+    SnoopR is built for educational and security testing purposes only. Always respect privacy and adhere to local laws when using this plugin. Use responsibly!  
