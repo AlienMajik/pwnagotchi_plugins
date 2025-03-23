@@ -351,17 +351,20 @@ Clone the Plugin Repository:
 Add to /etc/pwnagotchi/config.toml:
         
 
-main.confd = "/etc/pwnagotchi/conf.d/"
-main.custom_plugin_repos = [
-  "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
-  "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
-  "https://github.com/NeonLightning/pwny/archive/master.zip",
-  "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-  "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
-]
-main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+    main.confd = "/etc/pwnagotchi/conf.d/"
+    main.custom_plugin_repos = [
+    "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+    "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+    "https://github.com/NeonLightning/pwny/archive/master.zip",
+    "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+    "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
+    "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
+    "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
+    ]
+    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+
 Update and install:
-bash
+
 
     sudo pwnagotchi update plugins
     sudo pwnagotchi install neurolyzer plugins
@@ -761,7 +764,9 @@ Add to /etc/pwnagotchi/config.toml:
     "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
     "https://github.com/NeonLightning/pwny/archive/master.zip",
     "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-    "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
+    "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
+    "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
+    "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
     ]
     main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
 
