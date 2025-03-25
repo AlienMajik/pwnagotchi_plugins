@@ -367,7 +367,7 @@ Update and install:
 
 
     sudo pwnagotchi update plugins
-    sudo pwnagotchi install neurolyzer plugins
+    sudo pwnagotchi plugins install neurolyzer 
 
 Manual Installation (Alternative)
 
@@ -773,7 +773,7 @@ Add to /etc/pwnagotchi/config.toml:
 Update and install:
 
     sudo pwnagotchi update plugins
-    sudo pwnagotchi install snoopr plugins
+    sudo pwnagotchi plugins install snoopr 
 
 Manual Installation (Alternative)
 
