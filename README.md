@@ -590,7 +590,7 @@ Example config.toml Snippet:
     main.plugins.probenpwn.deauth_attack_delay = 0.75
     main.plugins.probenpwn.dynamic_delay_threshold = -60
     main.plugins.probenpwn.epoch_duration = 60
-    main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
+    
 
 ProbeNpwn logs will up in pwnagotchi.log/pwnagotchi-debug.log as shown:
          
