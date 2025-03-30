@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.1.3'  # Updated to reflect enhancements
+    __version__ = '1.1.4'  # Updated to reflect enhancements
     __license__ = 'GPL3'
     __description__ = (
         'Aggressively capture handshakes by launching immediate associate and deauth attacks '
@@ -59,10 +59,10 @@ class ProbeNpwn(plugins.Plugin):
             logging.warning("Verbose mode disabled, logging level set to WARNING")
 
         self.old_name = config.get("main").get("name", "")
-        self.attacks_x = config.get("main.plugins.probenpwn.attacks_x_coord", 10)
-        self.attacks_y = config.get("main.plugins.probenpwn.attacks_y_coord", 20)
-        self.success_x = config.get("main.plugins.probenpwn.success_x_coord", 10)
-        self.success_y = config.get("main.plugins.probenpwn.success_y_coord", 30)
+        self.attacks_x = config["main"]["plugins"]["probenpwn"].get("attacks_x_coord", 10)
+        self.attacks_y = config["main"]["plugins"]["probenpwn"].get("attacks_y_coord", 20)
+        self.success_x = config["main"]["plugins"]["probenpwn"].get("success_x_coord", 10)
+        self.success_y = config["main"]["plugins"]["probenpwn"].get("success_y_coord", 30)
 
     def on_unload(self, ui):
         """Clean up on unload: restore name, stop watchdog, shutdown thread pool, remove UI elements."""
