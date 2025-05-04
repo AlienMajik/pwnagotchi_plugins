@@ -48,48 +48,48 @@ Personality:
 
 New Enhancements in v3.1.0
 
-More Frequent Titles: Age and strength titles are awarded more often, making progression feel rewarding at every stage. 
+    More Frequent Titles: Age and strength titles are awarded more often, making progression feel rewarding at every stage. 
 
-Context-Aware Dynamic Quotes: Motivational messages respond to your actions, like capturing handshakes or recovering from decay. 
+    Context-Aware Dynamic Quotes: Motivational messages respond to your actions, like capturing handshakes or recovering from decay. 
 
-Progress Bars: A visual bar shows how close you are to the next age title (e.g., [===  ] for 60% progress).  
+    Progress Bars: A visual bar shows how close you are to the next age title (e.g., [===  ] for 60% progress).  
 
-Random Events: Every 100 epochs, there's a 5% chance of events like "Lucky Break" (double points) or "Signal Noise" (half points).  
+    Random Events: Every 100 epochs, there's a 5% chance of events like "Lucky Break" (double points) or "Signal Noise" (half points).  
 
-Handshake Streaks: Capture 5+ consecutive handshakes for a 20% point bonus per handshake.  
+    Handshake Streaks: Capture 5+ consecutive handshakes for a 20% point bonus per handshake.  
 
-Personality Evolution: Your Pwnagotchi’s dominant trait (Aggro, Scholar, Stealth) evolves based on its actions.  
+    Personality Evolution: Your Pwnagotchi’s dominant trait (Aggro, Scholar, Stealth) evolves based on its actions.  
 
-Secret Achievements: Unlock hidden goals like "Night Owl" (10 handshakes between 2-4 AM) or "Crypto King" (capture all encryption types) for bonus points. 
+    Secret Achievements: Unlock hidden goals like "Night Owl" (10 handshakes between 2-4 AM) or "Crypto King" (capture all encryption types) for bonus points. 
 
-UI Optimization: Streamlined to avoid clutter; personality display is optional.  
+    UI Optimization: Streamlined to avoid clutter; personality display is optional.  
 
-Enhanced Data Persistence: Saves streak, personality, and achievement progress.  
+    Enhanced Data Persistence: Saves streak, personality, and achievement progress.  
 
-Thread Safety: Ensures reliable data saving.  
+    Thread Safety: Ensures reliable data saving.  
 
-Improved Logging: Detailed logs for better tracking and debugging.
+    Improved Logging: Detailed logs for better tracking and debugging.
 
 
 Features
 
-Persistent Stats: Age, Strength, Points, and Personality survive reboots.  
+    Persistent Stats: Age, Strength, Points, and Personality survive reboots.  
 
-UI Integration: Stats, progress bars, and messages are displayed on the screen.  
+    UI Integration: Stats, progress bars, and messages are displayed on the screen.  
 
-Points Logging: Handshake events are logged in /root/network_points.log.  
+    Points Logging: Handshake events are logged in /root/network_points.log.  
 
-Decay Mechanism: Points decay after inactivity to encourage regular use.  
+    Decay Mechanism: Points decay after inactivity to encourage regular use.  
 
-Dynamic Status Messages: Context-aware quotes and inactivity alerts.  
+    Dynamic Status Messages: Context-aware quotes and inactivity alerts.  
 
-Personality Evolution: Develops based on actions; display optional.  
+    Personality Evolution: Develops based on actions; display optional.  
 
-Secret Achievements: Hidden goals for bonus points.  
+    Secret Achievements: Hidden goals for bonus points.  
 
-Random Events: Periodic events that spice up gameplay. 
+    Random Events: Periodic events that spice up gameplay. 
 
-Handshake Streaks: Bonus points for consecutive captures.
+    Handshake Streaks: Bonus points for consecutive captures.
 
 
 Installation Instructions
