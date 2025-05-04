@@ -1,150 +1,174 @@
-# pwnagotchi_plugins
-
-Age.py:
-Age, Strength, Network Points, and Stars Plugin for Pwnagotchi v2.0.2
-
+Age.py Plugin for Pwnagotchi v3.1.0
 Author: AlienMajik
-Version: 2.0.2
-Description: Enhanced plugin with achievement tiers, configurable titles, decay mechanics, progress tracking, and dynamic status messages.
+Version: 3.1.0
+
+Description: 
+          
+    An enhanced plugin with frequent titles, dynamic quotes, progress bars, random events, handshake streaks, personality evolution, and secret achievements. The UI is optimized to avoid clutter, ensuring a     clean and engaging experience.
+
 Key Stats:
 
-    Age (♥ Age): Tracks how many epochs your Pwnagotchi has lived, now without any reliance on the AI brain.
-    Strength (Str): Reflects how much your Pwnagotchi has "trained," increasing every 10 epochs.
-    Network Points (★ Pts): Earn points by capturing handshakes, with the number of points determined by the encryption strength of the networks encountered:
-        WPA3: +10 points
-        WPA2: +5 points
-        WEP/WPA: +2 points
-        Open/Unknown: +1 point
+    The plugin tracks four primary statistics that reflect your Pwnagotchi’s journey:
+
+Age (♥ Age):  
+
+    Tracks the number of epochs your Pwnagotchi has lived.  
+    Earns frequent titles like "Baby Steps" (100 epochs), "Getting the Hang of It" (500 epochs), "Neon Spawn" (1,000 epochs), and more.
+
+
+Strength (Str):  
+
+    Reflects training progress, increasing by 1 every 10 epochs.  
+    Titles include "Sparring Novice" (100 train epochs), "Gear Tickler" (300 train epochs), "Fleshbag" (500 train epochs), and beyond.
+
+
+Network Points (★ Pts):  
+
+    Earn points by capturing handshakes, with values based on encryption strength:  
+    WPA3: +10 points  
+    WPA2: +5 points  
+    WEP/WPA: +2 points  
+    Open/Unknown: +1 point
+
+    Points decay if the Pwnagotchi is inactive for too long.
+
+
+Personality:  
+
+    Develops based on actions:  
     
-Stars (GTA-Style) with Tiered Symbols: Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
-       
-        0–4,999 handshakes: Stars appear as ★.
-        5,000–9,999 handshakes: Stars appear as ♦.
-        10,000+ handshakes: Stars appear as ♣.
+    Aggro: Increases with each handshake.  
+    Scholar: Increases every 10 epochs.  
+    Stealth: Reserved for future use.
 
-This provides a fun, evolving visual progression as your handshake count climbs. The plugin also counts existing handshakes in /root/handshakes, so you never start from zero!
-New Enhancements in v2.0.2:
+    Displayed on the UI if enabled.
 
-    Dynamic Status Messages:
-        Motivational Quotes: Displayed when the user levels up in age or strength (e.g., "You're a WiFi wizard in the making!").
-        Inactivity Messages: Shown when the agent undergoes decay due to inactivity (e.g., "Time to wake up, you're rusting!").
-        These dynamic messages are randomly chosen and help keep the user engaged, providing a personalized experience as they reach milestones or experience inactivity.
 
-    Improved Age and Strength Titles:
-        The titles for both age and strength have been revised to be more interesting and engaging:
-            Age Titles: "Neon Spawn," "WiFi Outlaw," "Data Raider," etc.
-            Strength Titles: "Fleshbag," "Deauth King," "Handshake Hunter," etc.
-        These titles make the progression more varied and fun, allowing users to see their growth in a more exciting way.
 
-    Updated UI:
-        The UI now includes a section showing users their current stats, including Age, Strength, Network Points, and Stars, as well as dynamic updates reflecting achievements or decay status.
 
-    Updated Logging and Milestones:
-        The logging system has been maintained and now includes milestone tracking for key intervals (e.g., every 100 epochs).
-        Milestones trigger UI updates with faces and messages to keep the agent engaged as they reach new achievements.
+New Enhancements in v3.1.0
 
-New Enhancements in v2.0.3:
+More Frequent Titles: Age and strength titles are awarded more often, making progression feel rewarding at every stage. 
 
-    Documented Training Logic:
-        In on_epoch, a comment explains why train_epochs increments every 10 epochs: # Increment train_epochs every 10 epochs to simulate slower training progress.
+Context-Aware Dynamic Quotes: Motivational messages respond to your actions, like capturing handshakes or recovering from decay. 
 
-    Enhanced File I/O Safety:
-        In on_handshake, handshake logging is wrapped in a try-except block to handle file writing errors gracefully.
+Progress Bars: A visual bar shows how close you are to the next age title (e.g., [===  ] for 60% progress).  
 
-    Refined Decay Mechanics:
-        In apply_decay, decay calculation uses floating-point division for smoother, more proportional point reduction.
+Random Events: Every 100 epochs, there's a 5% chance of events like "Lucky Break" (double points) or "Signal Noise" (half points).  
 
-    Increased Logging:
-        Added debug and info logs for better transparency:
+Handshake Streaks: Capture 5+ consecutive handshakes for a 20% point bonus per handshake.  
 
-        on_epoch: Logs epoch number and points (logging.debug).
-        check_achievements: Logs new titles (logging.info).
-        apply_decay: Logs points lost due to decay (logging.info).
-        on_handshake: Logs captured handshake details (logging.info).
+Personality Evolution: Your Pwnagotchi’s dominant trait (Aggro, Scholar, Stealth) evolves based on its actions.  
 
-    Thread Safety:  
-        Imported threading and added a data_lock in __init__. Used in save_data to ensure thread-safe file writing.
+Secret Achievements: Unlock hidden goals like "Night Owl" (10 handshakes between 2-4 AM) or "Crypto King" (capture all encryption types) for bonus points. 
 
-    Accurate Achievement Notifications: 
-        Tracks previous titles and stars to ensure new achievements are detected and announced correctly.
-        
-    Robust Handshake Handling: 
-        Adds type checking and error logging to prevent crashes from unexpected data, making the plugin more stable.
-        
-    Seamless New Installations: 
-        Fully initializes all attributes when starting fresh, improving reliability for new users.
-        
-    Persistent Progress: 
-        Saves achievement states to the data file, maintaining continuity across sessions.
-    
-Features:
+UI Optimization: Streamlined to avoid clutter; personality display is optional.  
 
-    Persistent Stats: Age, Strength, Points, and Stars survive reboots, ensuring no progress is lost.
-    UI Integration: Stats, progress, and decay messages are displayed directly on the Pwnagotchi screen.
-    Points Logging: Every points increment is logged in /root/network_points.log along with network details.
-    Star System:
-        Every 1000 handshakes grants one additional star, up to a maximum of 5 stars.
-        0–4,999 handshakes: Stars appear as ★.
-        5,000–9,999 handshakes: Stars appear as ♦.
-        10,000+ handshakes: Stars appear as ♣.
-    Decay Mechanism: Inactivity causes points decay after a specified number of epochs.
-    Dynamic Status Messages: Motivational quotes and inactivity messages keep users engaged.
+Enhanced Data Persistence: Saves streak, personality, and achievement progress.  
 
-Installation Instructions:
+Thread Safety: Ensures reliable data saving.  
 
- Copy the Plugin File: Place the age.py file into your Pwnagotchi’s custom plugins directory:
+Improved Logging: Detailed logs for better tracking and debugging.
 
-    /usr/local/share/pwnagotchi/custom-plugins/
 
-Alternatively, clone it from GitHub:
+Features
 
+Persistent Stats: Age, Strength, Points, and Personality survive reboots.  
+
+UI Integration: Stats, progress bars, and messages are displayed on the screen.  
+
+Points Logging: Handshake events are logged in /root/network_points.log.  
+
+Decay Mechanism: Points decay after inactivity to encourage regular use.  
+
+Dynamic Status Messages: Context-aware quotes and inactivity alerts.  
+
+Personality Evolution: Develops based on actions; display optional.  
+
+Secret Achievements: Hidden goals for bonus points.  
+
+Random Events: Periodic events that spice up gameplay. 
+
+Handshake Streaks: Bonus points for consecutive captures.
+
+
+Installation Instructions
+
+Copy the Plugin File  
+
+Place age.py in /usr/local/share/pwnagotchi/custom-plugins/. 
+
+Or use SCP:  
+      
     sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
 
-Update config.toml: Add the following lines to your /etc/pwnagotchi/config.toml:
+
+
+
+Update config.toml  
+
+Add to /etc/pwnagotchi/config.toml: 
 
     main.plugins.age.enabled = true
-    main.plugins.age.age_x_coord = 101
-    main.plugins.age.age_y_coord = 80
-    main.plugins.age.str_x_coord = 160
-    main.plugins.age.str_y_coord = 80
+    main.plugins.age.age_x = 10
+    main.plugins.age.age_y = 40
+    main.plugins.age.strength_x = 80
+    main.plugins.age.strength_y = 40
+    main.plugins.age.points_x = 10
+    main.plugins.age.points_y = 60
+    main.plugins.age.progress_x = 10
+    main.plugins.age.progress_y = 80
+    main.plugins.age.personality_x = 10
+    main.plugins.age.personality_y = 100
+    main.plugins.age.show_personality = true
     main.plugins.age.decay_interval = 50
-    main.plugins.age.decay_amount = 5
-    main.plugins.age.points_x_coord = 10
-    main.plugins.age.points_y_coord = 100
-    main.plugins.age.stars_x_coord = 10
-    main.plugins.age.stars_y_coord = 120
-    main.plugins.age.max_stars = 5
-    main.plugins.age.star_interval = 1000
+    main.plugins.age.decay_amount = 10
 
-Restart Pwnagotchi: After adding the plugin and configuring it, restart your Pwnagotchi:
+
+
+
+Restart Pwnagotchi  
+
+Apply changes with:  
 
     sudo systemctl restart pwnagotchi
 
-Usage:
-
-    As your Pwnagotchi runs, watch the Age, Strength, and Network Points stats increase.
-    Handshakes are captured to update the Points stat based on network encryption:
-        WPA3: +10 pts
-        WPA2: +5 pts
-        WEP/WPA: +2 pts
-        Open/Unknown: +1 pt
-    Every 1000 handshakes grants an additional star, showing off your Pwnagotchi’s “rep.”
-    Decay: Inactivity causes points decay after a specified number of epochs, tracked by the plugin.
-
-Logs and Data:
-
-    Stats Data: /root/age_strength.json
-    Contains epochs lived, training epochs, total network points, handshake count, and decay progress.
-
-    Points Log: /root/network_points.log
-    Each handshake event granting points is recorded here with ESSID, encryption, points gained, and total points.
-
-Support & Contributions:
-
-Feel free to open issues or pull requests to improve this plugin or suggest new features. Enjoy leveling up your Pwnagotchi’s stats!
 
 
 
+
+
+Usage
+
+Monitor Stats: Watch Age, Strength, and Points increase on the screen. 
+
+Capture Handshakes: Earn points and build streaks for bonuses.  
+
+Track Progress: See how close you are to the next age title with the progress bar. 
+
+Experience Events: Encounter random events that affect point earnings. 
+
+Develop Personality: Your Pwnagotchi’s actions shape its dominant trait. 
+
+Unlock Achievements: Discover secret goals for extra points.  
+
+Avoid Decay: Stay active to prevent point loss from inactivity.
+
+
+Logs and Data
+
+Stats Data: /root/age_strength.json  
+Stores epochs, train_epochs, points, handshakes, personality, and more.
+
+
+Points Log: /root/network_points.log  
+Records each handshake with timestamp, ESSID, encryption, and points.
+
+
+
+
+Support & Contributions
+Feel free to open issues or pull requests to improve this plugin or suggest new features. Enjoy leveling up your Pwnagotchi!
 
 
 ADSBsniffer.py:
