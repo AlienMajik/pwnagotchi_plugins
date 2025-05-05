@@ -932,6 +932,7 @@ Bluetooth: http://172.20.10.2:8080/plugins/snoopr/
 Explore the Interface  
 
 Table: Lists all detected networks with sorting (by "Device Type" or "Snooper") and filtering ("All Networks," "Snoopers," or "Bluetooth Networks").
+
 Map: Shows device locations—click a network in the table to pan the Leaflet.js map to its marker (blue for regular, red for snoopers) with popups showing details.
 Scroll Buttons: "Scroll to Top" and "Scroll to Bottom" for easy navigation of long lists.
 
@@ -941,10 +942,15 @@ Scroll Buttons: "Scroll to Top" and "Scroll to Bottom" for easy navigation of lo
 Notes
 
 Database: All data is stored in snoopr.db in the directory specified by path.
+
 Data Pruning: Detection records older than prune_days are automatically deleted to manage database size.
+
 GPS Dependency: Logging requires GPS data. If unavailable (latitude/longitude = "-"), a warning is logged, and Bluetooth scans are skipped.
+
 Web Interface Requirements: The viewing device needs internet to load Leaflet.js and OpenStreetMap tiles.
+
 Bluetooth Troubleshooting: If scanning fails, ensure hcitool is installed and Bluetooth is enabled (sudo hciconfig hci0 up).
+
 Logging: Improved logging for GPS and Bluetooth issues (e.g., [SnoopR] Error running hcitool: <error>), aiding in debugging.
 
 
