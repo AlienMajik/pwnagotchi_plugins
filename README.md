@@ -965,3 +965,251 @@ Join the fun and help make SnoopR even better.
 
 Disclaimer
 SnoopR is built for educational and security testing purposes only. Always respect privacy and adhere to local laws when using this plugin. Use responsibly!
+
+
+
+
+
+
+
+SkyHigh Plugin for Pwnagotchi
+
+SkyHigh is a custom plugin for Pwnagotchi that enables you to track nearby aircraft using the OpenSky Network API. It displays the number of detected aircraft on your Pwnagotchi’s screen and provides a detailed map view via a webhook, featuring aircraft types, DB flags, and distinct icons for airplanes and helicopters. The plugin also includes a pruning feature to keep the log clean by removing outdated aircraft data.
+
+
+
+Why It Works
+
+
+
+
+
+    API Integration: SkyHigh uses the OpenSky Network API to fetch real-time aircraft data within a configurable radius of your Pwnagotchi’s GPS coordinates (or static coordinates if GPS isn’t available). This ensures accurate and current information 
+    about aircraft in your area.
+
+
+
+    Dynamic GPS Support: With a GPS adapter connected to BetterCAP, SkyHigh uses real-time coordinates for precise tracking. Without GPS, it relies on default coordinates set in the configuration.
+
+
+
+    Efficient Data Management: A pruning mechanism removes aircraft data older than a specified time (default: 10 minutes), keeping the log file lightweight and relevant.
+
+
+
+    Visual Feedback: The plugin updates the Pwnagotchi screen with the aircraft count and provides a webhook with a map and table, enhancing the user experience with clear visuals and detailed data.
+
+
+
+How It Works
+
+
+
+
+
+    Data Fetching: The plugin queries the OpenSky API every 60 seconds (configurable) to retrieve aircraft data within the specified radius of your coordinates.
+
+
+
+    Metadata Enrichment: For each aircraft, it fetches additional details like the model, origin country, and DB flags using the aircraft’s ICAO24 code.
+
+
+
+    Pruning: Aircraft not seen within the prune_minutes interval are removed from the log to maintain efficiency.
+
+
+
+    UI Display: The Pwnagotchi screen shows the number of detected aircraft, refreshed periodically.
+
+
+
+    Webhook Map: The webhook (/plugins/skyhigh/) renders a table and interactive map with aircraft details, including scrollable navigation.
+
+
+
+Installation and Usage
+
+Prerequisites:
+
+    A Pwnagotchi device with internet access.
+
+    GPS Adapter: For dynamic tracking, simply connect a GPS adapter to your Pwnagotchi and configure it with BetterCAP. The plugin will use real-time coordinates if available, falling back to static ones otherwise.
+
+
+
+(Optional) A GPS module for dynamic coordinate tracking.
+
+Step-by-Step Installation:
+
+You can install SkyHigh in two ways: the easy way (recommended) or the manual way. Here’s how:
+
+Easy Way (Recommended)
+
+Update Your Config FileEdit /etc/pwnagotchi/config.toml and add the following lines to enable custom plugin repositories:
+
+    main.confd = "/etc/pwnagotchi/conf.d/"
+    main.custom_plugin_repos = [
+    "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+    "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+    "https://github.com/NeonLightning/pwny/archive/master.zip",
+    "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+    "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
+    "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
+    "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
+    ]
+    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+
+
+Install the PluginRun these commands to update the plugin list and install SnoopR:
+
+    sudo pwnagotchi update plugins
+    
+    sudo pwnagotchi plugins install skyhigh
+
+
+
+That’s it! You’re ready to configure SnoopR.
+
+Manual Way (Alternative)
+If you prefer a hands-on approach:
+
+Clone the SkyHigh plugin repo from GitHub:
+
+    sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
+    
+    cd pwnagotchi_plugins
+
+
+Copy the Plugin FileMove snoopr.py to your Pwnagotchi’s custom plugins directory:
+
+    sudo cp skyhigh.py /usr/local/share/pwnagotchi/custom-plugins/
+
+Alternatively, if you’re working from a computer, use SCP:
+
+    sudo scp skyhigh.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+
+
+Configure the Plugin:
+
+Edit your config.toml file (typically located at /etc/pwnagotchi/config.toml) and add the following section:
+
+
+    main.plugins.skyhigh.enabled = true
+    main.plugins.skyhigh.timer  = 60  # Fetch data every 60 seconds
+    main.plugins.skyhigh.aircraft_file = "/root/handshakes/skyhigh_aircraft.json"
+    main.plugins.skyhigh.adsb_x_coord = 160  # Screen X position
+    main.plugins.skyhigh.adsb_y_coord = 80   # Screen Y position
+    main.plugins.skyhigh.latitude = -66.273334  # Default latitude
+    main.plugins.skyhigh.longitude = 100.984166  # Default longitude
+    main.plugins.skyhigh.radius = 50  # Radius in miles
+    main.plugins.skyhigh.prune_minutes = 10  # Prune data older than 10 minutes
+
+
+
+Enable GPS (Optional):
+
+If you have a GPS adapter, connect it to your Pwnagotchi with gps plugin and configure it in config.toml with BetterCAP:
+
+    main.plugins.gps.enabled = true
+    main.plugins.gps.device = "/dev/ttyUSB0"  # Adjust to your GPS device path
+
+
+
+Restart Pwnagotchi with:
+
+    pwnkill
+
+Or:
+
+    Rebooting the pwnagotchi
+
+    
+Usage
+
+On-Screen Display: The Pwnagotchi screen will show the number of detected aircraft, updating every minute (or as configured).
+
+
+
+Webhook Access:
+
+
+    1.Open a browser and go to http://<pwnagotchi-ip>/plugins/skyhigh/ to view a detailed map and table of aircraft data.
+
+    2.From pwnagotchi plugins page you can just click on skyhigh plugin to open it as well
+
+The map uses distinct icons for helicopters and airplanes, with popups showing callsign, type, and altitude.
+
+
+
+Configuration Options
+
+
+
+
+
+timer: Interval in seconds for fetching data (default: 60).
+
+
+
+aircraft_file: Path to store aircraft data (default: /root/handshakes/skyhigh_aircraft.json).
+
+
+
+adsb_x_coord and adsb_y_coord: Screen coordinates for the aircraft count display.
+
+
+
+latitude and longitude: Default coordinates if GPS is unavailable.
+
+
+
+radius: Search radius in miles for aircraft data.
+
+
+
+prune_minutes: Time in minutes after which old data is pruned (default: 10). Set to 0 to disable pruning.
+
+
+
+Known Issues and Solutions
+
+
+
+
+
+Transient Network Errors: The SkyHigh plugin may encounter a temporary error that causes it to stop working for 1–2 minutes before resuming automatically. This issue appears to be related to a network connectivity problem when fetching data from the OpenSky Network API.
+
+
+
+
+
+Description: The plugin logs an error like [SkyHigh] Error fetching data from API: <error details> but recovers on the next fetch cycle.
+
+
+
+Solution: No action is needed; the plugin is designed to handle these transient errors gracefully and resumes operation automatically. If persistent, check your internet connection.
+
+
+
+Why You’ll Love It
+
+
+
+
+
+Real-Time Awareness: Track aircraft activity around you as it happens.
+
+
+
+Flexible Configuration: Customize the radius, update interval, and pruning to fit your preferences.
+
+
+
+Interactive Map: The webhook’s visual interface makes it easy to explore aircraft details.
+
+Take your Pwnagotchi to the skies with SkyHigh! ✈️
+
+This plugin fetches nearby aircraft data using the OpenSky Network API.
+
+Acknowledgment: Aircraft data is provided by the OpenSky Network.
+Disclaimer: This plugin is not affiliated with OpenSky Network. Data is used in accordance with their API terms.
