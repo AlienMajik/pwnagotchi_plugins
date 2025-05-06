@@ -468,9 +468,9 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 
 
 
-🚀 ProbeNpwn Plugin v1.3.0 - Pwnagotchi 🚀
+ProbeNpwn Plugin v1.3.0
 
-The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥 This updated version (1.3.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, and more. If you’ve used Instattack, you’ll love ProbeNpwn—it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
+The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! This updated version (1.3.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, and more. If you’ve used Instattack, you’ll love ProbeNpwn it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
 
 
 
@@ -527,11 +527,11 @@ Choose between two modes:
 
 
 
-Tactical Mode: Strategic and efficient, focusing on high-value targets.
+    Tactical Mode: Strategic and efficient, focusing on high-value targets.
 
 
 
-Maniac Mode: Unrestricted and aggressive, attacking all targets rapidly.
+    Maniac Mode: Unrestricted and aggressive, attacking all targets rapidly.
 
 
 
@@ -720,7 +720,7 @@ Reliability: Ensures only usable handshakes are counted.
 
 
 What’s New:
-Adjusts the number of concurrent attack threads based on CPU and memory usage.
+Adjusts the number of concurrent attack threads based on CPU and memory usage using psutil.
 
 
 
@@ -730,11 +730,11 @@ How It Works:
 
 
 
-Monitors system load with psutil.
+Monitors system load with psutil.cpu_percent() and psutil.virtual_memory().percent.
 
 
 
-Reduces threads (e.g., from 50 to 10) if usage exceeds thresholds (50% or 80%).
+Scales threads (e.g., from 50 to 10) if usage exceeds thresholds (50% or 80%).
 
 
 
@@ -749,6 +749,15 @@ Stability: Prevents crashes or slowdowns, especially in Maniac Mode.
 
 
 Adaptability: Works across different hardware or load conditions.
+
+
+
+Note: psutil is a cross-platform library for retrieving system information. It’s used here to monitor CPU and memory usage, allowing ProbeNpwn to dynamically adjust its concurrency and keep your Pwnagotchi stable during intense operations. If not already installed, you can add it with:
+
+
+    sudo apt-get install python3-psutil
+
+
 
 7. Additional Attack Vector: Fake Authentication Flood 💣
 
@@ -820,112 +829,104 @@ Motivation: See your success instantly.
 
 Why You’ll Love It
 
-ProbeNpwn v1.3.0 is a smarter, more relentless handshake-capturing tool. It adapts in real-time with:
+ProbeNpwn v1.3.0 is your handshake-capturing Swiss Army knife:
 
 
 
 
 
-Dual Modes: Choose between precision (Tactical) or chaos (Maniac).
+Smart & Aggressive: Tactical for strategy, Maniac for mayhem.
 
 
 
-Intelligent Targeting: Client scoring and channel hopping focus on the best opportunities.
+Efficient: Scoring and concurrency optimize every attack.
 
 
 
-Resource Efficiency: Dynamic concurrency and deduplication keep your Pwnagotchi stable.
+Relentless: Retries and floods leave no handshake behind.
 
 
 
-Persistent Attacks: Retries and additional vectors ensure no target escapes easily.
+Stable: Keeps your Pwnagotchi happy under pressure.
 
-Built on the stellar foundation of Instattack by Sniffleupagus, ProbeNpwn v1.3.0 takes handshake capturing to the next level. A massive shoutout to Sniffleupagus for the groundwork—thank you! 🙏
+Big props to Sniffleupagus for the original Instattack—this builds on that legacy! 🙏
 
 
 
-How to Use ProbeNpwn v1.3.0
-
-1. Installation
-
+How to Get Started
 
 
 
 
-Copy the plugin to your Pwnagotchi’s plugins directory and ensure it’s enabled.
 
-2. Configuration (config.toml)
+Install the Plugin:
 
-Update your config.toml to take full advantage of the new features:
 
-# Enable the plugin
+
+
+
+Copy probenpwn.py to your Pwnagotchi’s plugins folder.
+
+
+
+Install psutil (if not already installed):
+
+
+
+
+
+Run:
+
+    sudo apt-get install python3-psutil
+
+
+
+Why: psutil enables dynamic thread scaling based on system resources, keeping your Pwnagotchi stable during intense operations.
+
+
+
+Edit config.toml:
+
     main.plugins.probenpwn.enabled = true
-
-# Choose mode: "tactical" or "maniac"
-    main.plugins.probenpwn.mode = "tactical"
-
-# UI coordinates for stats
+    main.plugins.probenpwn.mode = "tactical"  # or "maniac"
     main.plugins.probenpwn.attacks_x_coord = 110
     main.plugins.probenpwn.attacks_y_coord = 20
     main.plugins.probenpwn.success_x_coord = 110
     main.plugins.probenpwn.success_y_coord = 30
     main.plugins.probenpwn.handshakes_x_coord = 110
-    main.plugins.probenpwn.handshakes_y_coord = 40
-
-# Enable verbose logging (recommended for troubleshooting)
-    
-    main.plugins.probenpwn.verbose = true
+    main.plugins.probenpwn.handshakes_y_coord = 40      
+    main.plugins.probenpwn.verbose = true  # For detailed logs
 
 
 
-
-
-Whitelist: Add networks or MACs to Pwnagotchi’s global whitelist in /etc/pwnagotchi/config.toml (e.g., main.whitelist = ["TrustedNetwork", "00:11:22:33:44:55"]).
-
-3. Run It
+Whitelist (Optional):
 
 
 
 
 
-Restart Pwnagotchi with: 
+Add safe networks/MACs to /etc/pwnagotchi/config.toml under main.whitelist.
+
+
+
+Restart & Monitor:
+
+
 
     sudo systemctl restart pwnagotchi
 
-Or:
-
-    pwnkill
 
 
 
-Monitor logs for activity:
 
-[INFO] [Thread-27] : Attacking AP xx:xx:xx:xx:xx:xx (client: yy:yy:yy:yy:yy:yy)
-[INFO] [Thread-11] : Captured handshake from Hidden (xx:xx:xx:xx:xx:xx)
-
-
-
-Update Summary
+Pro Tip 💡
 
 
 
 
 
-Intelligence: Client scoring and ML-inspired channel hopping make targeting smarter.
+Use Tactical Mode for efficiency, but switch to Maniac Mode in crowded areas for a handshake bonanza. Just keep an eye on your device’s temperature!
 
-
-
-Efficiency: Tactical Mode, dynamic concurrency, and deduplication optimize resources.
-
-
-
-Aggression: Maniac Mode and fake authentication floods maximize attack potential.
-
-
-
-Reliability: Retries, quality checks, and resource management ensure robust performance.
-
-ProbeNpwn v1.3.0 is a game-changer for handshake capturing—configure it, choose your mode, and let it dominate! 🚀
 
 
 
