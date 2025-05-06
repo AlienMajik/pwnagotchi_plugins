@@ -468,281 +468,470 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 
 
 
-🚀 Probenpwn Plugin - Pwnagotchi! 🚀
+🚀 ProbeNpwn Plugin v1.3.0 - Pwnagotchi 🚀
 
-The Probenpwn Plugin is a more aggressive and enhanced version of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥
-his updated version (2.0.0) brings a host of new features, including richer data collection, smarter snooper detection, whitelisting, automatic data pruning, and an improved web interface.
-If you’ve used Instattack, you’ll love Probenpwn — it combines deauthentication and association attacks in one powerful tool, designed to help you capture handshakes faster and more efficiently. With the latest updates, it now features dynamic attack tuning, randomization, watchdog recovery, performance stats, and more!
+The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! 🔥 This updated version (1.3.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, and more. If you’ve used Instattack, you’ll love ProbeNpwn—it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
+
+
+
 Key Features:
 
-Efficient Deauthentication & Association Attacks:
-
-    Launch attacks simultaneously to capture more handshakes in less time.
-    Dynamic attack delay ensures you hit stronger signals faster, while giving weaker signals more time to reconnect.
-
-Concurrent Attack Threads:
-
-    Start multiple attacks simultaneously using separate threads, enabling you to handle several networks and clients at once. Simultaneous pwnage is now within reach! 💻💥
-
-Customizable Settings:
-
-    Control whether you use deauth or focus solely on association attacks via the config.toml.
-    
-    Whitelist networks or clients to exclude them from attacks.
-
-Capture More Handshakes:
-
-    Aggressive attack methods ensure devices reconnect faster, helping you capture more handshakes.
-
-Comprehensive Logging:
-
-    Track every attack and handshake capture with detailed logs, giving you visibility into what’s working.
-
-Lightweight and Easy to Use:
-
-    Fully integrated with Pwnagotchi for seamless operation in your existing setup.
-
-What's New in Probenpwn 1.1.2:
-
-New Features & Enhancements:
-
-Performance Stats and Feedback Loop:
-
-    self.performance_stats: This new dictionary tracks the performance of each AP, including success and failure rates, as well as the number of attempts. This enables dynamic adjustments based on the performance of attacks against specific APs.
-    
-    self.total_handshakes & self.failed_handshakes: These new counters track the total number of successful and failed handshakes across all APs, contributing to overall performance monitoring.
-    
-    Dynamic Adjustments: The new adjust_attack_parameters method adjusts the aggressiveness of the attack based on the success rate:
-    
-        If the success rate is low (below 20%), the attack becomes more aggressive.
-        
-        If the success rate is high (above 80%), the attack aggressiveness is reduced.
-        
-        For moderate success rates, the current tactics are maintained.
-        
-    Logging Success/Failure Rates: After each handshake is captured, the success and failure rates for each AP are logged. This adds valuable insight into how effectively the plugin is working against different APs.
-      
-Expanded Watchdog Functionality:
-
-    New Log Check: The watchdog now not only checks for the wlan0mon interface but also monitors the logs for the error wifi.interface not set or not found. If this error occurs, the plugin attempts to restart the Pwnagotchi service. This makes the watchdog more robust by addressing multiple failure scenarios.
-    
-    Logging Improvements: When restarting the service or encountering an error, the plugin logs additional context, such as a success message after restarting the service or the error message if the restart fails.
-
-More Aggressive Attack Tuning:
-
-    The attack_target method now includes a call to adjust_attack_parameters, which fine-tunes the attack aggressiveness based on the success rate of prior attacks. This allows the plugin to adapt its strategy in real-time based on observed performance, making it more efficient over time.
-    
-    Increased Attack Frequency: For APs with low success rates, the plugin increases the number of attack attempts to try and improve the chances of a successful handshake capture.
-
-Expanded Feedback Loop in Handshake Detection:
-
-    The on_handshake method now calculates and logs the handshake success rate (percentage of successful handshakes over total attack attempts) for each AP. This provides better visibility into how effective the attack is and helps inform the dynamic adjustments made by the plugin.
-
-General Improvements:
-
-    Code Robustness: Additional error handling and logging for potential issues that may arise during the execution of the plugin, especially in the watchdog and during the attack execution process.
-    
-    Logging Clarity: Improved logging throughout, providing more detailed feedback for debugging and monitoring the plugin's behavior in various situations.
-
-    def load_whitelist: Now loads the whitelist from Pwnagotchi's global config.
-    
-Summary of What’s Better:
-
-    Dynamic Attack Strategy: The plugin now adjusts the aggressiveness of its attacks based on real-time performance, leading to better handling of different APs and more successful attacks.
-    
-    Enhanced Logging and Feedback: The plugin logs success and failure rates for handshakes, providing clear insight into its effectiveness. The added performance stats help in tuning attack strategies over time.
-    
-    Improved Robustness: The watchdog is more resilient, with checks for additional errors (e.g., missing wifi.interface) and the ability to restart the service when necessary.
-    
-    Adaptability: By adjusting the attack parameters based on success rates, the plugin can adapt its behavior, making it more intelligent and resource-efficient.
-
-Summary:
-
-The Probenpwn plugin gives you full control over your Wi-Fi attack strategies, allowing you to:
-
-    Enable or disable the plugin as needed.
-    
-    Dynamically adjust attack timing based on client signal strength.
-    
-    Launch simultaneous attacks using multi-threading.
-    
-    Whitelist specific networks or devices to avoid unintended targeting.
-    
-    Customize attack timing and cleanup frequency via epoch duration.
-    
-    Leverage your Pwnagotchi personality settings to fine-tune attack behavior.
-
-Full Control Over Attack Strategies:
-
-With Probenpwn, you have more control than ever over the attack process. The following parameters in your config.toml file give you full flexibility:
-Enabling/Disabling the Plugin:
-
-To enable or disable Probenpwn, modify the [main.plugins.probenpwn] section:
-
-    main.plugins.probenpwn.enabled = true
-
-Attack Timing and Delays:
-
-Probenpwn adjusts attack delay dynamically:
-
-    main.plugins.probenpwn.associate_attack_delay = 0.2    # Base delay for association attacks
-    main.plugins.probenpwn.deauth_attack_delay = 0.75      # Base delay for deauthentication attacks
-    main.plugins.probenpwn.dynamic_delay_threshold = -60   # Signal threshold for dynamic delay adjustment
-
-
-Target Whitelisting:
-New 1.1.2 Update Now uses /etc/pwnagotchi/config.toml whitelist no need to use this anymore: 
-Exempt specific networks or clients from attacks:
-
-
-    main.plugins.probenpwn.whitelist = ["00:11:22:33:44:55", "TrustedNetwork"]
-
-
-Epoch Duration and Recent Tracking:
-
-Control how long attack records are retained before being automatically removed:
-
-  
-    main.plugins.probenpwn.epoch_duration = 60  # Default value in seconds
 
 
 
-Example config.toml Snippet:
 
-    main.plugins.probenpwn.enabled = true
-    main.plugins.probenpwn.associate_attack_delay = 0.2
-    main.plugins.probenpwn.deauth_attack_delay = 0.75
-    main.plugins.probenpwn.dynamic_delay_threshold = -60
-    main.plugins.probenpwn.epoch_duration = 60
-    
-
-ProbeNpwn logs will up in pwnagotchi.log/pwnagotchi-debug.log as shown:
-         
-    [INFO] [Thread-11] : Probed and Pwnd!
-    
-    [INFO] [Thread-27 (attack_target)] : sending association frame to  (xx:xx:xx:xx:xx:xx) on channel 4 [0 clients], -60 dBm...
-    
-    [INFO] [Thread-11] : Captured handshake from Hidden (xx:xx:xx:xx:xx:xx) -> 'Unknown Client' (xx:xx:xx:xx:xx:xx)()
-    
-    [INFO] [Thread-27 (attack_target)] : Low success rate (0.00%) on AP xx:xx:xx:xx:xx:xx. Making attack more aggressive.
-    
-    [INFO] [Thread-272 (attack_target)] : High success rate (100.00%) on AP xx:xx:xx:xx:xx:xx. Reducing attack aggressiveness.
-
-Update Summary:
-
-    Dynamic Attack Strategy: The plugin now adjusts the aggressiveness of its attacks based on real-time performance, leading to better handling of different APs and more successful attacks.
-    
-    Enhanced Logging and Feedback: The plugin logs success and failure rates for handshakes, providing clear insight into its effectiveness. The added performance stats help in tuning attack strategies over time.
-    
-    Improved Robustness: The watchdog is more resilient, with checks for additional errors (e.g., missing wifi.interface) and the ability to restart the service when necessary.
-    
-    Adaptability: By adjusting the attack parameters based on success rates, the plugin can adapt its behavior, making it more intelligent and resource-efficient.
+    Efficient Deauthentication & Association Attacks:
+    Launch both simultaneously to force devices to reconnect quickly, maximizing handshake captures.
 
 
-What’s New in ProbeNpwn v1.1.3?
 
-We’ve packed five major enhancements into this release, making ProbeNpwn more effective and stable. Here’s what’s new:
-    
-1. Minimized Attack Delays ⏱️
+    Concurrent Attack Threads:
+    Handle multiple networks and clients at once with multi-threading for efficient, parallel attacks.
 
-       What’s Changed: We’ve slashed attack delays to 0.1 seconds for strong signals (≥ -60 dBm) and 0.2 seconds for weaker ones.
-       Why It’s Better: Faster attacks mean more attempts in less time, boosting your chances of capturing handshakes—especially in busy or fast-moving environments.
 
-2. Retry Mechanism for Stubborn APs 🔄
 
-       What’s New: If an AP resists initial attacks, ProbeNpwn now retries with shorter delays after 2 and 5 attempts.
-       Why It’s Better: Persistence pays off! This feature ensures the plugin keeps pushing against tough targets, increasing your success rate.
+    Customizable Settings:
+    Fine-tune attack behavior, enable/disable features, and whitelist networks or clients via config.toml.
 
-3. Smart Target Prioritization 🎯
 
-       What’s New: APs with more connected clients are now prioritized with reduced attack delays.
-       Why It’s Better: Focusing on high-value targets (APs with multiple clients) maximizes handshake opportunities, making your attacks more efficient.
 
-4. Concurrency Throttling with ThreadPoolExecutor 🛡️
+    Capture More Handshakes:
+    Aggressive methods ensure rapid device reconnections, boosting handshake capture rates.
 
-       What’s New: We’ve introduced ThreadPoolExecutor to manage a pool of 50 concurrent attack threads, replacing manual thread creation.
-       Why It’s Better: This optimizes performance by reusing threads and prevents system overload, ensuring your Pwnagotchi stays responsive even in dense Wi-Fi environments.
 
-5. Channel Coordination 📡
 
-       What’s New: Before each attack, ProbeNpwn syncs with Pwnagotchi’s channel management to ensure it’s on the right channel.
-       Why It’s Better: Eliminates missed opportunities due to channel mismatches, ensuring every attack is on target.
+    Comprehensive Logging:
+    Track every attack and capture with detailed logs for performance insights.
+
+
+
+    Lightweight and Seamless Integration:
+    Fully compatible with Pwnagotchi for easy setup and operation.
+
+
+
+What’s New in ProbeNpwn v1.3.0?
+
+This release introduces eight major enhancements that make ProbeNpwn smarter, more adaptable, and relentless in capturing handshakes:
+
+1. Dual Operational Modes: Tactical and Maniac 🧠💥
+
+
+
+
+
+What’s New:
+Choose between two modes:
+
+
+
+
+
+Tactical Mode: Strategic and efficient, focusing on high-value targets.
+
+
+
+Maniac Mode: Unrestricted and aggressive, attacking all targets rapidly.
+
+
+
+How It Works:
+
+
+
+
+
+Configurable via config.toml (main.plugins.probenpwn.mode).
+
+
+
+Tactical Mode: Prioritizes targets with high client scores and respects cooldowns/whitelists.
+
+
+
+Maniac Mode: Bypasses restrictions, using minimal delays (0.05s) for maximum attack frequency.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Flexibility: Tailor the plugin to your needs—precision or brute force.
+
+
+
+Control: Switch modes based on the environment or your goals.
+
+2. Client Scoring System 🎯
+
+
+
+
+
+What’s New:
+Clients are scored based on signal strength and activity to prioritize high-value targets.
+
+
+
+How It Works:
+
+
+
+
+
+Scores calculated as (signal + 100) * activity.
+
+
+
+In Tactical Mode, only clients with scores ≥50 are attacked.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Efficiency: Focuses attacks on clients most likely to yield handshakes.
+
+
+
+Resource Optimization: Reduces wasted effort on low-value targets.
+
+3. ML-Inspired Channel Hopping 📡
+
+
+
+
+
+What’s New:
+Intelligent channel selection based on historical success and activity.
+
+
+
+How It Works:
+
+
+
+
+
+Tracks APs, clients, and handshake successes per channel.
+
+
+
+Uses weighted random selection to favor active, successful channels.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Optimized Focus: Spends more time on productive channels.
+
+
+
+Adaptability: Adjusts dynamically to the Wi-Fi environment.
+
+4. Intelligent Retry Mechanism with Exponential Backoff 🔄
+
+
+
+
+
+What’s New:
+Retries failed handshake attempts with increasing delays to balance persistence and efficiency.
+
+
+
+How It Works:
+
+
+
+
+
+Uses exponential backoff (starting at 1s, capping at 60s) for retries.
+
+
+
+Scheduled retries are managed via a priority queue.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Persistence: Keeps trying tough targets without overwhelming the system.
+
+
+
+Resource Management: Prevents rapid, repeated attempts that could cause issues.
+
+5. Handshake Deduplication and Quality Check ✅
+
+
+
+
+
+What’s New:
+Ensures only unique, valid handshakes are processed.
+
+
+
+How It Works:
+
+
+
+
+
+Deduplicates handshakes using a hash-based system.
+
+
+
+Validates handshakes with aircrack-ng, requiring at least two EAPOL frames.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Accuracy: Avoids redundant processing and false positives.
+
+
+
+Reliability: Ensures only usable handshakes are counted.
+
+6. Dynamic Concurrency Based on System Resources 🛡️
+
+
+
+
+
+What’s New:
+Adjusts the number of concurrent attack threads based on CPU and memory usage.
+
+
+
+How It Works:
+
+
+
+
+
+Monitors system load with psutil.
+
+
+
+Reduces threads (e.g., from 50 to 10) if usage exceeds thresholds (50% or 80%).
+
+
+
+Why It’s Better:
+
+
+
+
+
+Stability: Prevents crashes or slowdowns, especially in Maniac Mode.
+
+
+
+Adaptability: Works across different hardware or load conditions.
+
+7. Additional Attack Vector: Fake Authentication Flood 💣
+
+
+
+
+
+What’s New:
+Supplements deauthentication with a 30% chance of a fake authentication flood.
+
+
+
+How It Works:
+
+
+
+
+
+Randomly triggers association attacks with a 0.05s delay.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Diversity: Captures handshakes from APs resistant to deauthentication.
+
+
+
+Aggression: Boosts attack frequency, especially in Maniac Mode.
+
+8. Enhanced UI with Handshake Count 📊
+
+
+
+
+
+What’s New:
+The UI now displays the total number of captured handshakes.
+
+
+
+How It Works:
+
+
+
+
+
+Added to the Pwnagotchi screen at configurable coordinates.
+
+
+
+Why It’s Better:
+
+
+
+
+
+Visibility: Real-time feedback on handshake captures.
+
+
+
+Motivation: See your success instantly.
+
+
 
 Why You’ll Love It
 
-These updates make ProbeNpwn a smarter, faster, and more relentless handshake-capturing tool. Here’s what you’ll experience:
-
-    Lightning-Fast Captures: Minimized delays mean near-maximum attack speed.
-    
-    Persistent Pursuit: The retry mechanism doesn’t give up on difficult APs.
-    
-    Resource Efficiency: Throttling with ThreadPoolExecutor prevents crashes while keeping the aggression high.
-    
-    Optimized Targeting: Prioritization focuses your Pwnagotchi on the best opportunities.
-
-Key Features (Enhanced from v1.1.2)
-
-ProbeNpwn v1.1.3 builds on the solid foundation of v1.1.2, enhancing these core features:
-
-    Efficient Deauth & Association Attacks: Launch both simultaneously for maximum handshake potential.
-    
-    Concurrent Attack Threads: Handle multiple networks and clients with multi-threading.
-    
-    Dynamic Attack Tuning: Adjusts delays and aggression based on signal strength and performance.
-    
-    Whitelist Support: Exclude specific networks or clients from attacks via config.toml.
-    
-    Comprehensive Logging: Detailed logs track every attack and capture.
-    
-    Watchdog Recovery: Monitors and restarts Pwnagotchi if the Wi-Fi interface fails.
-    
-    Lightweight Integration: Seamlessly works with your existing Pwnagotchi setup.
-    
-    Real-Time UI Feedback: Displays attack counts and successes on your Pwnagotchi screen.
-    
-ProbeNpwn v1.1.3 is a smarter, more relentless evolution of Wi-Fi handshake capturing. This version introduces intelligent, self-correcting capabilities, allowing the plugin to analyze its own performance in real time and dynamically adjust its attack strategies. The result? Higher efficiency, fewer failed attempts, and a smoother experience as it adapts to whatever the Wi-Fi environment throws its way.
-
-This release also amps up robustness to keep your Pwnagotchi humming. With a watchdog recovery system, improved logging, and enhanced error handling, the plugin powers through interface glitches or service hiccups without breaking a sweat. It’s built to stay reliable and flexible, even during the most aggressive Wi-Fi probing and attacks.
-
-New features take the aggression up a notch:
-
-    Dynamic tuning optimizes attack strategies on the fly.
-    
-    Attack attempt tracking ensures no opportunity slips through the cracks.
-    
-    Minimized attack delays (as low as 0.1 seconds for strong signals) keep the pressure on.
-    
-    Retry mechanisms tackle stubborn access points relentlessly.
-    
-    Smart target prioritization zeroes in on APs with the most clients for maximum handshake captures.
-    
-    Concurrency throttling via ThreadPoolExecutor caps threads at 50, keeping your device responsive in dense Wi-Fi zones.
-    
-    Channel coordination ensures every attack hits the right frequency.
-
-Based on the stellar Instattack plugin by Sniffleupagus, ProbeNpwn v1.1.3 adds these cutting-edge enhancements to capture more handshakes and optimize attack performance like never before. A massive shoutout to Sniffleupagus for laying the groundwork—thank you! 🙏
+ProbeNpwn v1.3.0 is a smarter, more relentless handshake-capturing tool. It adapts in real-time with:
 
 
-!!!Config.toml Updates!!!
-
-!!!To take full advantage of v1.1.3’s enhancements, update your config.toml with these settings!!!:
 
 
+
+Dual Modes: Choose between precision (Tactical) or chaos (Maniac).
+
+
+
+Intelligent Targeting: Client scoring and channel hopping focus on the best opportunities.
+
+
+
+Resource Efficiency: Dynamic concurrency and deduplication keep your Pwnagotchi stable.
+
+
+
+Persistent Attacks: Retries and additional vectors ensure no target escapes easily.
+
+Built on the stellar foundation of Instattack by Sniffleupagus, ProbeNpwn v1.3.0 takes handshake capturing to the next level. A massive shoutout to Sniffleupagus for the groundwork—thank you! 🙏
+
+
+
+How to Use ProbeNpwn v1.3.0
+
+1. Installation
+
+
+
+
+
+Copy the plugin to your Pwnagotchi’s plugins directory and ensure it’s enabled.
+
+2. Configuration (config.toml)
+
+Update your config.toml to take full advantage of the new features:
+
+# Enable the plugin
     main.plugins.probenpwn.enabled = true
+
+# Choose mode: "tactical" or "maniac"
+    main.plugins.probenpwn.mode = "tactical"
+
+# UI coordinates for stats
     main.plugins.probenpwn.attacks_x_coord = 110
     main.plugins.probenpwn.attacks_y_coord = 20
     main.plugins.probenpwn.success_x_coord = 110
     main.plugins.probenpwn.success_y_coord = 30
-    main.plugins.probenpwn.verbose = true  # Keep to true for detailed logs putting on false may produce errors at the moment
+    main.plugins.probenpwn.handshakes_x_coord = 110
+    main.plugins.probenpwn.handshakes_y_coord = 40
 
-Note: The whitelist now pulls directly from Pwnagotchi’s global config, so ensure your SSIDs or MACs are listed there.
+# Enable verbose logging (recommended for troubleshooting)
+    
+    main.plugins.probenpwn.verbose = true
 
-DISCLAIMER: This software is provided for educational and research purposes only.
-Use of this plugin on networks or devices that you do not own or have explicit permission
-to test is strictly prohibited. The author(s) and contributors are not responsible for any 
-misuse, damages, or legal consequences that may result from unauthorized or improper usage.
-By using this plugin, you agree to assume all risks and take full responsibility for ensuring
-that all applicable laws and regulations are followed.
+
+
+
+
+Whitelist: Add networks or MACs to Pwnagotchi’s global whitelist in /etc/pwnagotchi/config.toml (e.g., main.whitelist = ["TrustedNetwork", "00:11:22:33:44:55"]).
+
+3. Run It
+
+
+
+
+
+Restart Pwnagotchi with: 
+
+    sudo systemctl restart pwnagotchi
+
+Or:
+
+    pwnkill
+
+
+
+Monitor logs for activity:
+
+[INFO] [Thread-27] : Attacking AP xx:xx:xx:xx:xx:xx (client: yy:yy:yy:yy:yy:yy)
+[INFO] [Thread-11] : Captured handshake from Hidden (xx:xx:xx:xx:xx:xx)
+
+
+
+Update Summary
+
+
+
+
+
+Intelligence: Client scoring and ML-inspired channel hopping make targeting smarter.
+
+
+
+Efficiency: Tactical Mode, dynamic concurrency, and deduplication optimize resources.
+
+
+
+Aggression: Maniac Mode and fake authentication floods maximize attack potential.
+
+
+
+Reliability: Retries, quality checks, and resource management ensure robust performance.
+
+ProbeNpwn v1.3.0 is a game-changer for handshake capturing—configure it, choose your mode, and let it dominate! 🚀
+
+
+
+DISCLAIMER
+
+This software is provided for educational and research purposes only. Use of this plugin on networks or devices that you do not own or have explicit permission to test is strictly prohibited. The author(s) and contributors are not responsible for any misuse, damages, or legal consequences that may result from unauthorized or improper usage. By using this plugin, you agree to assume all risks and take full responsibility for ensuring that all applicable laws and regulations are followed.
 
 
 
