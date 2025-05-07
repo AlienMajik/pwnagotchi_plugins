@@ -20,7 +20,7 @@ class ProbeNpwn(plugins.Plugin):
         'channel hopping, intelligent retries, and resource management.'
     )
     __dependencies__ = {
-        "apt": ["python3-psutil"],
+        "apt": ["python3-psutil", "aircrack-ng"],
         "pip": ["none"],
     }
 
@@ -94,9 +94,9 @@ class ProbeNpwn(plugins.Plugin):
     def on_ui_setup(self, ui):
         """Set up UI elements."""
         if not self.ui_initialized:
-            ui.add_element('attacks', components.Text(position=(self.attacks_x, self.attacks_y), value='Attacks: 0', color=255))
-            ui.add_element('success', components.Text(position=(self.success_x, self.success_y), value='Success: 0.0%', color=255))
-            ui.add_element('handshakes', components.Text(position=(self.handshakes_x, self.handshakes_y), value='Handshakes: 0', color=255))
+            ui.add_element('attacks', components.Text(position=(self.attacks_x, self.attacks_y), value='Attacks: 0', color=255, font=fonts.Small))
+            ui.add_element('success', components.Text(position=(self.success_x, self.success_y), value='Success: 0.0%', color=255, font=fonts.Small))
+            ui.add_element('handshakes', components.Text(position=(self.handshakes_x, self.handshakes_y), value='Handshakes: 0', color=255, font=fonts.Small))
             self.ui_initialized = True
 
     def on_ui_update(self, ui):
