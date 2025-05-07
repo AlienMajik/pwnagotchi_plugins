@@ -12,13 +12,17 @@ import psutil
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.3.0'  # Updated version for enhancements
+    __version__ = '1.3.1'  # Updated version for enhancements
     __license__ = 'GPL3'
     __description__ = (
         'Aggressively capture handshakes with two modes: Tactical (smart and efficient) and Maniac '
         '(unrestricted, rapid attacks). Enhanced with client scoring, adaptive attacks, ML-based '
         'channel hopping, intelligent retries, and resource management.'
     )
+    __dependencies__ = {
+        "apt": ["python3-psutil"],
+        "pip": ["none"],
+    }
 
     def __init__(self):
         logging.debug("ProbeNpwn plugin created")
