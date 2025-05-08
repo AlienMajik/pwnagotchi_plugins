@@ -20,8 +20,11 @@ class ProbeNpwn(plugins.Plugin):
         'channel hopping, intelligent retries, and resource management.'
     )
     __dependencies__ = {
-        "apt": ["python3-psutil", "aircrack-ng"],
+        "apt": ["python3-psutil"],
         "pip": ["none"],
+    }
+    __defaults__ = {
+        "enabled": False,
     }
 
     def __init__(self):
