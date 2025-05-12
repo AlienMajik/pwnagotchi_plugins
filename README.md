@@ -845,15 +845,17 @@ SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the 
 
 ## How It Works
 
-- **Data Fetching:** The plugin queries the OpenSky API every 60 seconds (configurable) to retrieve aircraft data within the specified radius of your coordinates.
+- **Data Fetching:** Queries the OpenSky API every 60 seconds (configurable) to retrieve aircraft data within the specified radius, supporting both anonymous and authenticated requests.
 
-- **Metadata Enrichment:** For each aircraft, it fetches additional details like the model, origin country, and DB flags using the aircraft's ICAO24 code.
+- **Metadata Enrichment:** Fetches detailed metadata (model, registration, DB flags, type categorization) for each aircraft using its ICAO24 code, with robust handling for missing data.
+
+- **Flight Path Fetching:** Retrieves recent flight paths (up to 4 hours) for aircraft, falling back to locally stored historical positions if flight track access is unavailable.
 
 - **Pruning:** Aircraft not seen within the prune_minutes interval are removed from the log to maintain efficiency.
 
 - **UI Display:** The Pwnagotchi screen shows the number of detected aircraft, refreshed periodically.
 
-- **Webhook Map:** The webhook (`/plugins/skyhigh/`) renders a table and interactive map with aircraft details, including scrollable navigation.
+- **Webhook Map:** The webhook (/plugins/skyhigh/) renders a table with extended aircraft details (velocity, track, squawk, etc.) and an interactive map with type-specific icons and clickable flight path visualization.
 
 ## Installation and Usage
 
@@ -922,14 +924,16 @@ Edit your config.toml file (typically located at `/etc/pwnagotchi/config.toml`) 
 
 ```toml
 main.plugins.skyhigh.enabled = true
-main.plugins.skyhigh.timer  = 60  # Fetch data every 60 seconds
+main.plugins.skyhigh.timer = 60  # Fetch data every 60 seconds
 main.plugins.skyhigh.aircraft_file = "/root/handshakes/skyhigh_aircraft.json"
 main.plugins.skyhigh.adsb_x_coord = 160  # Screen X position
 main.plugins.skyhigh.adsb_y_coord = 80   # Screen Y position
 main.plugins.skyhigh.latitude = -66.273334  # Default latitude
 main.plugins.skyhigh.longitude = 100.984166  # Default longitude
 main.plugins.skyhigh.radius = 50  # Radius in miles
-main.plugins.skyhigh.prune_minutes = 10  # Prune data older than 10 minutes
+main.plugins.skyhigh.prune_minutes = 5  # Prune data older than 5 minutes
+main.plugins.skyhigh.opensky_username = "your_username"  # Optional OpenSky username
+main.plugins.skyhigh.opensky_password = "your_password"  # Optional OpenSky password
 ```
 
 ### Enable GPS (Optional)
@@ -961,7 +965,7 @@ The Pwnagotchi screen will show the number of detected aircraft, updating every 
 1. Open a browser and go to `http://<pwnagotchi-ip>/plugins/skyhigh/` to view a detailed map and table of aircraft data.
 2. From the pwnagotchi plugins page, you can just click on the skyhigh plugin to open it as well.
 
-The map uses distinct icons for helicopters and airplanes, with popups showing callsign, type, and altitude.
+The map uses distinct icons for helicopters (red), commercial jets (blue), small planes (yellow), drones (purple), gliders (orange), and military aircraft (green). Popups show callsign, model, registration, altitude, velocity, track, squawk, and DB flags. Clicking a marker toggles the aircraft’s flight path visualization, showing its recent trajectory.
 
 ## Configuration Options
 
@@ -971,6 +975,8 @@ The map uses distinct icons for helicopters and airplanes, with popups showing c
 - **latitude and longitude:** Default coordinates if GPS is unavailable.
 - **radius:** Search radius in miles for aircraft data.
 - **prune_minutes:** Time in minutes after which old data is pruned (default: 10). Set to 0 to disable pruning.
+- **opensky_username:** OpenSky username for authenticated API access (optional)
+- **opensky_password:** OpenSky password for authenticated API access (optional).
 
 ## Known Issues and Solutions
 
@@ -982,9 +988,10 @@ The SkyHigh plugin may encounter a temporary error that causes it to stop workin
 
 ## Why You'll Love It
 
-- **Real-Time Awareness:** Track aircraft activity around you as it happens.
-- **Flexible Configuration:** Customize the radius, update interval, and pruning to fit your preferences.
-- **Interactive Map:** The webhook's visual interface makes it easy to explore aircraft details.
+- **Real-Time Awareness:** Track aircraft with detailed data (velocity, track, squawk, etc.) as it happens.
+- **Flexible Configuration:** Customize radius, update interval, pruning, and API credentials to suit your needs.
+- **Interactive Map:** Explore aircraft details with type-specific icons and toggle flight paths for a dynamic experience.
+- **Enhanced Data:** Rich metadata and categorization provide deeper insights into nearby aircraft.
 
 Take your Pwnagotchi to the skies with SkyHigh! ✈️
 
