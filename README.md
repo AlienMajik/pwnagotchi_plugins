@@ -151,7 +151,6 @@ To configure the RTL-SDR and test rtl_adsb, you'll need to access the terminal o
 Once you're in the terminal, you'll likely need to install the RTL-SDR drivers and the rtl_adsb utility. Pwnagotchi is based on Raspbian, so you can use apt-get to install these packages. Run the following commands:
      
 ```bash
-sudo apt-get update
 sudo apt-get install rtl-sdr
 ```
 
