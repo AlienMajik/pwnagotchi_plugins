@@ -810,7 +810,7 @@ SnoopR is built for educational and security testing purposes only. Always respe
 
 ---
 
-# SkyHigh Plugin (Version 1.0.9)
+# SkyHigh Plugin
 
 ## Overview
 
