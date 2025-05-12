@@ -810,21 +810,38 @@ SnoopR is built for educational and security testing purposes only. Always respe
 
 ---
 
-# SkyHigh Plugin
+# SkyHigh Plugin (Version 1.0.9)
 
 ## Overview
 
-SkyHigh is a custom plugin for Pwnagotchi that enables you to track nearby aircraft using the OpenSky Network API. It displays the number of detected aircraft on your Pwnagotchi's screen and provides a detailed map view via a webhook, featuring aircraft types, DB flags, and distinct icons for airplanes and helicopters. The plugin also includes a pruning feature to keep the log clean by removing outdated aircraft data.
+SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the OpenSky Network API. It displays the number of detected aircraft on your Pwnagotchi's screen and provides an interactive map view via a webhook, featuring detailed aircraft types (helicopters, commercial jets, small planes, drones, gliders, military), DB flags, and flight path visualization. Distinct icons enhance the map, and a pruning feature keeps the log clean by removing outdated aircraft data.
+
+## What’s New in Version 1.0.9
+
+- **SkyHigh 1.0.9 introduces significant enhancements for richer aircraft tracking and visualization:**
+
+- **Authenticated API Access:** Optional OpenSky account credentials (opensky_username, opensky_password) enable higher API request limits and access to flight track data, with fallback to anonymous access if credentials are invalid or unavailable.
+
+- **Flight Path Visualization:** View recent flight paths (up to 4 hours) for each aircraft by clicking its map marker, with fallback to locally stored historical positions if flight track access is restricted.
+
+- **Enhanced Aircraft Categorization:** Identifies helicopters, commercial jets, small planes, drones, gliders, and military aircraft based on manufacturer, model, typecode, and DB flags.
+
+- **Type-Specific Icons** New map icons for commercial jets (blue), small planes (yellow), drones (purple), gliders (orange), and military aircraft (green), alongside helicopters (red).
+
+- **Extended Data Fields:** Includes velocity, true track, vertical rate, geo altitude, squawk, and on-ground status in the webhook table and map popups.
+
+- **Updated Pruning Default:** Reduced default prune_minutes from 10 to 5 for more frequent log cleanup.
+
 
 ## Why It Works
 
-- **API Integration:** SkyHigh uses the OpenSky Network API to fetch real-time aircraft data within a configurable radius of your Pwnagotchi's GPS coordinates (or static coordinates if GPS isn't available). This ensures accurate and current information about aircraft in your area.
+- **Authenticated API Integration:** SkyHigh leverages the OpenSky Network API with optional authenticated access for higher request limits and flight track data. It fetches real-time aircraft data within a configurable radius of your Pwnagotchi's GPS or static coordinates, ensuring accurate and current information.
 
-- **Dynamic GPS Support:** With a GPS adapter connected to BetterCAP, SkyHigh uses real-time coordinates for precise tracking. Without GPS, it relies on default coordinates set in the configuration.
-
+- **Dynamic GPS Support:** With a GPS adapter connected to BetterCAP, SkyHigh uses real-time coordinates for precise tracking. Without GPS, it falls back to default coordinates set in the configuration.
+  
 - **Efficient Data Management:** A pruning mechanism removes aircraft data older than a specified time (default: 10 minutes), keeping the log file lightweight and relevant.
 
-- **Visual Feedback:** The plugin updates the Pwnagotchi screen with the aircraft count and provides a webhook with a map and table, enhancing the user experience with clear visuals and detailed data.
+- **Rich Visual Feedback:** The plugin updates the Pwnagotchi screen with the aircraft count and provides a webhook with an interactive map and detailed table, including flight path visualization and type-specific icons for an enhanced user experience
 
 ## How It Works
 
