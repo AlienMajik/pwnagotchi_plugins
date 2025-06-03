@@ -242,7 +242,7 @@ The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth
   - **noided:** Full evasion suite with MAC rotation, channel hopping, TX power tweaks, and traffic throttling.
 - **What's Better:** Offers customizable stealth levels, unlike the simpler normal and stealth modes in prior versions.
 
-### 6. Robust Command Execution with Retries and Fallbacks
+### 6. Robust Command Execution with Retries and FThis updated version (2.0.0) brings a host of new features, including richer data collection, smarter snooper detection, whitelisting, automatic data pruning, and an improved web interface. It's actively developed, community-driven, and packed with capabilities to help you explore and secure your wireless environment. Let's dive into what SnoopR can do and how you can get started!allbacks
 - **What's Improved:** Enhanced reliability for system commands.
 - **How It Works:** Retries failed commands and uses alternatives (e.g., iwconfig if iw fails).
 - **What's Better:** Increases stability across varied setups, fixing issues from inconsistent command execution.
@@ -603,7 +603,7 @@ This software is provided for educational and research purposes only. Use of thi
 
 Welcome to SnoopR, a powerful plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! SnoopR supercharges your Pwnagotchi by detecting and logging Wi-Fi and Bluetooth devices, identifying potential snoopers based on movement patterns, and presenting everything on an interactive, real-time map. Whether you're a security enthusiast, a tinkerer, or just curious about the wireless world around you, SnoopR has something to offer.
 
-This updated version (2.0.1) brings exciting new features, including mesh networking for collaborative wardriving, aircraft tracking for aerial monitoring, and performance optimizations for smoother operation. It’s actively developed, community-driven, and packed with capabilities to help you explore and secure your wireless environment. Let’s dive into what SnoopR can do and how you can get started!
+This updated version (2.0.0) brings a host of new features, including richer data collection, smarter snooper detection, whitelisting, automatic data pruning, and an improved web interface. It's actively developed, community-driven, and packed with capabilities to help you explore and secure your wireless environment. Let's dive into what SnoopR can do and how you can get started!
 
 ## Features
 
@@ -612,10 +612,6 @@ SnoopR is loaded with capabilities to make your wireless adventures both fun and
 - **Enhanced Device Detection**: Captures Wi-Fi and Bluetooth devices with additional details like Wi-Fi channel and authentication mode, alongside GPS coordinates for precise location tracking. The SQLite database now includes new columns—channel (INTEGER) for Wi-Fi channel (e.g., 1, 6, 11) and auth_mode (TEXT) for authentication mode (e.g., WPA2, WEP)—offering deeper insights into network configurations for security testing and auditing.
 
 - **Improved Snooper Identification**: Spots potential snoopers with more accurate detection logic—devices that move beyond a customizable threshold (default: 0.1 miles) or exhibit a velocity greater than 1.5 meters per second across at least three detections within a time window (default: 5 minutes) are flagged, reducing false positives. Uses the Haversine formula (Earth’s radius = 3958.8 miles) to calculate movement and velocity.
-
-- **Mesh Networking:** Collaborate with other Pwnagotchis in real-time! Share and receive detection data over a UDP-based mesh network, perfect for team wardriving. Note: This feature is designed for future use and collaboration. I’m working on making it even better, but it’s functional and can be used now! **Recommended to turn it off for now!**
-
-- **Aircraft Tracking:** Monitor nearby aircraft and drones with data from an external JSON file (e.g., /root/handshakes/skyhigh_aircraft.json). Logs aircraft details like ICAO24, callsign, and location, and flags potential snoopers. 
 
 - **Whitelisting**: Exclude specific networks (e.g., your home Wi-Fi or personal devices) from being logged or flagged to keep your data focused. Configurable via the whitelist option (e.g., ["MyHomeWiFi", "MyPhone"]).
 
@@ -647,7 +643,6 @@ Before installing SnoopR, ensure you have the following:
     
 - **Internet Access (for Viewing)**: The device you use to view the web interface (e.g., your phone or computer) needs internet to load map tiles and Leaflet.js. The Pwnagotchi itself doesn't require an internet connection.
 
-- **Aircraft Data (Optional):** For aircraft tracking, provide a JSON file with aircraft data (e.g., /root/handshakes/skyhigh_aircraft.json). If not present, aircraft tracking is automatically disabled.
 
 ## Installation Instructions
 
@@ -721,11 +716,6 @@ main.plugins.snoopr.bluetooth_enabled = true              # Enable Bluetooth sca
 main.plugins.snoopr.timer = 45                            # Bluetooth scan interval (seconds)
 main.plugins.snoopr.whitelist = ["MyHomeWiFi", "MyPhone"] # Networks to exclude
 main.plugins.snoopr.prune_days = 30                       # Days before pruning old data
-main.plugins.snoopr.mesh_enabled = false                  # Enable mesh networking
-main.plugins.snoopr.mesh_host_ip = "192.168.1.1"          # Your Pwnagotchi’s IP
-main.plugins.snoopr.mesh_port = 9999                      # Port for mesh communication
-main.plugins.snoopr.mesh_peers = ["192.168.1.2", "192.168.1.3"] # IPs of peer Pwnagotchis
-main.plugins.snoopr.aircraft_file = "/root/handshakes/skyhigh_aircraft.json" # Path to aircraft data
 ```
 
 ### Available Options
@@ -750,15 +740,6 @@ main.plugins.snoopr.aircraft_file = "/root/handshakes/skyhigh_aircraft.json" # P
     
 - **prune_days**: Number of days to retain detection records before pruning. Default: 30
 
-- **mesh_enabled:** Enable mesh networking for collaborative wardriving. Default: false
-
-- **mesh_host_ip:** Your Pwnagotchi’s IP address for mesh communication. Default: “192.168.1.1”
-
-- **mesh_port:** Port for mesh communication. Default: 9999
-
-- **mesh_peers:** List of IP addresses of other Pwnagotchis in the mesh. Default: []
-
-- **aircraft_file:** Path to the JSON file with aircraft data for tracking. Default: “/root/handshakes/skyhigh_aircraft.json”
 
 After editing the config, restart your Pwnagotchi to apply the changes:
 
@@ -783,10 +764,6 @@ Once installed and configured, SnoopR runs automatically when you power up your 
 - **Whitelisting**: Excludes specified networks from being logged or flagged during Wi-Fi and Bluetooth scans.
     
 - **Data Pruning**: Automatically deletes old detection records from the detections table on startup if older than prune_days.
-
-- **Aircraft Tracking:**  If aircraft_file is provided and exists, logs aircraft detections with details like ICAO24, callsign, and location. Flags potential snoopers.
-
-- **Mesh Networking:** If enabled, shares and receives detection data with other Pwnagotchis in the mesh, enhancing collaborative wardriving. Note: This feature is designed for future use and collaboration. I’m working on making it even better, but it’s functional and can be used now! **Recommended to turn it off for now!**
 
 ### Monitoring the UI
 
@@ -814,43 +791,6 @@ To see detailed logs and the interactive map, access the web interface:
    - **Map**: hows device locations—click a network in the table to pan the Leaflet.js map to its marker (blue for regular, red for snoopers, green for aircraft, gray for no coordinates) with popups showing details.
    - **Scroll Buttons**: "Scroll to Top" and "Scroll to Bottom" for easy navigation of long lists.
 
-
-##How to Use the Mesh Network Feature
-
-The mesh network feature allows multiple Pwnagotchis to share detection data in real-time, perfect for collaborative wardriving. Note: This feature is designed for future use and collaboration. I’m working on making it even better, but it’s functional and can be used now!
-
-**Steps to Enable Mesh Networking**
-
-1. **Ensure All Pwnagotchis Are on the Same Network**
-   -Each Pwnagotchi must have a unique IP address and be able to communicate with others.
-
-2. **Configure Each Pwnagotchi**
-In /etc/pwnagotchi/config.toml, set:
-
-       main.plugins.snoopr.mesh_enabled = true
-       main.plugins.snoopr.mesh_host_ip = "your_pwnagotchi_ip"  # e.g., "192.168.1.10"
-       main.plugins.snoopr.mesh_port = 9999
-       main.plugins.snoopr.mesh_peers = ["peer_ip1", "peer_ip2"]  # e.g., ["192.168.1.11", "192.168.1.12"]
-
-
-Replace "your_pwnagotchi_ip" with the IP address of the Pwnagotchi you’re configuring.
-
-List the IP addresses of other Pwnagotchis in mesh_peers.
-
-Restart Your Pwnagotchi
-
-Apply the changes with:
-
-
-    sudo systemctl restart pwnagotchi
-
-
-Verify Functionality
-
-
-Check the logs for messages like:
-
-    [SnoopR] Broadcasting detection to peers and [SnoopR] Received mesh detection from <peer_ip>.
 
 
 
