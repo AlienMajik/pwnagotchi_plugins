@@ -1,28 +1,25 @@
 import logging
-import time
+import time import sleep
 import threading
 import os
 import subprocess
-import random
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.components as components
 from concurrent.futures import ThreadPoolExecutor
 from queue import PriorityQueue
 import multiprocessing  # For cpu_count
 import math  # For haversine distance
-import re  # For parsing hcx output
-import tempfile  # For temporary files
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.4.0'  # Updated to extend profiles with more adjustments (e.g., throttle delays)
+    __version__ = '1.4.0'  # Updated to remove handshake validation
     __license__ = 'GPL3'
     __description__ = (
         'Aggressively capture handshakes with two modes: Tactical (smart and efficient) and Maniac '
         '(unrestricted, rapid attacks). Enhanced with client scoring, adaptive attacks, ML-based '
         'channel hopping, intelligent retries, resource management, and dynamic adjustment of '
         'autotune/personality params based on detected environment (stationary, walking, driving). '
-        'Updated handshake validation using hcxpcapngtool for reliability. Now integrates with '
+        'Now integrates with '
         'Bettercap GPS data (if available) for speed estimation in environment detection. Extended '
         'profiles to adjust more parameters like throttle delays for better crash prevention.'
     )
@@ -37,7 +34,6 @@ class ProbeNpwn(plugins.Plugin):
         self.attack_attempts = {}
         self.success_counts = {}
         self.total_handshakes = 0
-        self.failed_handshakes = 0
         self.performance_stats = {}
         self.whitelist = set()
         self.cooldowns = {}
@@ -352,35 +348,10 @@ class ProbeNpwn(plugins.Plugin):
         if self.ok_to_attack(agent, ap):
             self.executor.submit(self.attack_target, agent, ap, cl)
 
-    def is_handshake_valid(self, filename):
-        """Validate handshake using hcxpcapngtool by converting to .hc22000 and checking output."""
-        try:
-            with tempfile.NamedTemporaryFile(suffix='.hc22000', delete=True) as temp_f:
-                result = subprocess.run(['hcxpcapngtool', '-o', temp_f.name, filename], capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    match = re.search(r'wrote (\d+) hash\(es\)', result.stdout)
-                    if match and int(match.group(1)) > 0:
-                        return True
-        except Exception as e:
-            logging.error(f"Handshake validation with hcx failed: {e}")
-        return False
-
     def on_handshake(self, agent, filename, ap, cl):
-        try:
-            with open(filename, 'rb') as f:
-                file_snippet = f.read(10)
-        except Exception:
-            file_snippet = b''
-        handshake_hash = hash(f"{ap['mac']}{cl.get('mac', '')}{filename}{file_snippet}")
+        handshake_hash = hash(f"{ap['mac']}{cl.get('mac', '')}{filename}")
         if handshake_hash in self.handshake_db:
             logging.info(f"Duplicate handshake for {ap['mac']}. Skipping.")
-            return
-        if not self.is_handshake_valid(filename):
-            logging.info(f"Invalid handshake for {ap['mac']}. Scheduling retry...")
-            self.failed_handshakes += 1
-            delay = min(60, 1 * (2 ** min(self.attack_attempts.get(ap['mac'].lower(), 0), 5)))
-            if not self.retry_queue.full():
-                self.retry_queue.put((time.time() + delay, (agent, ap, cl, self.attack_attempts.get(ap['mac'].lower(), 0) + 1)))
             return
 
         ap_mac = ap['mac'].lower()
