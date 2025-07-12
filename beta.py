@@ -1,6 +1,6 @@
 import logging
 import time 
-import sleep
+from time import sleep
 import threading
 import os
 import subprocess
