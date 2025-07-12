@@ -1,9 +1,9 @@
 import logging
-import time 
-from time import sleep
+import time
 import threading
 import os
 import subprocess
+import random
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.components as components
 from concurrent.futures import ThreadPoolExecutor
@@ -13,16 +13,16 @@ import math  # For haversine distance
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.4.0'  # Updated to remove handshake validation
+    __version__ = '1.4.1'  # Updated with all enhancements and fixes
     __license__ = 'GPL3'
     __description__ = (
         'Aggressively capture handshakes with two modes: Tactical (smart and efficient) and Maniac '
         '(unrestricted, rapid attacks). Enhanced with client scoring, adaptive attacks, ML-based '
         'channel hopping, intelligent retries, resource management, and dynamic adjustment of '
         'autotune/personality params based on detected environment (stationary, walking, driving). '
-        'Now integrates with '
-        'Bettercap GPS data (if available) for speed estimation in environment detection. Extended '
-        'profiles to adjust more parameters like throttle delays for better crash prevention.'
+        'Integrates with Bettercap GPS data (if available) for speed estimation in environment detection. '
+        'Extended profiles to adjust more parameters like throttle delays for better crash prevention. '
+        'Improved environment detection with nesting fix, hysteresis for stability, and dynamic concurrency adjustments.'
     )
 
     def __init__(self):
@@ -34,6 +34,7 @@ class ProbeNpwn(plugins.Plugin):
         self._watchdog_thread_running = True
         self.attack_attempts = {}
         self.success_counts = {}
+        self.channel_success = {}  # For proper per-channel success tracking in hopping
         self.total_handshakes = 0
         self.performance_stats = {}
         self.whitelist = set()
@@ -59,9 +60,11 @@ class ProbeNpwn(plugins.Plugin):
         self.environment = "stationary"  # Default
         self.new_aps_per_epoch = 0
         self.epoch_count = 0
-        self.env_check_interval = 5  # Check every 5 epochs
+        self.env_check_interval = 10  # Increased for stability
         self.prev_gps = None  # For speed estimation: {'Latitude': float, 'Longitude': float}
         self.prev_time = None
+        self.consecutive_detections = 0  # For hysteresis
+        self.pending_env = None  # For hysteresis
         # Extended param profiles for environments (added throttle_a, throttle_d)
         self.env_profiles = {
             "stationary": {
@@ -191,12 +194,19 @@ class ProbeNpwn(plugins.Plugin):
             else:
                 retry_count = 0
                 agent.set_channel(self.select_channel())
+                # Dynamic concurrency adjustment
+                current_workers = self.executor._max_workers
+                new_workers = self.get_dynamic_max_workers()
+                if new_workers != current_workers:
+                    logging.info(f"Adjusting concurrency from {current_workers} to {new_workers}")
+                    self.executor.shutdown(wait=True)
+                    self.executor = ThreadPoolExecutor(max_workers=new_workers)
             time.sleep(CHECK_INTERVAL)
 
     def select_channel(self):
         if not self.channel_activity:
             return random.randint(1, 11)
-        weights = {ch: max(1, stats["aps"] + stats["clients"]) * self.success_counts.get(str(ch), 1) for ch, stats in self.channel_activity.items()}
+        weights = {ch: max(1, stats["aps"] + stats["clients"]) * self.channel_success.get(str(ch), 1) for ch, stats in self.channel_activity.items()}
         total_weight = sum(weights.values())
         if total_weight == 0:
             return random.randint(1, 11)
@@ -297,14 +307,18 @@ class ProbeNpwn(plugins.Plugin):
                 speed = (distance / time_delta) * 3600  # km/h
             self.prev_gps = current_gps
             self.prev_time = current_time
-        if speed > 10:
-            return "driving"
-        elif speed > 1:
-            return "walking"
-        elif speed == 0 and gps:  # Valid GPS but no movement
-            return "stationary"
-        # Fallback to AP rate if no valid GPS or zero speed
+
+            # With valid GPS, determine mode based on speed
+            if speed > 10:
+                return "driving"
+            elif speed > 1:
+                return "walking"
+            else:
+                return "stationary"  # Includes speed==0 with valid fix (true stationary)
+        
+        # Fallback to AP rate if no valid GPS (includes invalid/zero coords or None)
         ap_rate = self.new_aps_per_epoch / max(1, self.epoch_count % self.env_check_interval)
+        logging.debug(f"AP rate fallback: {ap_rate} (new_aps={self.new_aps_per_epoch}, divisor={max(1, self.epoch_count % self.env_check_interval)})")
         if ap_rate > 20:
             return "driving"
         elif ap_rate > 5:
@@ -356,8 +370,10 @@ class ProbeNpwn(plugins.Plugin):
             return
 
         ap_mac = ap['mac'].lower()
+        ch = str(ap['channel'])  # Track success per channel
         self.handshake_db.add(handshake_hash)
         self.success_counts[ap_mac] = self.success_counts.get(ap_mac, 0) + 1
+        self.channel_success[ch] = self.channel_success.get(ch, 0) + 1
         self.total_handshakes += 1
         if self.mode == "tactical":
             self.cooldowns[ap_mac] = time.time() + 60
@@ -376,11 +392,17 @@ class ProbeNpwn(plugins.Plugin):
         # Environment check
         self.epoch_count += 1
         if self.epoch_count % self.env_check_interval == 0:
-            new_env = self.detect_environment(agent)
-            if new_env != self.environment:
-                self.environment = new_env
+            detected_env = self.detect_environment(agent)
+            if detected_env == self.pending_env:
+                self.consecutive_detections += 1
+            else:
+                self.pending_env = detected_env
+                self.consecutive_detections = 1
+            if self.consecutive_detections >= 2 and detected_env != self.environment:
+                self.environment = detected_env
                 self.apply_env_adjustments(agent._config)
-                logging.info(f"Environment changed to {new_env}")
+                logging.info(f"Environment changed to {detected_env} after {self.consecutive_detections} confirmations")
+                self.consecutive_detections = 0  # Reset after switch
             self.new_aps_per_epoch = 0  # Reset counter
 
     def on_bcap_wifi_ap_updated(self, agent, event):
