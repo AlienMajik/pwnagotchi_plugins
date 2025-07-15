@@ -206,11 +206,11 @@ This disclaimer is subject to changes and updates. Users are advised to review i
 
 # Neurolyzer Plugin
 
-**Version:** 1.5.2
+**Version:** 1.6.0
 
 ## Overview
 
-The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth and privacy of your Pwnagotchi. Now at version 1.5.2, it goes beyond simple MAC address randomization to provide a comprehensive suite of features that minimize your device's detectability by network monitoring systems, Wireless Intrusion Detection/Prevention Systems (WIDS/WIPS), and other security measures. By reducing its digital footprint while scanning networks, Neurolyzer ensures your Pwnagotchi operates discreetly and efficiently.
+The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth and privacy of your Pwnagotchi. Now at version 1.6.0, it goes beyond simple MAC address randomization to provide a comprehensive suite of features that minimize your device's detectability by network monitoring systems, Wireless Intrusion Detection/Prevention Systems (WIDS/WIPS), and other security measures. By reducing its digital footprint while scanning networks, Neurolyzer ensures your Pwnagotchi operates discreetly and efficiently. This update introduces adaptive stealth levels based on environmental factors (e.g., number of nearby APs), improved compatibility with Raspberry Pi 5 via Nexmon detection for monitor mode and potential packet injection, SSID whitelisting to avoid targeting trusted networks, deauthentication throttling for balanced aggression, and an expanded list of realistic OUIs for better blending.
 
 ## Key Features and Improvements
 
@@ -220,10 +220,10 @@ The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth
 - **What's Better:** Proactively avoids detection in secured environments, making your Pwnagotchi stealthier than ever.
 
 ### 2. Hardware-Aware Adaptive Countermeasures
-- **What's New:** Adapts to your device's hardware capabilities.
-- **How It Works:** Detects support for TX power control, monitor mode, and MAC spoofing at startup, tailoring operations accordingly.
-- **What's Better:** Ensures compatibility and stability across diverse Pwnagotchi setups, avoiding errors from unsupported features.
-
+- **What's New:** Adapts to your device's hardware capabilities, now with explicit detection for Broadcom chipsets (e.g., Raspberry Pi 5's CYW43455) and Nexmon patches.
+- **How It Works:** Detects support for TX power control, monitor mode, MAC spoofing, and packet injection at startup, tailoring operations accordingly. If Nexmon is detected on Broadcom hardware, enables monitor mode, 5GHz channels, and injection features.
+- **What's Better:** Ensures compatibility and stability across diverse Pwnagotchi setups, including Raspberry Pi 5, avoiding errors from unsupported features and enabling advanced capabilities with patches.
+  
 ### 3. Atomic MAC Rotation with Locking Mechanism
 - **What's Improved:** MAC changes are now atomic, using an exclusive lock.
 - **How It Works:** A lock file prevents conflicts during MAC updates, ensuring smooth execution.
@@ -282,11 +282,26 @@ The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth
 - **How It Works:** Resets traffic shaping, monitor mode, and releases locks.
 - **What's Better:** Leaves your device stable post-use, unlike earlier versions with minimal cleanup.
 
+### 14. Adaptive Stealth Levels
+- **What's New:** Dynamically adjusts stealth based on environment.
+- **How It Works:** Levels 1-3: Aggressive (high TX/deauth in quiet areas) to passive (low TX/deauth in crowds), adapting MAC intervals, TX power, channel hops, and deauth throttle based on AP count.
+- **What's Better:** Balances handshake farming with evasion, making operations smarter and less detectable.
+
+### 15. SSID Whitelisting and Deauth Throttling
+- **What's New:** Avoids targeting trusted networks and controls deauth rate.
+- **How It Works:** Filters whitelisted SSIDs from deauth targets; throttles deauth (20-80% based on stealth) if packet injection supported (e.g., via Nexmon).
+- **What's Better:** Prevents accidental disruption of home/office networks while reducing WIPS triggers from excessive deauths.
+
+### 16. Nexmon Integration for Raspberry Pi 5
+- **What's New:** Automatic detection and enablement for Broadcom chipsets.
+- **How It Works:** Checks for Nexmon patches; enables monitor mode, packet injection (where supported), and 5GHz channels on compatible hardware like Pi 5's bcm43455c0.
+- **What's Better:** Overcomes native limitations on Pi 5 for full evasion features, with fallback to passive mode if unpatched.
+- 
 ## Legacy Improvements Retained and Enhanced
 
 - **Initial MAC Randomization:** Randomizes the MAC address on load for immediate privacy.
-- **Monitor Mode Handling:** Temporarily switches to managed mode for MAC changes, then back to monitor mode.
-- **Time-Dependent Randomization:** Dynamically calculates MAC change schedules for unpredictability.
+- **Monitor Mode Handling:** Temporarily switches to managed mode for MAC changes, then back to monitor mode; enhanced with interface recreation for stability.
+- **Time-Dependent Randomization:** Dynamically calculates MAC change schedules for unpredictability, now adaptive to stealth level.
 
 ## Other Features
 
@@ -354,6 +369,7 @@ Select "No" when asked about changing the MAC on startup.
    main.plugins.neurolyzer.mode_label_y = 50
    main.plugins.neurolyzer.next_mac_change_label_x = 101
    main.plugins.neurolyzer.next_mac_change_label_y = 60
+   main.plugins.neurolyzer.stealth_level = 2  # Optional: Initial stealth level (1=aggressive, 2=medium, 3=passive); still adapts dynamically
    ```
 
    For maximum stealth:
@@ -376,11 +392,11 @@ Select "No" when asked about changing the MAC on startup.
 
 ## Known Issues
 
-- **Wi-Fi Adapter Compatibility:** Works best with external adapters. Testing on the Raspberry Pi 5's Broadcom chip showed issues with mode switching and interface control. It may work on other Pi models—please share feedback!
+- **Wi-Fi Adapter Compatibility:** Works best with external adapters. It now works for Raspberry Pi 5's built-in Broadcom CYW43455 chip, not sure if it works on other stock wifi chipset pi models. Please share feedback! If it works well on other Pi models.
 
 ## Summary
 
-Neurolyzer 1.5.2 elevates Pwnagotchi's stealth and privacy with advanced WIDS/WIPS evasion, hardware-aware operations, realistic MAC generation, and flexible modes. Compared to earlier versions, it offers superior reliability (via retries and error handling), deeper stealth (traffic throttling, probe sanitization), and better usability (enhanced UI and logging). Whether you're testing security or keeping a low profile, Neurolyzer 1.5.2 is a significant upgrade—more versatile, stealthy, and robust than ever.
+Neurolyzer 1.6.0 elevates Pwnagotchi's stealth and privacy with advanced WIDS/WIPS evasion, hardware-aware operations (including Pi 5 Nexmon support), realistic MAC generation, adaptive modes, and new features like dynamic stealth levels and whitelisting. Compared to 1.5.2, it offers smarter environmental adaptation, better reliability on modern hardware, deeper evasion (throttled deauth, 5GHz hopping), and enhanced usability (UI stealth display). Whether you're testing security or keeping a low profile, Neurolyzer 1.6.0 is a significant upgrade—more versatile, intelligent, and robust than ever.
 
 ## Neurolyzer Plugin Disclaimer
 
