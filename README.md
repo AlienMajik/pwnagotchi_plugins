@@ -403,11 +403,11 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ---
 # ProbeNpwn Plugin
 
-**Version:** 1.3.0
+**Version:** 1.4.0
 
 ## Overview
 
-The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! This updated version (1.3.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, and more. If you've used Instattack, you'll love ProbeNpwn - it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
+The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! This updated version (1.4.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, adaptive environment detection (stationary, walking, driving) with GPS integration, multi-band support (2.4GHz and 5GHz), extended parameter profiles for stability, and more. If you've used Instattack, you'll love ProbeNpwn - it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
 
 ## Key Features
 
@@ -418,7 +418,7 @@ The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Insta
   Handle multiple networks and clients at once with multi-threading for efficient, parallel attacks.
 
 - **Customizable Settings:**
-  Fine-tune attack behavior, enable/disable features, and whitelist networks or clients via config.toml.
+  Fine-tune attack behavior, enable/disable features (including 5GHz support), and whitelist networks or clients via config.toml.
 
 - **Capture More Handshakes:**
   Aggressive methods ensure rapid device reconnections, boosting handshake capture rates.
@@ -429,9 +429,18 @@ The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Insta
 - **Lightweight and Seamless Integration:**
   Fully compatible with Pwnagotchi for easy setup and operation.
 
-## What's New in ProbeNpwn v1.3.0?
+- **Adaptive Environment Detection:**
+   Automatically detects movement (stationary, walking, driving) using Bettercap GPS data or AP discovery rates, dynamically adjusting autotune/personality parameters for optimal performance.
 
-This release introduces eight major enhancements that make ProbeNpwn smarter, more adaptable, and relentless in capturing handshakes:
+- **Multi-Band Support:**
+   Intelligent channel hopping across 2.4GHz and optional 5GHz bands for broader Wi-Fi coverage.
+
+- **Enhanced Stability Measures:**
+  LRU caches, heap-based data cleanup, delay caching, psutil fallback for monitoring, and watchdog with restart backoff to prevent crashes.
+
+## What's New in ProbeNpwn v1.4.0?
+
+This release builds on v1.3.0 with major enhancements focused on mobility, stability, and performance, making ProbeNpwn even more versatile for stationary setups, walks, or drives. Key additions include:
 
 ### 1. Dual Operational Modes: Tactical and Maniac 🧠💥
 
@@ -453,10 +462,10 @@ Choose between two modes:
 ### 2. Client Scoring System 🎯
 
 **What's New:**
-Clients are scored based on signal strength and activity to prioritize high-value targets.
+Clients are scored based on signal strength and activity to prioritize high-value targets (now with decay for updated scores and LRU caching for efficiency).
 
 **How It Works:**
-- Scores calculated as (signal + 100) * activity.
+- Scores calculated as (signal + 100) * activity, with exponential decay on updates.
 - In Tactical Mode, only clients with scores ≥50 are attacked.
 
 **Why It's Better:**
@@ -466,56 +475,55 @@ Clients are scored based on signal strength and activity to prioritize high-valu
 ### 3. ML-Inspired Channel Hopping 📡
 
 **What's New:**
-Intelligent channel selection based on historical success and activity.
+Intelligent channel selection based on historical success and activity (now with precomputed weights, bisect for faster selection, and multi-band support).
 
 **How It Works:**
-- Tracks APs, clients, and handshake successes per channel.
-- Uses weighted random selection to favor active, successful channels.
+- Tracks APs, clients, and handshake successes per channel (as strings for consistency).
+- Uses weighted random selection with cumulative weights to favor active, successful channels.
 
 **Why It's Better:**
 - Optimized Focus: Spends more time on productive channels.
-- Adaptability: Adjusts dynamically to the Wi-Fi environment.
+- Adaptability: Adjusts dynamically to the Wi-Fi environment, including 5GHz if enabled.
 
 ### 4. Intelligent Retry Mechanism with Exponential Backoff 🔄
 
 **What's New:**
-Retries failed handshake attempts with increasing delays to balance persistence and efficiency.
+Retries failed attempts with increasing delays (now with unbounded priority queue and heap-based scheduling).
 
 **How It Works:**
 - Uses exponential backoff (starting at 1s, capping at 60s) for retries.
-- Scheduled retries are managed via a priority queue.
+- Scheduled retries are managed via a priority queue, processed during epochs.
 
 **Why It's Better:**
 - Persistence: Keeps trying tough targets without overwhelming the system.
 - Resource Management: Prevents rapid, repeated attempts that could cause issues.
 
-### 5. Handshake Deduplication and Quality Check ✅
+### 5. Handshake Deduplication
 
 **What's New:**
-Ensures only unique, valid handshakes are processed.
+Ensures only unique handshakes are processed (quality check via aircrack-ng removed for faster processing; focus on hash-based deduplication).
 
 **How It Works:**
-- Deduplicates handshakes using a hash-based system.
-- Validates handshakes with aircrack-ng, requiring at least two EAPOL frames.
+- Deduplicates handshakes using a hash-based system combining AP MAC, client MAC, and filename.
 
 **Why It's Better:**
-- Accuracy: Avoids redundant processing and false positives.
-- Reliability: Ensures only usable handshakes are counted.
+- Accuracy: Avoids redundant processing.
+- Reliability: Speeds up handshake handling without validation overhead.
 
 ### 6. Dynamic Concurrency Based on System Resources 🛡️
 
 **What's New:**
-Adjusts the number of concurrent attack threads based on CPU and memory usage using psutil.
+Adjusts the number of concurrent attack threads based on CPU and memory usage (now with psutil fallback using loadavg and cpu_count, dynamic in-watchdog adjustments).
 
 **How It Works:**
-- Monitors system load with `psutil.cpu_percent()` and `psutil.virtual_memory().percent`.
-- Scales threads (e.g., from 50 to 10) if usage exceeds thresholds (50% or 80%).
+- Monitors system load (psutil preferred; falls back to os/multiprocessing).
+- Scales threads (e.g., from base of cpu_count*5 down to 10) if load exceeds thresholds.
 
 **Why It's Better:**
 - Stability: Prevents crashes or slowdowns, especially in Maniac Mode.
-- Adaptability: Works across different hardware or load conditions.
+- Adaptability: Works across different hardware or load conditions, even without psutil.
 
-**Note:** psutil is a cross-platform library for retrieving system information. It's used here to monitor CPU and memory usage, allowing ProbeNpwn to dynamically adjust its concurrency and keep your Pwnagotchi stable during intense operations. If not already installed, you can add it with:
+**Note:** psutil is a cross-platform library for retrieving system information. It's recommended for precise monitoring but optional—ProbeNpwn falls back to built-in tools if unavailable. If desired, install with:
 
 ```bash
 sudo apt-get install python3-psutil
@@ -524,7 +532,7 @@ sudo apt-get install python3-psutil
 ### 7. Additional Attack Vector: Fake Authentication Flood 💣
 
 **What's New:**
-Supplements deauthentication with a 30% chance of a fake authentication flood.
+Supplements deauthentication with a reduced 20% chance of a fake authentication flood (tuned for balance).
 
 **How It Works:**
 - Randomly triggers association attacks with a 0.05s delay.
@@ -536,23 +544,62 @@ Supplements deauthentication with a 30% chance of a fake authentication flood.
 ### 8. Enhanced UI with Handshake Count 📊
 
 **What's New:**
-The UI now displays the total number of captured handshakes.
+The UI now displays the total number of captured handshakes (plus environment status, with batched updates for efficiency).
 
 **How It Works:**
-- Added to the Pwnagotchi screen at configurable coordinates.
+- Added to the Pwnagotchi screen at configurable coordinates; updates every 5s to reduce overhead.
 
 **Why It's Better:**
-- Visibility: Real-time feedback on handshake captures.
-- Motivation: See your success instantly.
+- Visibility: Real-time feedback on handshake captures and current environment (e.g., "Env: Driving").
+- Motivation: See your success and adaptations instantly.
+
+### 9. Adaptive Environment Detection 🚀
+
+**What's New:**
+Detects your movement type (stationary, walking, driving) and auto-adjusts parameters.
+
+**How It Works:**
+- Uses Bettercap GPS for speed calculation (Haversine formula, buffered history) or fallback to new APs per epoch.
+- Hysteresis requires 2 consecutive detections for stable switches; checks every 10 epochs.
+
+**Why It's Better:**
+- Mobility: Optimizes for static (aggressive scans) vs. moving (quick, conservative to avoid crashes).
+- Integration: Ties into Pwnagotchi's personality params like recon_time, deauth_prob, and new throttles.
+
+### 10. Extended Parameter Profiles ⚙️
+
+**What's New:**
+Per-environment profiles with added throttle delays for deauth/association.
+
+**How It Works:**
+- Profiles adjust recon_time, TTLs, probabilities, min_rssi, throttle_a/d (e.g., higher delays in driving mode).
+- Applied dynamically on environment changes or config loads.
+
+**Why It's Better:**
+- Crash Prevention: Reduces nexmon issues during rapid movement.
+- Efficiency: Tailors aggression to your scenario.
+
+### Multi-Band Support (2.4GHz + 5GHz) 🌐
+
+**What's New:**
+Optional 5GHz channel hopping for broader coverage.
+
+**How It Works:**
+- Enabled via config.toml (enable_5ghz); adds channels 36-165 to hopping pool.
+
+**Why It's Better:**
+- Scalability: Prevents memory bloat on long runs.
+- Reliability: Minimizes interface failures and reboots.
+
 
 ## Why You'll Love It
 
-ProbeNpwn v1.3.0 is your handshake-capturing Swiss Army knife:
+ProbeNpwn v1.4.0 is your handshake-capturing Swiss Army knife:
 
-- **Smart & Aggressive:** Tactical for strategy, Maniac for mayhem.
-- **Efficient:** Scoring and concurrency optimize every attack.
-- **Relentless:** Retries and floods leave no handshake behind.
-- **Stable:** Keeps your Pwnagotchi happy under pressure.
+- **Smart & Aggressive:** Tactical for strategy, Maniac for mayhem, now with environment-aware adaptations.
+- **Efficient:** Scoring, concurrency, and caching optimize every attack.
+- **Relentless:** Retries and floods leave no handshake behind, across more bands.
+- **Stable:** Keeps your Pwnagotchi happy under pressure, even on the move.
 
 Big props to Sniffleupagus for the original Instattack—this builds on that legacy! 🙏
 
@@ -567,7 +614,7 @@ Run:
 sudo apt-get install python3-psutil
 ```
 
-Why: psutil enables dynamic thread scaling based on system resources, keeping your Pwnagotchi stable during intense operations.
+Why: psutil enables precise dynamic thread scaling based on system resources, keeping your Pwnagotchi stable during intense operations. If not installed, ProbeNpwn falls back to built-in monitoring.
 
 ### Edit config.toml:
 ```toml
@@ -580,6 +627,7 @@ main.plugins.probenpwn.success_y_coord = 30
 main.plugins.probenpwn.handshakes_x_coord = 110
 main.plugins.probenpwn.handshakes_y_coord = 40      
 main.plugins.probenpwn.verbose = true  # For detailed logs
+main.plugins.probenpwn.enable_5ghz = false  # Set to true for 5GHz support (requires compatible hardware)
 ```
 
 ### Whitelist (Optional):
@@ -591,7 +639,7 @@ sudo systemctl restart pwnagotchi
 ```
 
 ## Pro Tip 💡
-Use Tactical Mode for efficiency, but switch to Maniac Mode in crowded areas for a handshake bonanza. Just keep an eye on your device's temperature!
+Use Tactical Mode for efficiency and enable environment detection for automatic adjustments on the go. Switch to Maniac Mode in crowded areas for a handshake bonanza, and turn on 5GHz in modern Wi-Fi zones—just keep an eye on your device's temperature!
 
 ## Disclaimer
 
