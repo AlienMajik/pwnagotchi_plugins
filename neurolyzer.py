@@ -13,13 +13,14 @@ import pwnagotchi.ui.fonts as fonts
 
 class Neurolyzer(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.5.2'
+    __version__ = '1.6.0'
     __license__ = 'GPL3'
     __description__ = "Advanced WIDS/WIPS evasion system with hardware-aware adaptive countermeasures"
 
     DEFAULT_OUI = [
-        '00:14:22', '34:AB:95', 'DC:A6:32',
-        '00:1A:11', '08:74:02', '50:32:37'
+        '00:14:22', '34:AB:95', 'DC:A6:32', '00:1A:11', '08:74:02', '50:32:37',  # Existing
+        'B8:27:EB', 'DC:A6:32', 'E4:5F:01', 'FC:45:96', '00:E0:4C', '00:1E:06',  # Common Broadcom/RPi-like
+        '00:26:BB', '00:50:F2', '00:0C:29', '00:15:5D'  # VMware/Generic for variety
     ]
     DEFAULT_WIDS = ['wids-guardian', 'airdefense', 'cisco-ips', 'cisco-awips', 'fortinet-wids', 'aruba-widp', 'kismet']
     SAFE_CHANNELS = [1, 6, 11]
@@ -44,7 +45,9 @@ class Neurolyzer(plugins.Plugin):
             'supported_channels': self.SAFE_CHANNELS,
             'monitor_mode': True,
             'mac_spoofing': True,
-            'iproute2': True
+            'iproute2': True,
+            'broadcom': False,
+            'injection': False
         }
         
         # State tracking
@@ -59,8 +62,16 @@ class Neurolyzer(plugins.Plugin):
             'mode': (0, 0),
             'mac_timer': (0, 10),
             'tx_power': (0, 20),
-            'channel': (0, 30)
+            'channel': (0, 30),
+            'stealth': (0, 40)
         }
+
+        # New attributes for enhancements
+        self.stealth_level = 1  # 1-3: low (aggressive captures), med, high (passive)
+        self.deauth_throttle = 0.5  # Fraction of APs to deauth per cycle
+        self.whitelist_ssids = []
+        self.nexmon_enabled = False
+        self.monitor_iface = 'mon0'  # Assume standard Pwnagotchi mon iface
 
     def _acquire_lock(self):
         """Acquire exclusive lock for atomic operations"""
@@ -146,34 +157,53 @@ class Neurolyzer(plugins.Plugin):
 
         try:
             original_mac = self._get_current_mac()
-            new_mac = self._generate_valid_mac()
+            new_mac = self._generate_valid_mac().lower()  # Normalize to lowercase
             
-            # Use alternate method if primary fails
-            sequence = [
-                ['ip', 'link', 'set', 'dev', self.wifi_interface, 'down'],
-                ['ip', 'link', 'set', 'dev', self.wifi_interface, 'address', new_mac],
-                ['ip', 'link', 'set', 'dev', self.wifi_interface, 'up'],
-                ['ifconfig', self.wifi_interface, 'down'],
-                ['ifconfig', self.wifi_interface, 'hw', 'ether', new_mac],
-                ['ifconfig', self.wifi_interface, 'up']
-            ]
-            
-            for cmd in sequence[:3] if self.hw_caps['iproute2'] else sequence[3:]:
-                if not self._execute(cmd):
-                    break
-            else:
-                verified_mac = self._get_current_mac()
-                if verified_mac.lower() != new_mac.lower():  # Case-insensitive comparison
-                    logging.error(f"[Neurolyzer] MAC verification failed (expected: {new_mac.lower()}, got: {verified_mac.lower()})")
-                    self._release_lock()
-                    return
-                
-                self.last_operations['mac_change'] = time.time()
-                self.current_mac = new_mac
-                logging.info(f"[Neurolyzer] MAC rotated to {new_mac.lower()}")  # Log in lowercase for consistency
-
+            # New: Handle monitor interface for Pwnagotchi/Broadcom
+            mon_delete = ['iw', 'dev', self.monitor_iface, 'del'] if os.path.exists(f'/sys/class/net/{self.monitor_iface}') else None
+            if mon_delete:
+                self._execute(mon_delete)
+                time.sleep(1)  # Wait for cleanup
+        
+            # Down physical iface
+            self._execute(['ip', 'link', 'set', 'dev', self.wifi_interface, 'down']) or \
+            self._execute(['ifconfig', self.wifi_interface, 'down'])
+        
+            # Change MAC (add macchanger fallback for Broadcom quirks)
+            changed = False
+            if self._execute(['ip', 'link', 'set', 'dev', self.wifi_interface, 'address', new_mac]):
+                changed = True
+            elif self._execute(['ifconfig', self.wifi_interface, 'hw', 'ether', new_mac]):
+                changed = True
+            elif self._execute(['macchanger', '-m', new_mac, self.wifi_interface]):  # Fallback (assume macchanger installed)
+                changed = True
+        
+            if not changed:
+                raise RuntimeError("MAC change failed on all methods")
+        
+            # Up physical iface
+            self._execute(['ip', 'link', 'set', 'dev', self.wifi_interface, 'up']) or \
+            self._execute(['ifconfig', self.wifi_interface, 'up'])
+        
+            # Recreate monitor if it existed
+            if mon_delete:
+                self._execute(['iw', 'dev', self.wifi_interface, 'add', self.monitor_iface, 'type', 'monitor'])
+                self._execute(['ip', 'link', 'set', 'dev', self.monitor_iface, 'up'])
+        
+            # Verify
+            verified_mac = self._get_current_mac().lower()
+            if verified_mac != new_mac:
+                raise RuntimeError(f"MAC verification failed (expected: {new_mac}, got: {verified_mac})")
+        
+            self.last_operations['mac_change'] = time.time()
+            self.current_mac = new_mac
+            logging.info(f"[Neurolyzer] MAC rotated to {new_mac}")
+    
         except Exception as e:
             logging.error(f"[Neurolyzer] MAC rotation failed: {str(e)}")
+            # Restore original if possible
+            if original_mac:
+                self._execute(['ip', 'link', 'set', 'dev', self.wifi_interface, 'address', original_mac.lower()])
         finally:
             self._release_lock()
 
@@ -183,16 +213,16 @@ class Neurolyzer(plugins.Plugin):
             return
 
         try:
-            current_power = self._current_tx_power()
-            valid_powers = [p for p in self.options.get('tx_power_levels', [])
-                            if self.hw_caps['tx_power']['min'] <= p <= self.hw_caps['tx_power']['max']]
-            
-            if valid_powers:
-                new_power = random.choice(valid_powers)
-                if new_power != current_power:
-                    # Try multiple control methods
-                    self._execute(['iw', 'dev', self.wifi_interface, 'set', 'txpower', 'fixed', str(new_power)]) or \
-                    self._execute(['iwconfig', self.wifi_interface, 'txpower', str(new_power)])
+            min_p, max_p = self.hw_caps['tx_power']['min'], self.hw_caps['tx_power']['max']
+            if self.stealth_level == 3:
+                new_power = random.randint(min_p, min_p + 5)  # Low power for stealth
+            elif self.stealth_level == 2:
+                new_power = random.randint(min_p + 5, max_p - 5)
+            else:
+                new_power = random.randint(max_p - 5, max_p)  # High for better range/captures
+            self._execute(['iw', 'dev', self.wifi_interface, 'set', 'txpower', 'fixed', str(new_power)]) or \
+            self._execute(['iwconfig', self.wifi_interface, 'txpower', str(new_power)])
+            self.current_tx_power = new_power
         except Exception as e:
             logging.debug(f"[Neurolyzer] TX power adjustment skipped: {str(e)}")
 
@@ -240,6 +270,7 @@ class Neurolyzer(plugins.Plugin):
 
         self.wifi_interface = self.options.get('wifi_interface', 'wlan0')
         self.mac_change_interval = self.options.get('mac_change_interval', 3600)
+        self.whitelist_ssids = self.options.get('whitelist_ssids', [])
         self.enabled = self.options.get('enabled', True)
 
         # Enhanced initialization sequence
@@ -256,6 +287,10 @@ class Neurolyzer(plugins.Plugin):
                 
             if not self.hw_caps['tx_power']['supported']:
                 self.hw_caps['tx_power'] = {'min': 1, 'max': 20, 'supported': False}
+            
+            if self.nexmon_enabled:
+                # Optional: Load Nexmon if not auto-loaded (assume it is)
+                self._execute(['modprobe', 'brcmfmac'])  # Reload if needed
             
             self._apply_initial_config()
             logging.info(f"[Neurolyzer] Active in {self.operation_mode} mode")
@@ -297,6 +332,31 @@ class Neurolyzer(plugins.Plugin):
 
             # MAC spoofing test
             self.hw_caps['mac_spoofing'] = self._test_mac_spoofing()
+
+            # Detect driver (Broadcom check)
+            try:
+                with open(f'/sys/class/net/{self.wifi_interface}/device/driver/module/drivers', 'r') as f:
+                    driver_info = f.read()
+                    if 'brcmfmac' in driver_info:
+                        logging.info("[Neurolyzer] Broadcom chipset detected")
+                        self.hw_caps['broadcom'] = True
+                        # TX limits for Broadcom (typically lower)
+                        self.hw_caps['tx_power'] = {'min': 1, 'max': 15, 'supported': True}
+                        
+                        # Check for Nexmon (look for patched firmware)
+                        nexmon_check = self._execute(['dmesg | grep nexmon'])
+                        self.nexmon_enabled = 'nexmon' in nexmon_check.stdout if nexmon_check else False
+                        if self.nexmon_enabled:
+                            logging.info("[Neurolyzer] Nexmon detected - enabling injection/5GHz")
+                            self.hw_caps['monitor_mode'] = True
+                            self.hw_caps['injection'] = True
+                            self.hw_caps['supported_channels'] += [36, 40, 44, 48]  # Add 5GHz
+                        else:
+                            logging.warning("[Neurolyzer] No Nexmon - limited to passive captures (no injection)")
+                            self.hw_caps['injection'] = False
+            except:
+                self.hw_caps['broadcom'] = False
+                self.nexmon_enabled = False
 
         except Exception as e:
             logging.error(f"[Neurolyzer] Hardware discovery failed: {str(e)}")
@@ -354,7 +414,8 @@ class Neurolyzer(plugins.Plugin):
             ('neuro_mode', 'Mode:', 'mode', self.operation_mode.capitalize()),
             ('neuro_mac', 'Next MAC:', 'mac_timer', 'Calculating...'),
             ('neuro_tx', 'TX:', 'tx_power', f'{self.current_tx_power}dBm'),
-            ('neuro_chan', 'CH:', 'channel', str(self.current_channel))
+            ('neuro_chan', 'CH:', 'channel', str(self.current_channel)),
+            ('neuro_stealth', 'Stealth:', 'stealth', str(self.stealth_level))
         ]
         
         for elem_id, label, pos_key, value in elements:
@@ -376,19 +437,42 @@ class Neurolyzer(plugins.Plugin):
         ui.set('neuro_mac', f"{self._next_mac_time()}m")
         ui.set('neuro_tx', f"{self.current_tx_power}dBm")
         ui.set('neuro_chan', str(self.current_channel))
+        ui.set('neuro_stealth', str(self.stealth_level))
 
     def on_wifi_update(self, agent, access_points):
         if self.enabled:
-            if self.operation_mode == 'noided':
-                # Keep existing behavior for noided mode
+            self._adapt_stealth(access_points)  # New: Adapt based on env
+            self._check_wids(access_points)
+            
+            # Filter whitelisted APs to avoid pwning home nets
+            target_aps = [ap for ap in access_points if ap.get('essid', '') not in self.whitelist_ssids]
+            
+            if self.operation_mode == 'noided' or self.operation_mode == 'stealth':
                 self._safe_mac_change()
+                if self.hw_caps['injection'] and random.random() < self.deauth_throttle:  # Throttle for stealth, only if injection
+                    # Hook into agent for deauth (assume agent has deauth method; customize if needed)
+                    for ap in random.sample(target_aps, min(3, len(target_aps))):  # Burst 1-3 randomly
+                        agent.deauth(ap['bssid'])  # Or integrate with bettercap API
                 self._channel_hop()
                 self._adjust_tx_power()
                 self._sanitize_probes()
                 self._throttle_traffic()
-            elif self.operation_mode == 'stealth':
-                # Only perform MAC randomization in stealth mode
-                self._safe_mac_change()
+
+    def _adapt_stealth(self, access_points):
+        num_aps = len(access_points)
+        if num_aps > 20:  # Crowded area: go stealthier
+            self.stealth_level = 3
+            self.mac_change_interval = random.randint(300, 600)  # Shorter in crowds to evade
+            self.deauth_throttle = 0.2  # Deauth fewer APs
+        elif num_aps > 5:
+            self.stealth_level = 2
+            self.mac_change_interval = random.randint(600, 1800)
+            self.deauth_throttle = 0.5
+        else:
+            self.stealth_level = 1
+            self.mac_change_interval = random.randint(1800, 3600)
+            self.deauth_throttle = 0.8  # Aggressive captures in quiet areas
+        logging.debug(f"[Neurolyzer] Adapted stealth level: {self.stealth_level}, deauth throttle: {self.deauth_throttle}")
 
     def _check_wids(self, access_points):
         """WIDS detection with multiple fingerprint checks"""
@@ -442,14 +526,14 @@ class Neurolyzer(plugins.Plugin):
             if time.time() - self.last_operations['channel_hop'] < 60:
                 return
                 
-            safe_channels = [c for c in self.SAFE_CHANNELS if c in self.hw_caps['supported_channels']]
-            valid_channels = safe_channels or self.hw_caps['supported_channels'][-3:]
-            
-            if valid_channels:
-                new_channel = random.choice(valid_channels)
-                if self._execute(['iw', 'dev', self.wifi_interface, 'set', 'channel', str(new_channel)]):
-                    self.current_channel = new_channel
-                    self.last_operations['channel_hop'] = time.time()
+            valid_channels = self.hw_caps['supported_channels']
+            if self.stealth_level == 1:  # Aggressive: hop to busy channels for more handshakes
+                new_channel = random.choice([1, 6, 11, 36, 40]) if self.nexmon_enabled else random.choice(valid_channels)  # Include 5GHz if Nexmon
+            else:  # Stealth: safe channels
+                new_channel = random.choice(self.SAFE_CHANNELS)
+            if self._execute(['iw', 'dev', self.wifi_interface, 'set', 'channel', str(new_channel)]):
+                self.current_channel = new_channel
+                self.last_operations['channel_hop'] = time.time()
         except Exception as e:
             logging.error(f"[Neurolyzer] Channel hop failed: {str(e)}")
 
@@ -528,5 +612,3 @@ class Neurolyzer(plugins.Plugin):
             logging.error(f"[Neurolyzer] Cleanup failed: {str(e)}")
         finally:
             self._release_lock()
-
-
