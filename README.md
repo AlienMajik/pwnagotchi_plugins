@@ -340,7 +340,7 @@ Select "No" when asked about changing the MAC on startup.
 
 2. **Update and install:**
    ```bash
-   sudo pwnagotchi update plugins
+   sudo pwnagotchi plugins update
    sudo pwnagotchi plugins install neurolyzer 
    ```
 
