@@ -417,55 +417,55 @@ Please read this disclaimer carefully before using the Neurolyzer plugin ("Plugi
 By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If you do not agree with these terms, you are advised not to use the Plugin.
 
 ---
+
 # ProbeNpwn Plugin
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 
 ## Overview
-
-The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! This updated version (1.4.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, adaptive environment detection (stationary, walking, driving) with GPS integration, multi-band support (2.4GHz and 5GHz), extended parameter profiles for stability, and more. If you've used Instattack, you'll love ProbeNpwn - it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
+The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! This updated version (1.5.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, continuous mobility detection with GPS integration for a mobility score (0-1), multi-band support (2.4GHz and 5GHz), min/max parameter scaling for stability, PMKID capture emphasis, and more. If you've used Instattack, you'll love ProbeNpwn - it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
 
 ## Key Features
 
 - **Efficient Deauthentication & Association Attacks:**
-  Launch both simultaneously to force devices to reconnect quickly, maximizing handshake captures.
-
+  Launch both simultaneously to force devices to reconnect quickly, maximizing handshake captures, with added focus on PMKID leaks via targeted associations.
+  
 - **Concurrent Attack Threads:**
   Handle multiple networks and clients at once with multi-threading for efficient, parallel attacks.
-
+  
 - **Customizable Settings:**
-  Fine-tune attack behavior, enable/disable features (including 5GHz support), and whitelist networks or clients via config.toml.
-
+  Fine-tune attack behavior, enable/disable features (including 5GHz support), set min/max scaling ranges, and whitelist networks or clients via config.toml.
+  
 - **Capture More Handshakes:**
-  Aggressive methods ensure rapid device reconnections, boosting handshake capture rates.
-
+  Aggressive methods ensure rapid device reconnections, boosting handshake capture rates, including PMKIDs from client-less APs.
+  
 - **Comprehensive Logging:**
   Track every attack and capture with detailed logs for performance insights.
-
+  
 - **Lightweight and Seamless Integration:**
   Fully compatible with Pwnagotchi for easy setup and operation.
-
-- **Adaptive Environment Detection:**
-   Automatically detects movement (stationary, walking, driving) using Bettercap GPS data or AP discovery rates, dynamically adjusting autotune/personality parameters for optimal performance.
-
+  
+- **Continuous Mobility Detection:**
+   Automatically calculates a mobility score (0 for stationary to 1 for high mobility) using Bettercap GPS data or AP discovery rates, dynamically scaling autotune/personality parameters for optimal performance.
+  
 - **Multi-Band Support:**
-   Intelligent channel hopping across 2.4GHz and optional 5GHz bands for broader Wi-Fi coverage.
-
+   Intelligent channel hopping across 2.4GHz and optional 5GHz bands for broader Wi-Fi coverage, with weights favoring PMKID-potential channels.
+  
 - **Enhanced Stability Measures:**
-  LRU caches, heap-based data cleanup, delay caching, psutil fallback for monitoring, and watchdog with restart backoff to prevent crashes.
-
-## What's New in ProbeNpwn v1.4.0?
-
-This release builds on v1.3.0 with major enhancements focused on mobility, stability, and performance, making ProbeNpwn even more versatile for stationary setups, walks, or drives. Key additions include:
+  LRU caches, heap-based data cleanup, delay caching, psutil fallback for monitoring, watchdog with restart backoff, pycache clearing, channel locks, and client caps per AP to prevent crashes.
+  
+## What's New in ProbeNpwn v1.5.0?
+This release builds on v1.4.0 with major enhancements focused on smoother mobility adaptations, PMKID capture, and stability, making ProbeNpwn even more versatile for any setup—from stationary to high-speed movement. Key additions include:
 
 ### 1. Dual Operational Modes: Tactical and Maniac 🧠💥
 
 **What's New:**
-Choose between two modes:
+Choose between two modes (unchanged from v1.4.0, but now integrated with continuous mobility scaling for better performance).
 
 - **Tactical Mode:** Strategic and efficient, focusing on high-value targets.
+- 
 - **Maniac Mode:** Unrestricted and aggressive, attacking all targets rapidly.
-
+ 
 **How It Works:**
 - Configurable via config.toml (`main.plugins.probenpwn.mode`).
 - Tactical Mode: Prioritizes targets with high client scores and respects cooldowns/whitelists.
@@ -474,191 +474,202 @@ Choose between two modes:
 **Why It's Better:**
 - Flexibility: Tailor the plugin to your needs—precision or brute force.
 - Control: Switch modes based on the environment or your goals.
-
+  
 ### 2. Client Scoring System 🎯
 
 **What's New:**
-Clients are scored based on signal strength and activity to prioritize high-value targets (now with decay for updated scores and LRU caching for efficiency).
+Clients are scored based on signal strength and activity to prioritize high-value targets (now with decay for updated scores, LRU caching for efficiency, and caps on clients per AP to prevent memory issues).
 
 **How It Works:**
 - Scores calculated as (signal + 100) * activity, with exponential decay on updates.
 - In Tactical Mode, only clients with scores ≥50 are attacked.
-
+ 
 **Why It's Better:**
 - Efficiency: Focuses attacks on clients most likely to yield handshakes.
-- Resource Optimization: Reduces wasted effort on low-value targets.
-
+- Resource Optimization: Reduces wasted effort on low-value targets and prevents data bloat.
+ 
 ### 3. ML-Inspired Channel Hopping 📡
 
 **What's New:**
-Intelligent channel selection based on historical success and activity (now with precomputed weights, bisect for faster selection, and multi-band support).
+Intelligent channel selection based on historical success and activity (now with PMKID weighting for channels with many APs/few clients, integer channel keys for consistency, and multi-band support).
 
 **How It Works:**
-- Tracks APs, clients, and handshake successes per channel (as strings for consistency).
-- Uses weighted random selection with cumulative weights to favor active, successful channels.
-
+- Tracks APs, clients, and handshake successes per channel.
+- Uses weighted random selection with cumulative weights to favor active, successful, and PMKID-friendly channels (boosted 1.5x if APs > clients and APs >3).
+ 
 **Why It's Better:**
-- Optimized Focus: Spends more time on productive channels.
+- Optimized Focus: Spends more time on productive channels, including those ideal for PMKID captures.
 - Adaptability: Adjusts dynamically to the Wi-Fi environment, including 5GHz if enabled.
-
+  
 ### 4. Intelligent Retry Mechanism with Exponential Backoff 🔄
 
 **What's New:**
-Retries failed attempts with increasing delays (now with unbounded priority queue and heap-based scheduling).
+Retries failed attempts with increasing delays (now with configurable max_retries, failure-based retries in epochs, and unbounded priority queue with heap-based scheduling).
 
 **How It Works:**
-- Uses exponential backoff (starting at 1s, capping at 60s) for retries.
-- Scheduled retries are managed via a priority queue, processed during epochs.
-
+- Uses exponential backoff (starting at 1s, capping at 60s) for retries, limited by max_retries (default 3).
+- Scheduled retries are managed via a priority queue, processed during epochs; auto-retries failing APs if attempts > successes +2.
+  
 **Why It's Better:**
 - Persistence: Keeps trying tough targets without overwhelming the system.
-- Resource Management: Prevents rapid, repeated attempts that could cause issues.
-
+- Resource Management: Prevents rapid, repeated attempts that could cause issues, with configurable limits.
+  
 ### 5. Handshake Deduplication
 
 **What's New:**
-Ensures only unique handshakes are processed (quality check via aircrack-ng removed for faster processing; focus on hash-based deduplication).
+Ensures only unique handshakes are processed (now with simplified hash using MACs only for faster deduplication).
 
 **How It Works:**
-- Deduplicates handshakes using a hash-based system combining AP MAC, client MAC, and filename.
-
+- Deduplicates handshakes using a hash-based system combining AP MAC and client MAC.
+  
 **Why It's Better:**
 - Accuracy: Avoids redundant processing.
 - Reliability: Speeds up handshake handling without validation overhead.
-
+ 
 ### 6. Dynamic Concurrency Based on System Resources 🛡️
 
 **What's New:**
-Adjusts the number of concurrent attack threads based on CPU and memory usage (now with psutil fallback using loadavg and cpu_count, dynamic in-watchdog adjustments).
+Adjusts the number of concurrent attack threads based on CPU and memory usage (now with psutil fallback using loadavg and cpu_count, dynamic in-watchdog adjustments, and channel locks for thread safety).
 
 **How It Works:**
 - Monitors system load (psutil preferred; falls back to os/multiprocessing).
 - Scales threads (e.g., from base of cpu_count*5 down to 10) if load exceeds thresholds.
-
+ 
 **Why It's Better:**
 - Stability: Prevents crashes or slowdowns, especially in Maniac Mode.
 - Adaptability: Works across different hardware or load conditions, even without psutil.
-
+ 
 **Note:** psutil is a cross-platform library for retrieving system information. It's recommended for precise monitoring but optional—ProbeNpwn falls back to built-in tools if unavailable. If desired, install with:
-
 ```bash
 sudo apt-get install python3-psutil
 ```
-
 ### 7. Additional Attack Vector: Fake Authentication Flood 💣
 
 **What's New:**
-Supplements deauthentication with a reduced 20% chance of a fake authentication flood (tuned for balance).
+Supplements deauthentication with a reduced 20% chance of a fake authentication flood (now scaled by assoc_prob for PMKID emphasis).
 
 **How It Works:**
-- Randomly triggers association attacks with a 0.05s delay.
-
+- Randomly triggers association attacks with a 0.05s delay; forces assoc if random < scaled assoc_prob to leak PMKIDs.
+ 
 **Why It's Better:**
-- Diversity: Captures handshakes from APs resistant to deauthentication.
+- Diversity: Captures handshakes (including PMKIDs) from APs resistant to deauthentication.
 - Aggression: Boosts attack frequency, especially in Maniac Mode.
-
+ 
 ### 8. Enhanced UI with Handshake Count 📊
 
 **What's New:**
-The UI now displays the total number of captured handshakes (plus environment status, with batched updates for efficiency).
+The UI now displays the total number of captured handshakes (plus mobility score as a percentage, with batched updates for efficiency).
 
 **How It Works:**
-- Added to the Pwnagotchi screen at configurable coordinates; updates every 5s to reduce overhead.
-
+- Added to the Pwnagotchi screen at configurable coordinates; updates every 5s to reduce overhead (e.g., "Mobility: 50%").
+  
 **Why It's Better:**
-- Visibility: Real-time feedback on handshake captures and current environment (e.g., "Env: Driving").
+- Visibility: Real-time feedback on handshake captures and current mobility score.
 - Motivation: See your success and adaptations instantly.
-
-### 9. Adaptive Environment Detection 🚀
-
-**What's New:**
-Detects your movement type (stationary, walking, driving) and auto-adjusts parameters.
-
-**How It Works:**
-- Uses Bettercap GPS for speed calculation (Haversine formula, buffered history) or fallback to new APs per epoch.
-- Hysteresis requires 2 consecutive detections for stable switches; checks every 10 epochs.
-
-**Why It's Better:**
-- Mobility: Optimizes for static (aggressive scans) vs. moving (quick, conservative to avoid crashes).
-- Integration: Ties into Pwnagotchi's personality params like recon_time, deauth_prob, and new throttles.
-
-### 10. Extended Parameter Profiles ⚙️
+ 
+### 9. Continuous Mobility Detection 🚀
 
 **What's New:**
-Per-environment profiles with added throttle delays for deauth/association.
+Calculates a continuous mobility score (0-1) and auto-scales parameters (replaces discrete environments and profiles from v1.4.0).
 
 **How It Works:**
-- Profiles adjust recon_time, TTLs, probabilities, min_rssi, throttle_a/d (e.g., higher delays in driving mode).
-- Applied dynamically on environment changes or config loads.
-
+- Uses Bettercap GPS for speed calculation (Haversine formula, buffered history with configurable size, ignores extreme speeds >200 km/h) or fallback to new APs per epoch.
+- Score combines normalized GPS speed (capped at 50 km/h) and AP rate; checks every configurable interval (default 10 epochs).
+  
 **Why It's Better:**
-- Crash Prevention: Reduces nexmon issues during rapid movement.
-- Efficiency: Tailors aggression to your scenario.
+- Mobility: Optimizes for any speed (aggressive scans when low score, conservative when high to avoid crashes).
+- Integration: Ties into Pwnagotchi's personality params like recon_time, deauth_prob, and throttles with smoother transitions.
+  
+### 10. Min/Max Parameter Scaling ⚙️
 
+**What's New:**
+Configurable min/max ranges for linear scaling based on mobility score (e.g., lowered RSSI thresholds, increased attack probabilities).
+
+**How It Works:**
+- Scales params like recon_time (max at low mobility, min at high), probabilities (high at low mobility), RSSI/throttles (higher at high mobility).
+- Applied dynamically on score updates or config loads.
+  
+**Why It's Better:**
+- Crash Prevention: Reduces nexmon issues during rapid movement with tailored aggression.
+- Efficiency: Fine-tunes performance to your exact scenario, with user-customizable ranges.
+  
 ### Multi-Band Support (2.4GHz + 5GHz) 🌐
 
 **What's New:**
-Optional 5GHz channel hopping for broader coverage.
+Optional 5GHz channel hopping for broader coverage (now with caps on clients per AP for scalability).
 
 **How It Works:**
 - Enabled via config.toml (enable_5ghz); adds channels 36-165 to hopping pool.
 
 **Why It's Better:**
-- Scalability: Prevents memory bloat on long runs.
+- Scalability: Prevents memory bloat on long runs with data caps.
 - Reliability: Minimizes interface failures and reboots.
-
-
+  
 ## Why You'll Love It
 
-ProbeNpwn v1.4.0 is your handshake-capturing Swiss Army knife:
+ProbeNpwn v1.5.0 is your handshake-capturing Swiss Army knife:
 
-- **Smart & Aggressive:** Tactical for strategy, Maniac for mayhem, now with environment-aware adaptations.
+- **Smart & Aggressive:** Tactical for strategy, Maniac for mayhem, now with continuous mobility-aware scaling and PMKID focus.
 - **Efficient:** Scoring, concurrency, and caching optimize every attack.
 - **Relentless:** Retries and floods leave no handshake behind, across more bands.
-- **Stable:** Keeps your Pwnagotchi happy under pressure, even on the move.
-
+- **Stable:** Keeps your Pwnagotchi happy under pressure, even at high speeds.
 Big props to Sniffleupagus for the original Instattack—this builds on that legacy! 🙏
 
 ## How to Get Started
 
 ### Install the Plugin:
-Copy `probenpwn.py` to your Pwnagotchi's plugins folder.
 
+Copy `probenpwn.py` to your Pwnagotchi's plugins folder.
 ### Install psutil (if not already installed):
+
 Run:
 ```bash
 sudo apt-get install python3-psutil
 ```
-
 Why: psutil enables precise dynamic thread scaling based on system resources, keeping your Pwnagotchi stable during intense operations. If not installed, ProbeNpwn falls back to built-in monitoring.
 
 ### Edit config.toml:
 ```toml
 main.plugins.probenpwn.enabled = true
-main.plugins.probenpwn.mode = "tactical"  # or "maniac"
+main.plugins.probenpwn.mode = "tactical" # or "maniac"
 main.plugins.probenpwn.attacks_x_coord = 110
 main.plugins.probenpwn.attacks_y_coord = 20
 main.plugins.probenpwn.success_x_coord = 110
 main.plugins.probenpwn.success_y_coord = 30
 main.plugins.probenpwn.handshakes_x_coord = 110
-main.plugins.probenpwn.handshakes_y_coord = 40      
-main.plugins.probenpwn.verbose = true  # For detailed logs
-main.plugins.probenpwn.enable_5ghz = false  # Set to true for 5GHz support (requires compatible hardware)
+main.plugins.probenpwn.handshakes_y_coord = 40
+main.plugins.probenpwn.verbose = true # For detailed logs
+main.plugins.probenpwn.enable_5ghz = false # Set to true for 5GHz support (requires compatible hardware)
+main.plugins.probenpwn.max_retries = 3 # Max retries per target
+main.plugins.probenpwn.gps_history_size = 5 # GPS buffer size for speed calc
+main.plugins.probenpwn.env_check_interval = 10 # Epochs between mobility checks
+main.plugins.probenpwn.min_recon_time = 2
+main.plugins.probenpwn.max_recon_time = 30
+main.plugins.probenpwn.min_ap_ttl = 30
+main.plugins.probenpwn.max_ap_ttl = 300
+main.plugins.probenpwn.min_sta_ttl = 30
+main.plugins.probenpwn.max_sta_ttl = 300
+main.plugins.probenpwn.min_deauth_prob = 0.9
+main.plugins.probenpwn.max_deauth_prob = 1.0
+main.plugins.probenpwn.min_assoc_prob = 0.9
+main.plugins.probenpwn.max_assoc_prob = 1.0
+main.plugins.probenpwn.min_min_rssi = -85
+main.plugins.probenpwn.max_min_rssi = -60
+main.plugins.probenpwn.min_throttle_a = 0.1
+main.plugins.probenpwn.max_throttle_a = 0.2
+main.plugins.probenpwn.min_throttle_d = 0.1
+main.plugins.probenpwn.max_throttle_d = 0.2
 ```
-
 ### Whitelist (Optional):
 Add safe networks/MACs to `/etc/pwnagotchi/config.toml` under `main.whitelist`.
-
 ### Restart & Monitor:
 ```bash
 sudo systemctl restart pwnagotchi
 ```
-
 ## Pro Tip 💡
-Use Tactical Mode for efficiency and enable environment detection for automatic adjustments on the go. Switch to Maniac Mode in crowded areas for a handshake bonanza, and turn on 5GHz in modern Wi-Fi zones—just keep an eye on your device's temperature!
+Use Tactical Mode for efficiency and enable continuous mobility detection for automatic scaling on the go. Switch to Maniac Mode in crowded areas for a handshake bonanza, and turn on 5GHz in modern Wi-Fi zones—just keep an eye on your device's temperature!
 
 ## Disclaimer
-
 This software is provided for educational and research purposes only. Use of this plugin on networks or devices that you do not own or have explicit permission to test is strictly prohibited. The author(s) and contributors are not responsible for any misuse, damages, or legal consequences that may result from unauthorized or improper usage. By using this plugin, you agree to assume all risks and take full responsibility for ensuring that all applicable laws and regulations are followed.
 
 ---
