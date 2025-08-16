@@ -25,24 +25,24 @@ class Thirdie(plugins.Plugin):
     def on_loaded(self):
         """Initialize plugin options with validation."""
         self.options['deauth_attempts'] = self.options.get('deauth_attempts', 10)  # Default 10 attempts
-        self.options['target_ssid'] = self.options.get('target_ssid', None)       # Optional SSID filter
-        self.options['cooldown'] = self.options.get('cooldown', 60)              # Cooldown in seconds
-        self.options['min_rssi'] = self.options.get('min_rssi', -70)             # Min RSSI for targeting
+        self.options['target_ssid'] = self.options.get('target_ssid', None)  # Optional SSID filter
+        self.options['cooldown'] = self.options.get('cooldown', 60)  # Cooldown in seconds
+        self.options['min_rssi'] = self.options.get('min_rssi', -70)  # Min RSSI for targeting
         self.options['max_targets_per_update'] = self.options.get('max_targets_per_update', 3)  # Max APs per update
-        self.options['retry_attempts'] = self.options.get('retry_attempts', 3)         # Retry attempts for assoc
-        self.options['passive_fallback'] = self.options.get('passive_fallback', True)    # Enable passive fallback
-        self.options['passive_wait'] = self.options.get('passive_wait', 30)         # Seconds for passive monitor
+        self.options['retry_attempts'] = self.options.get('retry_attempts', 3)  # Retry attempts for assoc
+        self.options['passive_fallback'] = self.options.get('passive_fallback', True)  # Enable passive fallback
+        self.options['passive_wait'] = self.options.get('passive_wait', 30)  # Seconds for passive monitor
         self.options['exponential_backoff'] = self.options.get('exponential_backoff', True)  # Enable exponential backoff
         self.options['assoc_timeout'] = self.options.get('assoc_timeout', 5)  # Timeout for association attempts
         self.options['ui_update_interval'] = self.options.get('ui_update_interval', 10)  # UI update interval in seconds
-
         # New UI config options
         self.options['ui_position_x'] = self.options.get('ui_position_x', 0)  # Default X position
         self.options['ui_position_y'] = self.options.get('ui_position_y', 95)  # Default Y position
-        self.options['ui_font'] = self.options.get('ui_font', 'small').upper()  # Default font (e.g., 'small' -> fonts.SMALL)
-        self.options['ui_label_font'] = self.options.get('ui_label_font', 'bold_small').upper()  # Default label font
+        ui_font_raw = self.options.get('ui_font', 'small')
+        self.options['ui_font'] = ''.join(word.capitalize() for word in ui_font_raw.split('_'))  # e.g., 'small' -> 'Small'
+        ui_label_font_raw = self.options.get('ui_label_font', 'bold_small')
+        self.options['ui_label_font'] = ''.join(word.capitalize() for word in ui_label_font_raw.split('_'))  # e.g., 'bold_small' -> 'BoldSmall'
         self.options['ui_color'] = self.options.get('ui_color', 'black').upper()  # Default color (e.g., 'black' -> view.BLACK)
-
         # Validate options
         if self.options['deauth_attempts'] < 1:
             self.options['deauth_attempts'] = 1
@@ -68,18 +68,16 @@ class Thirdie(plugins.Plugin):
         if self.options['ui_update_interval'] < 5:
             self.options['ui_update_interval'] = 5
             logging.warning("Thirdie: ui_update_interval set to minimum 5 seconds.")
-
         # Validate UI options (fallback to defaults if invalid)
         if not hasattr(fonts, self.options['ui_font']):
-            logging.warning(f"Thirdie: Invalid ui_font '{self.options['ui_font'].lower()}'. Falling back to 'SMALL'.")
-            self.options['ui_font'] = 'SMALL'
+            logging.warning(f"Thirdie: Invalid ui_font '{ui_font_raw}'. Falling back to 'Small'.")
+            self.options['ui_font'] = 'Small'
         if not hasattr(fonts, self.options['ui_label_font']):
-            logging.warning(f"Thirdie: Invalid ui_label_font '{self.options['ui_label_font'].lower()}'. Falling back to 'BOLD_SMALL'.")
-            self.options['ui_label_font'] = 'BOLD_SMALL'
+            logging.warning(f"Thirdie: Invalid ui_label_font '{ui_label_font_raw}'. Falling back to 'BoldSmall'.")
+            self.options['ui_label_font'] = 'BoldSmall'
         if not hasattr(view, self.options['ui_color']):
             logging.warning(f"Thirdie: Invalid ui_color '{self.options['ui_color'].lower()}'. Falling back to 'BLACK'.")
             self.options['ui_color'] = 'BLACK'
-
         logging.info(
             f"Thirdie loaded with deauth_attempts={self.options['deauth_attempts']}, "
             f"target_ssid={self.options['target_ssid']}, cooldown={self.options['cooldown']}s, "
@@ -103,34 +101,27 @@ class Thirdie(plugins.Plugin):
         """Process Wi-Fi updates and target WPA3 APs."""
         if not self.running:
             return
-
         current_time = time.time()
         targets_attacked = 0
         whitelist = agent.config().get('main', {}).get('whitelist', [])  # Access main.whitelist
-
         for ap in access_points:
             if targets_attacked >= self.options['max_targets_per_update']:
                 break  # Limit number of attacks per update
-
             ssid = ap.get('hostname', '<hidden>')
             bssid = ap['mac']
             encryption = ap.get('encryption', 'UNKNOWN')
             rssi = ap.get('rssi', 0)
-
             # Skip if in main.whitelist (BSSID or SSID)
             if bssid in whitelist or ssid in whitelist:
                 logging.debug(f"Thirdie: Skipping whitelisted {ssid} ({bssid}).")
                 continue
-
             # Skip if signal too weak
             if rssi < self.options['min_rssi']:
                 logging.debug(f"Thirdie: Skipping {ssid} ({bssid}) - RSSI {rssi} < {self.options['min_rssi']}.")
                 continue
-
             # Check for WPA3 or transition mode (preliminary)
             if 'WPA3' not in encryption and 'WPA2/WPA3' not in encryption:
                 continue
-
             # Parse RSN for SAE confirmation and PMF
             rsn_b64 = ap.get('rsn', '')
             if rsn_b64:
@@ -141,9 +132,27 @@ class Thirdie(plugins.Plugin):
                     version, = struct.unpack('<H', rsn_bytes[0:2])
                     if version != 1:
                         continue
-                    offset = 2 + 4 + 2 + 4  # Skip version, group, pairwise count, pairwise
+                    offset = 2
+                    # Skip group cipher
+                    if offset + 4 > len(rsn_bytes):
+                        continue
+                    offset += 4
+                    # Pairwise cipher count and skip list
+                    if offset + 2 > len(rsn_bytes):
+                        continue
+                    pairwise_count, = struct.unpack('<H', rsn_bytes[offset:offset+2])
+                    offset += 2
+                    if offset + 4 * pairwise_count > len(rsn_bytes):
+                        continue
+                    offset += 4 * pairwise_count
+                    # AKM count
+                    if offset + 2 > len(rsn_bytes):
+                        continue
                     akm_count, = struct.unpack('<H', rsn_bytes[offset:offset+2])
                     offset += 2
+                    # Check AKMs
+                    if offset + 4 * akm_count > len(rsn_bytes):
+                        continue
                     is_sae = False
                     for i in range(akm_count):
                         akm = rsn_bytes[offset:offset+4]
@@ -152,8 +161,7 @@ class Thirdie(plugins.Plugin):
                         offset += 4
                     if not is_sae:
                         continue
-
-                    # Check PMF capabilities more accurately
+                    # Check PMF capabilities
                     if offset + 2 <= len(rsn_bytes):
                         caps, = struct.unpack('<H', rsn_bytes[offset:offset+2])
                         pmf_required = bool(caps & 0x0080)  # Bit 7 for PMF required
@@ -166,17 +174,14 @@ class Thirdie(plugins.Plugin):
                     continue
             else:
                 continue
-
             # Filter by target SSID if specified
             if self.options['target_ssid'] and ssid != self.options['target_ssid']:
                 continue
-
             # Skip if recently targeted (within cooldown)
             last_time = self.last_targeted.get(bssid, 0)
             if current_time - last_time < self.options['cooldown']:
                 logging.debug(f"Thirdie: Skipping {ssid} ({bssid}) - still in cooldown.")
                 continue
-
             logging.info(f"Thirdie: Confirmed SAE target - SSID: {ssid}, BSSID: {bssid}, PMF Required: {pmf_required}, PMF Capable: {pmf_capable}, RSSI: {rssi}")
             self.active_targets.add(bssid)
             self.handshake_captured[bssid] = False
@@ -192,9 +197,7 @@ class Thirdie(plugins.Plugin):
         ssid = ap.get('hostname', '<hidden>')
         logging.info(f"Thirdie: Attacking {ssid} ({bssid}).")
         self._update_ui(f"Targeting: {ssid}")
-
         clients = ap.get('clients', [])
-
         # Deauth only if clients present and PMF not required
         if pmf_required:
             logging.info(f"Thirdie: PMF required for {ssid} ({bssid}). Skipping deauth.")
@@ -219,7 +222,6 @@ class Thirdie(plugins.Plugin):
                         time.sleep(random.uniform(0.1, 0.5))  # Randomized delay
         else:
             logging.info(f"Thirdie: No clients detected for {ssid} ({bssid}). Skipping deauth.")
-
         # Retry loop for association attempts with exponential backoff and timeout
         backoff_time = 1  # Initial backoff
         for attempt in range(self.options['retry_attempts']):
@@ -240,20 +242,16 @@ class Thirdie(plugins.Plugin):
             if not success:
                 logging.error(f"Thirdie: Association failed on {bssid} after retries.")
             time.sleep(random.uniform(1, 3))  # Give time for handshake exchange
-
             if self.handshake_captured.get(bssid, False):
                 break
-
             if self.options['exponential_backoff']:
                 time.sleep(backoff_time)
                 backoff_time = min(backoff_time * 2, 10)  # Cap at 10s
-
         # Passive fallback if enabled and no handshake captured
         if self.options['passive_fallback'] and not self.handshake_captured.get(bssid, False):
             logging.info(f"Thirdie: Active triggering failed for {ssid} ({bssid}). Falling back to passive monitoring for {self.options['passive_wait']}s.")
             self._update_ui(f"Passive wait: {ssid}")
             time.sleep(self.options['passive_wait'])
-
         # Clean up for this target
         self.active_targets.discard(bssid)
         self.handshake_captured.pop(bssid, None)
@@ -278,12 +276,12 @@ class Thirdie(plugins.Plugin):
         if hasattr(self, 'agent'):
             try:
                 ui_view = self.agent.view()
-                if 'thirdie_status' not in ui_view._state:
+                if ui_view._state.get('thirdie_status') is None:
                     ui_view.add_element('thirdie_status', components.LabeledValue(
                         color=getattr(view, self.options['ui_color']),
                         label='WPA3:', value='',
                         position=(self.options['ui_position_x'], self.options['ui_position_y']),
-                        font=getattr(fonts, self.options['ui_font']),
+                        value_font=getattr(fonts, self.options['ui_font']),
                         label_font=getattr(fonts, self.options['ui_label_font'])
                     ))
                 ui_view.set('thirdie_status', message)
