@@ -9,8 +9,8 @@ import pwnagotchi.ui.view as view
 import pwnagotchi.ui.fonts as fonts
 
 class Thirdie(plugins.Plugin):
-    __author__ = "Rex"
-    __version__ = "1.2.1"
+    __author__ = "AlienMajik"
+    __version__ = "1.1.1"
     __license__ = "GPL3"
     __description__ = "Targets WPA3 networks to capture SAE handshakes with smarter deauth handling, RSN parsing, retries, multi-target support, UI feedback, exponential backoff, handshake verification, and more."
 
@@ -281,7 +281,6 @@ class Thirdie(plugins.Plugin):
                         color=getattr(view, self.options['ui_color']),
                         label='WPA3:', value='',
                         position=(self.options['ui_position_x'], self.options['ui_position_y']),
-                        value_font=getattr(fonts, self.options['ui_font']),
                         label_font=getattr(fonts, self.options['ui_label_font'])
                     ))
                 ui_view.set('thirdie_status', message)
@@ -301,4 +300,4 @@ class Thirdie(plugins.Plugin):
         self.active_targets.clear()
         self.handshake_captured.clear()
         self.stats.clear()
-        logging.info("Thirdie: Shutting down.")
+        logging.info("Thirdie: Shutting
