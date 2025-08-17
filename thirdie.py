@@ -39,9 +39,9 @@ class Thirdie(plugins.Plugin):
         self.options['ui_position_x'] = self.options.get('ui_position_x', 0)  # Default X position
         self.options['ui_position_y'] = self.options.get('ui_position_y', 95)  # Default Y position
         ui_font_raw = self.options.get('ui_font', 'small')
-        self.options['ui_font'] = ''.join(word.capitalize() for word in ui_font_raw.split('_'))  # e.g., 'small' -> 'Small'
+        self.options['ui_font'] = '_'.join(word.upper() for word in ui_font_raw.split('_'))  # e.g., 'small' -> 'SMALL', 'bold_small' -> 'BOLD_SMALL'
         ui_label_font_raw = self.options.get('ui_label_font', 'bold_small')
-        self.options['ui_label_font'] = ''.join(word.capitalize() for word in ui_label_font_raw.split('_'))  # e.g., 'bold_small' -> 'BoldSmall'
+        self.options['ui_label_font'] = '_'.join(word.upper() for word in ui_label_font_raw.split('_'))  # e.g., 'bold_small' -> 'BOLD_SMALL'
         self.options['ui_color'] = self.options.get('ui_color', 'black').upper()  # Default color (e.g., 'black' -> view.BLACK)
         # Validate options
         if self.options['deauth_attempts'] < 1:
@@ -70,11 +70,11 @@ class Thirdie(plugins.Plugin):
             logging.warning("Thirdie: ui_update_interval set to minimum 5 seconds.")
         # Validate UI options (fallback to defaults if invalid)
         if not hasattr(fonts, self.options['ui_font']):
-            logging.warning(f"Thirdie: Invalid ui_font '{ui_font_raw}'. Falling back to 'Small'.")
-            self.options['ui_font'] = 'Small'
+            logging.warning(f"Thirdie: Invalid ui_font '{ui_font_raw}'. Falling back to 'SMALL'.")
+            self.options['ui_font'] = 'SMALL'
         if not hasattr(fonts, self.options['ui_label_font']):
-            logging.warning(f"Thirdie: Invalid ui_label_font '{ui_label_font_raw}'. Falling back to 'BoldSmall'.")
-            self.options['ui_label_font'] = 'BoldSmall'
+            logging.warning(f"Thirdie: Invalid ui_label_font '{ui_label_font_raw}'. Falling back to 'BOLD_SMALL'.")
+            self.options['ui_label_font'] = 'BOLD_SMALL'
         if not hasattr(view, self.options['ui_color']):
             logging.warning(f"Thirdie: Invalid ui_color '{self.options['ui_color'].lower()}'. Falling back to 'BLACK'.")
             self.options['ui_color'] = 'BLACK'
@@ -86,7 +86,7 @@ class Thirdie(plugins.Plugin):
             f"exponential_backoff={self.options['exponential_backoff']}, "
             f"assoc_timeout={self.options['assoc_timeout']}, ui_update_interval={self.options['ui_update_interval']}, "
             f"ui_position=({self.options['ui_position_x']},{self.options['ui_position_y']}), "
-            f"ui_font={self.options['ui_font'].lower()}, ui_label_font={self.options['ui_label_font'].lower()}, "
+            f"ui_font={self.options['ui_font'].lower().replace('_', '')}, ui_label_font={self.options['ui_label_font'].lower().replace('_', '')}, "
             f"ui_color={self.options['ui_color'].lower()}."
         )
 
