@@ -9,8 +9,8 @@ import pwnagotchi.ui.view as view
 import pwnagotchi.ui.fonts as fonts
 
 class Thirdie(plugins.Plugin):
-    __author__ = "Rex, your loyal fixer"
-    __version__ = "1.2.0"
+    __author__ = "AlienMajik"
+    __version__ = "1.1.1"
     __license__ = "GPL3"
     __description__ = "Targets WPA3 networks to capture SAE handshakes with smarter deauth handling, RSN parsing, retries, multi-target support, UI feedback, exponential backoff, handshake verification, and more."
 
