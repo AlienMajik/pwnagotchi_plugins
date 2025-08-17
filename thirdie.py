@@ -300,4 +300,4 @@ class Thirdie(plugins.Plugin):
         self.active_targets.clear()
         self.handshake_captured.clear()
         self.stats.clear()
-        logging.info("Thirdie: Shutting
+        logging.info("Thirdie: Shutting down.")
