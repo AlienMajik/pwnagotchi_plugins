@@ -747,7 +747,7 @@ You can install SnoopR in two ways: the easy way (recommended) or the manual way
    Run these commands to update the plugin list and install SnoopR:
 
    ```bash
-   sudo pwnagotchi update plugins
+   sudo pwnagotchi plugins update
    sudo pwnagotchi plugins install snoopr
    ```
 
