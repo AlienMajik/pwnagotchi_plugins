@@ -13,6 +13,7 @@ Feel free to open issues or pull requests to improve this plugin or suggest new 
 5. [SnoopR Plugin](#snoopr-plugin)
 6. [SkyHigh Plugin](#skyhigh-plugin)
 7. [MadHatter Plugin](#madhatter-plugin)
+8. [TheyLive Plugin](theylive-plugin)
 
 ---
 
