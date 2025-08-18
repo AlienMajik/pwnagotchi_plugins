@@ -1275,3 +1275,301 @@ sudo systemctl restart pwnagotchi
 - **No Persistent Data Files:** Stats are read live from hardware; caches are in-memory for the session.
 
 ---
+
+# TheyLive Plugin
+
+Welcome to TheyLive, a robust GPS plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! TheyLive enhances your Pwnagotchi by leveraging gpsd to display real-time GPS coordinates on the screen, log locations with captured handshakes, and integrate seamlessly with Bettercap for precise packet capture tagging. Whether you're a security researcher, a mobile auditor, or just exploring wireless environments, TheyLive provides accurate location awareness to make your sessions more insightful.
+
+This updated version (1.3.5) includes compatibility fixes for the latest jayofelony Pwnagotchi images, improved auto-setup for gpsd (with PPS support for high-precision timing), customizable UI fields and units, and enhanced error handling for reliable operation. It's actively refined, community-inspired, and designed to work out-of-the-box with USB or serial GPS devices. Let's explore what TheyLive offers and how to get started!
+
+## Features
+TheyLive is packed with tools to integrate GPS into your Pwnagotchi workflow. Here's what it delivers:
+- **Real-Time GPS Display**: Shows customizable fields like fix type (e.g., 2D/3D), latitude, longitude, altitude, and speed on the Pwnagotchi UI, with support for units like kph/mph for speed and m/ft for distance.
+- **Handshake Location Logging**: Automatically saves GPS coordinates (latitude/longitude) to a .gps.json file alongside each captured .pcap handshake, enabling geospatial analysis of networks.
+- **Bettercap Integration**: Configures Bettercap's GPS module for tagged captures, with options to enable/disable reporting.
+- **Auto-Setup for gpsd**: Installs and configures gpsd if missing (with internet check), including baud rate, device port, and PPS for sub-microsecond accuracy on compatible hardware.
+- **Peer Mode Support**: Allows sharing GPS data from a "server" Pwnagotchi to "peer" units, ideal for multi-device setups with a single GPS source.
+- **Customizable UI**: Adjust fields order, position (topleft_x/y), and spacing for optimal display on various screens.
+- **Error-Resilient Polling**: Handles gpsd response issues (e.g., empty/malformed JSON) with logging and graceful fallbacks to prevent crashes.
+- **PPS Time Syncing**: Placeholder for high-precision timing setup (requires non-USB GPS with PPS pin; documentation forthcoming).
+- **Better Logging**: Detailed logs for setup, connections, and errors, making troubleshooting straightforward.
+
+## Requirements
+
+Before installing TheyLive, ensure you have the following:
+- **GPS Hardware**: A USB or serial GPS adapter (e.g., connected to /dev/ttyACM0 or /dev/ttyS0). PPS-enabled devices for advanced timing.
+   
+- **Internet Access (Initial Setup)**: Required for auto-installing gpsd if not present; offline mode skips this.
+   
+- **Pwnagotchi Compatibility**: Works with jayofelony images (tested up to 2.9.5.3); Bettercap for integration.
+
+## Installation Instructions
+You can install TheyLive in two ways: the easy way (recommended) or the manual way. Here's how:
+
+### Easy Way (Recommended)
+
+1. **Update Your Config File**
+   Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories (if not already present):
+   ```toml
+   main.confd = "/etc/pwnagotchi/conf.d/"
+   main.custom_plugin_repos = [
+   "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+   "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+   "https://github.com/NeonLightning/pwny/archive/master.zip",
+   "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+   "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
+   "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
+   "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
+   ]
+   main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+   ```
+2. **Install the Plugin**
+3. 
+   Run these commands to update the plugin list and install TheyLive:
+   ```bash
+   sudo pwnagotchi plugins update
+   sudo pwnagotchi plugins install theylive
+   ```
+That's it! You're ready to configure TheyLive.
+
+### Manual Way (Alternative)
+
+If you prefer a hands-on approach:
+1. **Clone the TheyLive plugin repo from GitHub**:
+   ```bash
+   sudo git clone https://github.com/yourusername/theylive-plugin.git  # Replace with your repo if hosted
+   cd theylive-plugin
+   ```
+2. **Copy the Plugin File**
+   Move theylive.py to your Pwnagotchi's custom plugins directory:
+   ```bash
+   sudo cp theylive.py /usr/local/share/pwnagotchi/custom-plugins/
+   ```
+   Alternatively, if you're working from a computer, use SCP:
+   ```bash
+   sudo scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+   ```
+
+## Configuration
+To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.TheyLive]` section:
+```toml
+main.plugins.TheyLive.enabled = true
+main.plugins.TheyLive.device = "/dev/ttyACM0"
+main.plugins.TheyLive.baud = 115200
+main.plugins.TheyLive.fields = [
+ "fix",
+ "lat",
+ "lon",
+ "alt",
+ "spd"
+]
+main.plugins.TheyLive.speedUnit = "mph"
+main.plugins.TheyLive.distanceUnit = "m"
+main.plugins.TheyLive.bettercap = true
+main.plugins.TheyLive.auto = true
+main.plugins.TheyLive.mode = "server"
+main.plugins.TheyLive.topleft_x = 130
+main.plugins.TheyLive.topleft_y = 47
+```
+### Available Options
+- **enabled**: Set to true to activate the plugin. Default: false
+   
+- **device**: Serial port for GPS hardware (e.g., /dev/ttyACM0). Default: ''
+   
+- **baud**: Baud rate for GPS communication. Default: 9600
+   
+- **fields**: Array of GPS fields to display (e.g., ['fix', 'lat', 'lon']). Default: ['fix', 'lat', 'lon', 'alt', 'spd']
+   
+- **speedUnit**: Speed unit (kph, mph, ms). Default: ms
+   
+- **distanceUnit**: Altitude unit (m, ft). Default: m
+   
+- **bettercap**: Enable Bettercap GPS integration. Default: true
+   
+- **auto**: Auto-install/configure gpsd. Default: true
+   
+- **mode**: 'server' for direct GPS, 'peer' for sharing. Default: server
+   
+- **topleft_x / topleft_y**: UI position for display elements. Default: 130 / 47
+   
+After editing the config, restart your Pwnagotchi to apply the changes:
+```bash
+sudo systemctl restart pwnagotchi
+```
+
+## Usage
+
+Once installed and configured, TheyLive runs automatically when you power up your Pwnagotchi. Here's how it works:
+- **GPS Display**: Shows selected fields on the UI once a fix is acquired.
+   
+- **Handshake Logging**: Adds .gps.json files with lat/long to captured .pcap files.
+   
+- **Bettercap Tagging**: Enables GPS in Bettercap for location-aware captures.
+   
+- **Auto-Setup**: Installs gpsd and configures services on first run (if auto=true).
+### Monitoring the UI
+Your Pwnagotchi's display will show GPS details in real-time (e.g., "lat: 37.7749 ", "lon: -122.4194 ").
+### Viewing Logged Networks
+Logged data is in /home/pi/handshakes/ as .gps.json files—open them for coordinates or use tools like Wireshark for analysis.
+##Notes
+- **GPS Dependency**: Requires valid GPS hardware; logs warnings if no fix.
+- **Internet for Setup**: Needed initially for gpsd install; skips if offline.
+- **Bettercap Troubleshooting**: If integration fails, check Bettercap status.
+- **Logging**: Detailed logs in /var/log/pwnagotchi.log for setup and errors.
+## Community and Contributions
+TheyLive thrives thanks to its community! We're always improving the plugin with new features and fixes. Want to get involved? Here's how:
+- **Contribute**: Submit pull requests with enhancements or bug fixes.
+- **Report Issues**: Found a bug? Let us know on the GitHub Issues page.
+- **Suggest Features**: Have an idea? Share it with us!
+Join the fun and help make TheyLive even better.
+
+Welcome to TheyLive, a robust GPS plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! TheyLive enhances your Pwnagotchi by leveraging gpsd to display real-time GPS coordinates on the screen, log locations with captured handshakes, and integrate seamlessly with Bettercap for precise packet capture tagging. Whether you're a security researcher, a mobile auditor, or just exploring wireless environments, TheyLive provides accurate location awareness to make your sessions more insightful.
+
+This updated version (1.3.5) includes compatibility fixes for the latest jayofelony Pwnagotchi images, improved auto-setup for gpsd (with PPS support for high-precision timing), customizable UI fields and units, and enhanced error handling for reliable operation. It's actively refined, community-inspired, and designed to work out-of-the-box with USB or serial GPS devices. Let's explore what TheyLive offers and how to get started!
+
+## Features
+
+TheyLive is packed with tools to integrate GPS into your Pwnagotchi workflow. Here's what it delivers:
+
+- **Real-Time GPS Display**: Shows customizable fields like fix type (e.g., 2D/3D), latitude, longitude, altitude, and speed on the Pwnagotchi UI, with support for units like kph/mph for speed and m/ft for distance.
+- **Handshake Location Logging**: Automatically saves GPS coordinates (latitude/longitude) to a .gps.json file alongside each captured .pcap handshake, enabling geospatial analysis of networks.
+- **Bettercap Integration**: Configures Bettercap's GPS module for tagged captures, with options to enable/disable reporting.
+- **Auto-Setup for gpsd**: Installs and configures gpsd if missing (with internet check), including baud rate, device port, and PPS for sub-microsecond accuracy on compatible hardware.
+- **Peer Mode Support**: Allows sharing GPS data from a "server" Pwnagotchi to "peer" units, ideal for multi-device setups with a single GPS source.
+- **Customizable UI**: Adjust fields order, position (topleft_x/y), and spacing for optimal display on various screens.
+- **Error-Resilient Polling**: Handles gpsd response issues (e.g., empty/malformed JSON) with logging and graceful fallbacks to prevent crashes.
+- **PPS Time Syncing**: Placeholder for high-precision timing setup (requires non-USB GPS with PPS pin; documentation forthcoming).
+- **Better Logging**: Detailed logs for setup, connections, and errors, making troubleshooting straightforward.
+
+## Requirements
+
+Before installing TheyLive, ensure you have the following:
+
+- **GPS Hardware**: A USB or serial GPS adapter (e.g., connected to /dev/ttyACM0 or /dev/ttyS0). PPS-enabled devices for advanced timing.
+   
+- **Internet Access (Initial Setup)**: Required for auto-installing gpsd if not present; offline mode skips this.
+   
+- **Pwnagotchi Compatibility**: Works with jayofelony images (tested up to 2.9.5.3); Bettercap for integration.
+
+## Installation Instructions
+
+You can install TheyLive in two ways: the easy way (recommended) or the manual way. Here's how:
+
+### Easy Way (Recommended)
+
+1. **Update Your Config File**
+   Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories (if not already present):
+   ```toml
+   main.confd = "/etc/pwnagotchi/conf.d/"
+   main.custom_plugin_repos = [
+   "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+   "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+   "https://github.com/NeonLightning/pwny/archive/master.zip",
+   "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+   "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
+   "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
+   "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
+   ]
+   main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+   ```
+2. **Install the Plugin**
+   Run these commands to update the plugin list and install TheyLive:
+   ```bash
+   sudo pwnagotchi plugins update
+   sudo pwnagotchi plugins install theylive
+   ```
+That's it! You're ready to configure TheyLive.
+
+### Manual Way (Alternative)
+
+if you're working from a computer, use SCP:
+   ```bash
+   sudo scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+   ```
+
+## Configuration
+
+To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.TheyLive]` section:
+```toml
+main.plugins.TheyLive.enabled = true
+main.plugins.TheyLive.device = "/dev/ttyACM0"
+main.plugins.TheyLive.baud = 115200
+main.plugins.TheyLive.fields = [
+ "fix",
+ "lat",
+ "lon",
+ "alt",
+ "spd"
+]
+main.plugins.TheyLive.speedUnit = "mph"
+main.plugins.TheyLive.distanceUnit = "m"
+main.plugins.TheyLive.bettercap = true
+main.plugins.TheyLive.auto = true
+main.plugins.TheyLive.mode = "server"
+main.plugins.TheyLive.topleft_x = 130
+main.plugins.TheyLive.topleft_y = 47
+```
+### Available Options
+
+- **enabled**: Set to true to activate the plugin. Default: false
+   
+- **device**: Serial port for GPS hardware (e.g., /dev/ttyACM0). Default: ''
+   
+- **baud**: Baud rate for GPS communication. Default: 9600
+   
+- **fields**: Array of GPS fields to display (e.g., ['fix', 'lat', 'lon']). Default: ['fix', 'lat', 'lon', 'alt', 'spd']
+   
+- **speedUnit**: Speed unit (kph, mph, ms). Default: ms
+   
+- **distanceUnit**: Altitude unit (m, ft). Default: m
+   
+- **bettercap**: Enable Bettercap GPS integration. Default: true
+   
+- **auto**: Auto-install/configure gpsd. Default: true
+   
+- **mode**: 'server' for direct GPS, 'peer' for sharing. Default: server
+   
+- **topleft_x / topleft_y**: UI position for display elements. Default: 130 / 47
+   
+After editing the config, restart your Pwnagotchi to apply the changes:
+```bash
+sudo systemctl restart pwnagotchi
+```
+
+## Usage
+
+Once installed and configured, TheyLive runs automatically when you power up your Pwnagotchi. Here's how it works:
+- **GPS Display**: Shows selected fields on the UI once a fix is acquired.
+   
+- **Handshake Logging**: Adds .gps.json files with lat/long to captured .pcap files.
+   
+- **Bettercap Tagging**: Enables GPS in Bettercap for location-aware captures.
+   
+- **Auto-Setup**: Installs gpsd and configures services on first run (if auto=true).
+- 
+### Monitoring the UI
+
+Your Pwnagotchi's display will show GPS details in real-time (e.g., "lat: 37.7749 ", "lon: -122.4194 ").
+
+### Viewing Logged Networks
+
+Logged data is in /home/pi/handshakes/ as .gps.json files—open them for coordinates or use tools like Wireshark for analysis.
+
+##Notes
+- **GPS Dependency**: Requires valid GPS hardware; logs warnings if no fix.
+- **Internet for Setup**: Needed initially for gpsd install; skips if offline.
+- **Bettercap Troubleshooting**: If integration fails, check Bettercap status.
+- **Logging**: Detailed logs in /var/log/pwnagotchi.log for setup and errors.
+## Community and Contributions
+TheyLive thrives thanks to its community! We're always improving the plugin with new features and fixes. Want to get involved? Here's how:
+- **Contribute**: Submit pull requests with enhancements or bug fixes.
+- **Report Issues**: Found a bug? Let us know on the GitHub Issues page.
+- **Suggest Features**: Have an idea? Share it with us!
+  
+## Notes on Modifications
+
+It's a modified version of the original "gpsdeasy" plugin. https://github.com/rai68/gpsd-easy.
+
+Join the fun and help make TheyLive even better.
+
+
