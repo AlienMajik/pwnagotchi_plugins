@@ -12,7 +12,7 @@ Feel free to open issues or pull requests to improve this plugin or suggest new 
 4. [ProbeNpwn Plugin](#probenpwn-plugin)
 5. [SnoopR Plugin](#snoopr-plugin)
 6. [SkyHigh Plugin](#skyhigh-plugin)
-7. [Mad Hatter Plugin](#madhatter-plugin)
+7. [MadHatter Plugin](#madhatter-plugin)
 
 ---
 
@@ -1103,7 +1103,7 @@ This plugin fetches nearby aircraft data using the OpenSky Network API.
 
 ---
 
-# Mad Hatter Plugin
+# MadHatter Plugin
 
 **Version:** 1.0.0
 
