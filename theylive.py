@@ -278,7 +278,7 @@ class TheyLive(plugins.Plugin):
             logging.info("[TheyLive] bettercap gps reporting disabled")
     def on_handshake(self, agent, filename, access_point, client_station):
         coords = self.gpsd.get_current('tpv')
-        if 'lat' and 'lon' in coords:
+        if coords is not None and 'lat' in coords and 'lon' in coords:
             gps_filename = filename.replace(".pcap", ".gps.json")
             logging.info(f"[TheyLive] saving GPS to {gps_filename} ({coords})")
             with open(gps_filename, "w+t") as fp:
