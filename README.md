@@ -1345,25 +1345,25 @@ if you're working from a computer, use SCP:
 
 ## Configuration
 
-To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.TheyLive]` section:
+To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.theylive]` section:
 ```toml
-main.plugins.TheyLive.enabled = true
-main.plugins.TheyLive.device = "/dev/ttyACM0"
-main.plugins.TheyLive.baud = 115200
-main.plugins.TheyLive.fields = [
+main.plugins.theylive.enabled = true
+main.plugins.theylive.device = "/dev/ttyACM0"
+main.plugins.theylive.baud = 115200
+main.plugins.theylive.fields = [
  "fix",
  "lat",
  "lon",
  "alt",
  "spd"
 ]
-main.plugins.TheyLive.speedUnit = "mph"
-main.plugins.TheyLive.distanceUnit = "m"
-main.plugins.TheyLive.bettercap = true
-main.plugins.TheyLive.auto = true
-main.plugins.TheyLive.mode = "server"
-main.plugins.TheyLive.topleft_x = 130
-main.plugins.TheyLive.topleft_y = 47
+main.plugins.theylive.speedUnit = "mph"
+main.plugins.theylive.distanceUnit = "m"
+main.plugins.theylive.bettercap = true
+main.plugins.theylive.auto = true
+main.plugins.theylive.mode = "server"
+main.plugins.theylive.topleft_x = 130
+main.plugins.theylive.topleft_y = 47
 ```
 ### Available Options
 
