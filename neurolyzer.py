@@ -273,6 +273,28 @@ class Neurolyzer(plugins.Plugin):
         self.whitelist_ssids = self.options.get('whitelist_ssids', [])
         self.enabled = self.options.get('enabled', True)
 
+        # Reworked UI configuration loading
+        self.ui_config['mode'] = (
+            self.options.get('mode_label_x', self.ui_config['mode'][0]),
+            self.options.get('mode_label_y', self.ui_config['mode'][1])
+        )
+        self.ui_config['mac_timer'] = (
+            self.options.get('next_mac_change_label_x', self.ui_config['mac_timer'][0]),
+            self.options.get('next_mac_change_label_y', self.ui_config['mac_timer'][1])
+        )
+        self.ui_config['tx_power'] = (
+            self.options.get('tx_power_label_x', self.ui_config['tx_power'][0]),
+            self.options.get('tx_power_label_y', self.ui_config['tx_power'][1])
+        )
+        self.ui_config['channel'] = (
+            self.options.get('channel_label_x', self.ui_config['channel'][0]),
+            self.options.get('channel_label_y', self.ui_config['channel'][1])
+        )
+        self.ui_config['stealth'] = (
+            self.options.get('stealth_label_x', self.ui_config['stealth'][0]),
+            self.options.get('stealth_label_y', self.ui_config['stealth'][1])
+        )
+
         # Enhanced initialization sequence
         try:
             if not self._validate_interface():

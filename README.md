@@ -261,7 +261,7 @@ The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth
 
 ### 9. Enhanced UI Integration
 - **What's Improved:** Displays detailed status on the Pwnagotchi UI.
-- **How It Works:** Shows mode, next MAC change time, TX power, and channel, with customizable positions.
+- **How It Works:** Shows mode, next MAC change time, TX power, and channel. The positions for all these labels are fully customizable in `config.toml`.
 - **What's Better:** Offers real-time monitoring, improving on the basic UI updates of past releases.
 
 ### 10. Improved Error Handling and Logging
@@ -363,15 +363,24 @@ Select "No" when asked about changing the MAC on startup.
 3. **Configure the Plugin:**
    Edit `/etc/pwnagotchi/config.toml`:
    ```toml
-   main.plugins.neurolyzer.enabled = true
-   main.plugins.neurolyzer.wifi_interface = "wlan0mon"  # Your wireless adapter
-   main.plugins.neurolyzer.operation_mode = "noided"    # 'normal', 'stealth', or 'noided'
-   main.plugins.neurolyzer.mac_change_interval = 3600   # Seconds
-   main.plugins.neurolyzer.mode_label_x = 101
-   main.plugins.neurolyzer.mode_label_y = 50
-   main.plugins.neurolyzer.next_mac_change_label_x = 101
-   main.plugins.neurolyzer.next_mac_change_label_y = 60
-   main.plugins.neurolyzer.stealth_level = 2  # Optional: Initial stealth level (1=aggressive, 2=medium, 3=passive); still adapts dynamically
+    main.plugins.neurolyzer.enabled = true
+    main.plugins.neurolyzer.wifi_interface = "wlan0mon"  # Your wireless adapter
+    main.plugins.neurolyzer.operation_mode = "noided"    # 'normal', 'stealth', or 'noided'
+    main.plugins.neurolyzer.mac_change_interval = 3600   # Seconds
+    # -- UI Label Positions --
+    main.plugins.neurolyzer.mode_label_x = 0
+    main.plugins.neurolyzer.mode_label_y = 35
+    main.plugins.neurolyzer.next_mac_change_label_x = 0
+    main.plugins.neurolyzer.next_mac_change_label_y = 45
+    main.plugins.neurolyzer.tx_power_label_x = 0
+    main.plugins.neurolyzer.tx_power_label_y = 55
+    main.plugins.neurolyzer.channel_label_x = 0
+    main.plugins.neurolyzer.channel_label_y = 65
+    main.plugins.neurolyzer.stealth_label_x = 0
+    main.plugins.neurolyzer.stealth_label_y = 75
+    # ------------------------
+    main.plugins.neurolyzer.stealth_level = 2  # Optional: Initial stealth level (1=aggressive, 2=medium, 3=passive); still adapts dynamically
+
    ```
 
    For maximum stealth:
