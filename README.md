@@ -1421,7 +1421,27 @@ TheyLive thrives thanks to its community! We're always improving the plugin with
 - **Contribute**: Submit pull requests with enhancements or bug fixes.
 - **Report Issues**: Found a bug? Let us know on the GitHub Issues page.
 - **Suggest Features**: Have an idea? Share it with us!
-  
+
+## Note:
+
+You need Internet connection to your pwnagotchi and it takes up to 5-10 mins to download and install Gpsd and to set it up for you to work with bettercap. In order to find the Serial port for your gps(/dev/ttyACM0) make sure your gps adapter is uplugged then run this command:
+
+```toml
+ls /dev/tty*
+```
+
+Then plug in your gps adapter and run the same command:
+
+```toml
+ls /dev/tty*
+```
+
+To see which one was not there previously then plug that in to your config.toml at:
+
+```toml
+main.plugins.theylive.device = "/dev/ttyACM0"
+```
+
 ## Notes on Modifications
 
 TheyLive is a modified version of the original "gpsdeasy" plugin. https://github.com/rai68/gpsd-easy.
