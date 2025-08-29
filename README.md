@@ -1455,6 +1455,7 @@ Join the fun and help make TheyLive even better.
 
 TheyLive Beta config.toml settings:
 
+```toml
 main.plugins.theylive.enabled = true
 main.plugins.theylive.fields = [
  "fix",
@@ -1472,3 +1473,7 @@ main.plugins.theylive.pwndroid_host = "192.168.44.1"  # Your phone's BT tether I
 main.plugins.theylive.pwndroid_port = 8080  # PwnDroid's WebSocket port (default/common value)
 main.plugins.theylive.topleft_x = 130
 main.plugins.theylive.topleft_y = 47
+```
+
+
+
