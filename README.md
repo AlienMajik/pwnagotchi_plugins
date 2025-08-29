@@ -1453,3 +1453,22 @@ TheyLive is a modified version of the original "gpsdeasy" plugin. https://github
 Join the fun and help make TheyLive even better.
 
 
+TheyLive Beta config.toml settings:
+
+main.plugins.theylive.enabled = true
+main.plugins.theylive.fields = [
+ "fix",
+ "lat",
+ "lon",
+ "alt",
+ "spd"
+]
+main.plugins.theylive.speedUnit = "mph"
+main.plugins.theylive.distanceUnit = "m"
+main.plugins.theylive.bettercap = false  # Must be false for PwnDroid mode
+main.plugins.theylive.auto = true
+main.plugins.theylive.mode = "pwndroid"  # Change to this for PwnDroid
+main.plugins.theylive.pwndroid_host = "192.168.44.1"  # Your phone's BT tether IP
+main.plugins.theylive.pwndroid_port = 8080  # PwnDroid's WebSocket port (default/common value)
+main.plugins.theylive.topleft_x = 130
+main.plugins.theylive.topleft_y = 47
