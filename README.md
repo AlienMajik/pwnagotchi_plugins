@@ -1118,7 +1118,7 @@ This plugin fetches nearby aircraft data using the OpenSky Network API.
 **Version:** 1.2.2
 
 ## Description
-A universal enhanced plugin for various UPS HATs, providing advanced battery monitoring, voltage tracking, auto-shutdown, customizable polling, UI optimization, error diagnostics, battery health tracking, and automatic detection of HAT types. Supports popular HATs like SupTronics X1200, UPS Lite, Waveshare UPS C, PiSugar, SB Components UPS, Geekworm X750, and EP-0136, ensuring a seamless and reliable power management experience without cluttering the UI. Now with improved charging detection, calibration, SOC estimation, and cycle counting across more HATs for enhanced accuracy and robustness.
+A universal enhanced plugin for various UPS HATs, providing advanced battery monitoring, voltage tracking, auto-shutdown, customizable polling, UI optimization, error diagnostics, battery health tracking, and automatic detection of HAT types. Supports popular HATs like Geekworm X1200, UPS Lite, Waveshare UPS C, PiSugar, SB Components UPS, Geekworm X750, and EP-0136, ensuring a seamless and reliable power management experience without cluttering the UI. Now with improved charging detection, calibration, SOC estimation, and cycle counting across more HATs for enhanced accuracy and robustness.
 
 ## Key Stats
 The plugin tracks essential battery and system statistics to keep you informed about your Pwnagotchi's power status:
