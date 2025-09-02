@@ -1115,74 +1115,107 @@ This plugin fetches nearby aircraft data using the OpenSky Network API.
 
 # MadHatter Plugin
 
-**Version:** 1.2.1
+**Version:** 1.2.2
 
 ## Description
-A universal enhanced plugin for various UPS HATs, providing battery indicators, voltage monitoring, auto-shutdown, customizable polling, UI optimization, error diagnostics, battery health tracking, and auto-detection of HAT types. Supports popular HATs like SupTronics X1200, UPS Lite, Waveshare UPS C, PiSugar, SB Components UPS, Geekworm X750, and EP-0136, ensuring a seamless and reliable power management experience without cluttering the UI. Now with improved charging detection and calibration for better accuracy on supported hardware.
+A universal enhanced plugin for various UPS HATs, providing advanced battery monitoring, voltage tracking, auto-shutdown, customizable polling, UI optimization, error diagnostics, battery health tracking, and automatic detection of HAT types. Supports popular HATs like SupTronics X1200, UPS Lite, Waveshare UPS C, PiSugar, SB Components UPS, Geekworm X750, and EP-0136, ensuring a seamless and reliable power management experience without cluttering the UI. Now with improved charging detection, calibration, SOC estimation, and cycle counting across more HATs for enhanced accuracy and robustness.
 
 ## Key Stats
 The plugin tracks essential battery and system statistics to keep you informed about your Pwnagotchi's power status:
 
 ### Battery Capacity (🔋 %)
 - Displays the current state-of-charge (SOC) as a percentage.
-- Read from fuel gauge chips like MAX170xx or approximated from voltage for INA219-based HATs.
-
+- Read directly from fuel gauge chips (e.g., MAX170xx, PiSugar) or approximated using a lookup table for INA219-based HATs for better accuracy.
+  
 ### Voltage (V)
-- Shows the real-time battery voltage.
+- Shows real-time battery voltage.
 - Helps identify low-power conditions or charging efficiency.
 
 ### Charging Status (+/-)
 - Indicates if the battery is charging ('+') or discharging ('-').
-- Detected via GPIO pins (with improved logic for specific HATs like X1200), current direction, or custom registers depending on the HAT.
+- Detected via GPIO pins (with refined logic for X1200, UPS Lite, Waveshare), current direction (INA219), or custom registers (PiSugar, X750).
 
 ### Estimated Runtime (~m)
 - Calculates remaining battery life in minutes based on capacity, battery mAh, and average current draw.
-- Configurable via battery_mah and avg_current_ma settings.
+- Configurable via `battery_mah` and `avg_current_ma` settings for precise estimates.
 
 ### Battery Health
-- Tracks charge cycles (for supported HATs like MAX170xx).
-- Monitors error counts during reads for diagnostics (visible in debug mode).
+- Tracks charge cycles across MAX170xx, INA219, and PiSugar-based HATs by detecting full charge events.
+- Monitors error counts during I2C reads for diagnostics (visible in debug mode).
 
-## New Enhancements in v1.2.1
+## New Enhancements in v1.2.2
 
-- **Improved Calibration for MAX170xx-based HATs (e.g., X1200/UPS Lite):** Corrected the MODE register address to 0x06 and updated the quick start command to write 0x4000 (16-bit word) for proper fuel gauge reset and calibration. This ensures accurate SOC estimation by resetting the chip's internal model on initialization, reducing reading drift and improving reliability—previously, incorrect register/value could lead to failed calibrations or inaccurate voltages/capacity.
+- **Improved UPS Type Detection:**
+  - Enhanced I2C scanning to support INA219 at both 0x40 and 0x41 addresses, reducing misidentification.
+  - Added model register (0x08) check for MAX170xx to distinguish X1200 (model 0x0044) from UPS Lite, improving auto-detection accuracy.
+  - Fallback to manual `ups_type` selection if detection fails, with detailed debug logging.
 
-- **Enhanced Charging Detection for X1200:** Updated default GPIO pin to 6 (BCM mode) for AC power status detection, with inverted logic (HIGH = charging/AC present, LOW = discharging). This fixes potential misdetections on X1200 HATs by aligning with hardware signaling for external power presence, ensuring accurate '+'/' -' status and better auto-shutdown decisions—original pin 16 and LOW-active logic may not have matched all variants.
-- 
-- **Updated Logging for Calibration:** Added success logging for quick start operations to aid diagnostics, confirming when calibration completes without errors.
-- **Version and Metadata Refinements:** Bumped version to 1.2.1 with co-author credit, reflecting collaborative fixes for better hardware compatibility.
-- **Auto-Detection of UPS Types:** Scans the I2C bus to automatically identify the connected HAT, with fallback to manual selection.
-- **Battery Health Monitoring:** Tracks charge cycles and sets low-battery alerts on the fuel gauge chip.
-- **Error Diagnostics:** Retry mechanisms for reads, error counting, and debug display for troubleshooting.
-- **UI Customization:** Optional icons (🔋/⚡), voltage display, runtime estimates, and position adjustments to keep the screen clean.
-- **Polling Optimization:** Configurable intervals to reduce hardware overhead while maintaining fresh data.
-- **Auto-Shutdown Grace Periods:** Consecutive low-battery checks and time-based persistence to prevent false shutdowns.
-- **Runtime Estimates:** Dynamic calculations for remaining time based on user-defined battery specs.
-- **Debug Mode:** Exposes error counts and cycle info in the UI for advanced users.
-- **Enhanced Charging Detection:** Supports GPIO, current-based, or register-based methods across HATs, now with refined logic for X1200.
-- **Thread Safety and Persistence:** Reliable caching of last known values to handle failures gracefully.
-- **Improved Logging:** Detailed prefixed logs ([MadHatter]/[MadHatterUPS]) for monitoring and debugging, including calibration confirmations.
+- **Accurate SOC Estimation for INA219:**
+  - Replaced linear SOC approximation with a lookup table for 3.7V LiPo batteries, using voltage thresholds (e.g., 4.2V = 100%, 3.3V = 0%) for more precise capacity estimates.
+  - Improves reliability for Waveshare, SB UPS, and EP-0136 HATs.
+
+- **Extended Cycle Counting:**
+  - Added cycle counting for INA219-based HATs (detects full charge at >4.15V with low current) and PiSugar (based on voltage >4.15V).
+  - Enhances battery health monitoring across more HAT types, previously limited to MAX170xx.
+
+- **Optimized Shutdown Logic:**
+  - Introduced immediate shutdown for critically low battery (<2%) to protect large batteries (e.g., 7000mAh).
+  - Resets shutdown counters when charging resumes or capacity recovers above threshold, preventing premature shutdowns.
+  - Extended default `shutdown_grace_period` to 60 seconds for robust decision-making.
+
+- **Enhanced Charging Detection:**
+  - Added GPIO 25 for Waveshare UPS C (configurable via `charging_gpio`), complementing X1200 (GPIO 6) and UPS Lite (GPIO 16).
+  - Refined logic ensures accurate '+'/' -' status for GPIO and I2C-based detection.
+
+- **Improved Error Handling:**
+  - Added specific exception logging in `_read_with_retry` for better debugging.
+  - Resets error count after 10 successful reads to avoid misleading diagnostics.
+
+- **Dynamic UI Positioning:**
+  - Default `ui_position_x` now set to `ui.width() - 50` to minimize overlap with other UI elements, improving compatibility across display sizes.
+
+- **Verbose Debug Logging:**
+  - Added detailed logs for polling results, I2C operations, and calibration steps when `debug_mode` is enabled, aiding troubleshooting.
+
+- **Configuration Optimization:**
+  - Updated default settings: `poll_interval = 30` for lower power usage, `shutdown_threshold = 3`, `warning_threshold = 20` for large batteries, and `avg_current_ma = 200` for realistic Pwnagotchi power draw.
+
+- **Conditional GPIO Cleanup:**
+  - Only cleans up specified `charging_gpio` on unload to avoid interfering with other plugins.
+
+- **Previous Enhancements (v1.2.1):**
+  - Improved calibration for MAX170xx (MODE register 0x06, write 0x4000).
+  - Enhanced charging detection for X1200 (GPIO 6, HIGH = charging).
+  - Updated logging for calibration success.
+  - Auto-detection of UPS types via I2C scanning.
+  - Battery health monitoring with cycle counts and low-battery alerts.
+  - Error diagnostics with retry mechanisms and debug display.
+  - UI customization with icons, voltage, and runtime estimates.
+  - Polling optimization with configurable intervals.
+  - Auto-shutdown with grace periods.
+  - Thread-safe caching of last known values.
+  - Detailed prefixed logs ([MadHatter]/[MadHatterUPS]).
+
 ## Features
-- **Universal HAT Support:** Auto-detects and configures for MAX170xx, INA219, PiSugar/IP5310-based HATs.
-- **Persistent Monitoring:** Caches voltage, capacity, and charging status across polls.
-- **UI Integration:** Customizable labeled display for stats, icons, and estimates without overwhelming the screen.
-- **Auto-Shutdown Mechanism:** Triggers safe shutdown on critically low battery after grace periods.
-- **Warning System:** Logs alerts for low battery or warnings thresholds.
-- **Health Tracking:** Cycle counting and chip-level alerts for long-term battery maintenance.
-- **Efficient Polling:** Interval-based reads with retries to minimize I2C/GPIO usage.
+- **Universal HAT Support:** Auto-detects and configures for MAX170xx, INA219, PiSugar, and IP5310-based HATs.
+- **Persistent Monitoring:** Caches voltage, capacity, and charging status across polls for reliability.
+- **UI Integration:** Customizable labeled display with stats, icons, and estimates, optimized for minimal clutter.
+- **Auto-Shutdown Mechanism:** Triggers safe shutdown on critically low battery (<2% immediate or below threshold with grace periods).
+- **Warning System:** Logs alerts for low battery or warning thresholds.
+- **Health Tracking:** Cycle counting for MAX170xx, INA219, and PiSugar, plus chip-level alerts.
+- **Efficient Polling:** Configurable intervals with retries to minimize I2C/GPIO usage.
 - **Customizable Alerts:** Set thresholds for shutdown, warnings, and chip alerts.
-- **Debug Tools:** Optional UI elements for errors and cycles.
+- **Debug Tools:** Optional UI elements for errors and cycles, with verbose logging.
 
 ## Installation Instructions
-
 ### Copy the Plugin File
 
 Place `mad_hatter.py` in `/usr/local/share/pwnagotchi/custom-plugins/`.
+
 Or use SCP:
 
 ```bash
 sudo scp mad_hatter.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
-```
 
 ### Update config.toml
 
@@ -1250,13 +1283,13 @@ Sets the assumed average current draw in milliamps (mA) for runtime estimates. T
 Enables or disables debug information in the UI display string. If true, it appends error counts (from failed reads) and battery cycle counts (e.g., "Err:X Cyc:Y"). Useful for troubleshooting; if false, this info is hidden. (Default: False)
 
 ## main.plugins.mad_hatter.charging_gpio = 6
-Specifies the GPIO pin (in BCM mode) used for charging detection on supported HATs (e.g., X1200 or UPS Lite). For X1200, defaults internally to pin 6 with HIGH indicating charging; for others like UPS Lite, pin 16 with custom logic. Set to a specific pin to override; null uses HAT defaults or I2C-based detection if applicable. (Default: None)
+GPIO pin (BCM mode) for charging detection (e.g., X1200: 6, UPS Lite: 16, Waveshare: 25). Set to null for I2C-based detection (e.g., PiSugar). (Default: None)
 
 ## main.plugins.mad_hatter.alert_threshold = 10
 Sets the low-battery alert threshold percentage (%) for the fuel gauge chip (primarily MAX170xx-based HATs). This configures the chip's internal alert register to trigger at (32 - threshold), notifying the system of low power. Ignored for non-supported HATs. (Default: 10)
 
 ## main.plugins.mad_hatter.ups_type = 'auto'
-Specifies the type of UPS HAT connected. Set to 'auto' for automatic I2C scanning and detection. Other values include 'x1200', 'ups_lite', 'waveshare_c', 'pisugar', 'sb_ups', 'x750', or 'ep0136'. This overrides auto-detection and selects type-specific reading methods. (Default: 'auto')
+UPS HAT type. "auto" enables I2C scanning; options include "x1200", "ups_lite", "waveshare_c", "pisugar", "sb_ups", "x750", "ep0136". Overrides auto-detection. (Default: "auto")
 
 ### Restart Pwnagotchi
 Apply changes with:
