@@ -1318,31 +1318,41 @@ sudo systemctl restart pwnagotchi
 
 Welcome to TheyLive, a robust GPS plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! TheyLive enhances your Pwnagotchi by leveraging gpsd to display real-time GPS coordinates on the screen, log locations with captured handshakes, and integrate seamlessly with Bettercap for precise packet capture tagging. Whether you're a security researcher, a mobile auditor, or just exploring wireless environments, TheyLive provides accurate location awareness to make your sessions more insightful.
 
-This updated version (1.3.5) includes compatibility fixes for the latest jayofelony Pwnagotchi images, improved auto-setup for gpsd (with PPS support for high-precision timing), customizable UI fields and units, and enhanced error handling for reliable operation. It's actively refined, community-inspired, and designed to work out-of-the-box with USB or serial GPS devices. Let's explore what TheyLive offers and how to get started!
+This updated version (1.4.0) includes compatibility fixes for the latest jayofelony Pwnagotchi images, improved auto-setup for gpsd (with PPS support for high-precision timing), customizable UI fields and units, and enhanced error handling for reliable operation. Key enhancements include streamed GPSD data for real-time updates without polling, connection retries for gpsd, WebSocket keep-alive pings for PwnDroid mode, a new 'sat' field for displaying satellite count, optimized UI updates, and expanded handshake logging to include altitude and speed. It's actively refined, community-inspired, and designed to work out-of-the-box with USB or serial GPS devices, remote sharing, and mobile app integrations. Let's explore what TheyLive offers and how to get started!
 
 ## Features
 
 TheyLive is packed with tools to integrate GPS into your Pwnagotchi workflow. Here's what it delivers:
 
-- **Real-Time GPS Display**: Shows customizable fields like fix type (e.g., 2D/3D), latitude, longitude, altitude, and speed on the Pwnagotchi UI, with support for units like kph/mph for speed and m/ft for distance.
-- **Handshake Location Logging**: Automatically saves GPS coordinates (latitude/longitude) to a .gps.json file alongside each captured .pcap handshake, enabling geospatial analysis of networks.
-- **Bettercap Integration**: Configures Bettercap's GPS module for tagged captures, with options to enable/disable reporting.
-- **Auto-Setup for gpsd**: Installs and configures gpsd if missing (with internet check), including baud rate, device port, and PPS for sub-microsecond accuracy on compatible hardware.
-- **Peer Mode Support**: Allows sharing GPS data from a "server" Pwnagotchi to "peer" units, ideal for multi-device setups with a single GPS source.
-- **Customizable UI**: Adjust fields order, position (topleft_x/y), and spacing for optimal display on various screens.
-- **Error-Resilient Polling**: Handles gpsd response issues (e.g., empty/malformed JSON) with logging and graceful fallbacks to prevent crashes.
+- **Real-Time GPS Display**: Shows customizable fields like fix type (e.g., 2D/3D), latitude, longitude, altitude, speed, and now satellite count ('sat') on the Pwnagotchi UI, with support for units like kph/mph for speed and m/ft for distance.
+
+- **Handshake Location Logging**: Automatically saves GPS coordinates (latitude/longitude, plus altitude and speed) to a .gps.json file alongside each captured .pcap handshake, enabling geospatial analysis of networks.
+
+- **Bettercap Integration**: Configures Bettercap's GPS module for tagged captures, with options to enable/disable reporting (disabled in PwnDroid mode).
+
+- **Auto-Setup for gpsd**: Installs and configures gpsd if missing (with internet check), including baud rate, device port, and PPS for sub-microsecond accuracy on compatible hardware. Simplified config writing and service restarts for reliability.
+
+- **Peer Mode Support**: Allows sharing GPS data from a "server" Pwnagotchi to "peer" units via remote gpsd connection, ideal for multi-device setups with a single GPS source.
+
+- **PwnDroid Mode**: Supports GPS sharing from Android devices via WebSocket over Bluetooth tether, with keep-alive pings for stable connections.
+
+- **Customizable UI**: Adjust fields order, position (topleft_x/y), and spacing for optimal display on various screens. Optimized computations for smoother updates.
+
+- **Error-Resilient Operations**: Handles gpsd response issues (e.g., empty/malformed JSON) with logging, graceful fallbacks, and connection retries to prevent crashes.
+
 - **PPS Time Syncing**: Placeholder for high-precision timing setup (requires non-USB GPS with PPS pin; documentation forthcoming).
-- **Better Logging**: Detailed logs for setup, connections, and errors, making troubleshooting straightforward.
+
+- **Better Logging**: Detailed logs for setup, connections, and errors, making troubleshooting straightforward. Includes session GPS updates for compatibility with other plugins.
 
 ## Requirements
 
 Before installing TheyLive, ensure you have the following:
 
-- **GPS Hardware**: A USB or serial GPS adapter (e.g., connected to /dev/ttyACM0 or /dev/ttyS0). PPS-enabled devices for advanced timing.
-   
+- **GPS Hardware**: A USB or serial GPS adapter (e.g., connected to /dev/ttyACM0 or /dev/ttyS0). PPS-enabled devices for advanced timing. For mobile modes, an Android/iOS device with Bluetooth tethering.
+  
 - **Internet Access (Initial Setup)**: Required for auto-installing gpsd if not present; offline mode skips this.
-   
-- **Pwnagotchi Compatibility**: Works with jayofelony images (tested up to 2.9.5.3); Bettercap for integration.
+  
+- **Pwnagotchi Compatibility**: Works with jayofelony images (tested up to 2.9.5.3 and beyond); Bettercap for integration. Bluetooth tethering enabled for mobile modes.
 
 ## Installation Instructions
 
@@ -1352,7 +1362,8 @@ You can install TheyLive in two ways: the easy way (recommended) or the manual w
 
 1. **Update Your Config File**
    Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories (if not already present):
-   ```toml
+
+    ```toml
    main.confd = "/etc/pwnagotchi/conf.d/"
    main.custom_plugin_repos = [
    "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
@@ -1365,24 +1376,29 @@ You can install TheyLive in two ways: the easy way (recommended) or the manual w
    ]
    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
    ```
-2. **Install the Plugin**
-   Run these commands to update the plugin list and install TheyLive:
-   ```bash
+
+3. **Install the Plugin**
+
+    Run these commands to update the plugin list and install TheyLive:
+
+    ```bash
    sudo pwnagotchi plugins update
    sudo pwnagotchi plugins install theylive
    ```
+
 That's it! You're ready to configure TheyLive.
 
 ### Manual Way (Alternative)
-
 if you're working from a computer, use SCP:
+  
    ```bash
    sudo scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
    ```
 
 ## Configuration
 
-To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.theylive]` section:
+To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.theylive]` section. The plugin supports multiple modes: 'server' (local GPS hardware), 'peer' (remote gpsd sharing), and 'pwndroid' (mobile app sharing via WebSocket). Below is a base example for 'server' mode; see mode-specific sections for details.
+
 ```toml
 main.plugins.theylive.enabled = true
 main.plugins.theylive.device = "/dev/ttyACM0"
@@ -1392,68 +1408,115 @@ main.plugins.theylive.fields = [
  "lat",
  "lon",
  "alt",
- "spd"
+ "spd",
+ "sat"
 ]
 main.plugins.theylive.speedUnit = "mph"
 main.plugins.theylive.distanceUnit = "m"
 main.plugins.theylive.bettercap = true
 main.plugins.theylive.auto = true
 main.plugins.theylive.mode = "server"
+main.plugins.theylive.host = "127.0.0.1"
+main.plugins.theylive.port = 2947
 main.plugins.theylive.topleft_x = 130
 main.plugins.theylive.topleft_y = 47
 ```
+
 ### Available Options
 
 - **enabled**: Set to true to activate the plugin. Default: false
-   
+  
 - **device**: Serial port for GPS hardware (e.g., /dev/ttyACM0). Default: ''
-   
+  
 - **baud**: Baud rate for GPS communication. Default: 9600
-   
-- **fields**: Array of GPS fields to display (e.g., ['fix', 'lat', 'lon']). Default: ['fix', 'lat', 'lon', 'alt', 'spd']
-   
+  
+- **fields**: Array of GPS fields to display (e.g., ['fix', 'lat', 'lon', 'alt', 'spd', 'sat']). Default: ['fix', 'lat', 'lon', 'alt', 'spd', 'sat']
+  
 - **speedUnit**: Speed unit (kph, mph, ms). Default: ms
-   
+  
 - **distanceUnit**: Altitude unit (m, ft). Default: m
-   
+  
 - **bettercap**: Enable Bettercap GPS integration. Default: true
-   
+  
 - **auto**: Auto-install/configure gpsd. Default: true
-   
-- **mode**: 'server' for direct GPS, 'peer' for sharing. Default: server
-   
+  
+- **mode**: Operation mode ('server', 'peer', 'pwndroid'). Default: server
+  
+- **host**: gpsd host IP (for server/peer modes). Default: 127.0.0.1
+  
+- **port**: gpsd port. Default: 2947
+  
+- **pwndroid_host**: WebSocket host IP for PwnDroid mode (e.g., phone's BT tether IP). Default: 192.168.44.1
+  
+- **pwndroid_port**: WebSocket port for PwnDroid mode. Default: 8080
+  
 - **topleft_x / topleft_y**: UI position for display elements. Default: 130 / 47
-   
+  
 After editing the config, restart your Pwnagotchi to apply the changes:
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
+### Mode-Specific Setup
+
+#### Server Mode (Local GPS Hardware)
+
+- Use for direct connection to GPS hardware on the Pwnagotchi.
+- Set `mode = "server"`, specify `device` and `baud`.
+- If auto=true, gpsd will be installed/configured automatically.
+- Bettercap integration is enabled by default.
+
+#### Peer Mode (Remote GPS Sharing)
+- Use to connect to a remote gpsd server (e.g., another Pwnagotchi in server mode).
+- Set `mode = "peer"` to skip local auto-setup.
+- Update `host` to the server's IP and `port` if changed.
+- Ensure the server Pwnagotchi has gpsd running and accessible over the network (e.g., via Bluetooth tether or WiFi).
+- Bettercap can be enabled, but ensure the peer has access to the GPS data stream.
+
+#### PwnDroid Mode (Android GPS Sharing)
+- Use for sharing GPS from an Android phone via Bluetooth tether.
+- Install PwnDroid app on your Android device, enable GPS sharing, and note the WebSocket port (default 8080).
+- Set `mode = "pwndroid"`, `pwndroid_host` to your phone's BT tether IP (e.g., 192.168.44.1), and `pwndroid_port`.
+- Disable Bettercap (`bettercap = false`) as it's not supported in this mode.
+- Enable Bluetooth tethering on your phone and pair with Pwnagotchi (configure bt-tether in config.toml if needed).
+- The plugin uses WebSocket with pings for reliable, real-time GPS updates.
+
+#### iOS GPS Sharing (Alternative via Companion App)
+- While not a built-in mode, use the Pwnagotchi Companion app (available on App Store) for iOS devices to share GPS similarly to PwnDroid.
+- Download the app, enable GPS sharing, and connect via Bluetooth tether.
+- Configure as PwnDroid mode if the app uses compatible WebSocket (check app docs for IP/port).
+- Alternatively, use the separate 'iphone_gps' plugin for event-based GPS logging via Shortcuts app automations.
+- Set up Bluetooth tethering and ensure location services are enabled on iOS.
+
 ## Usage
 
 Once installed and configured, TheyLive runs automatically when you power up your Pwnagotchi. Here's how it works:
-- **GPS Display**: Shows selected fields on the UI once a fix is acquired.
-   
-- **Handshake Logging**: Adds .gps.json files with lat/long to captured .pcap files.
-   
-- **Bettercap Tagging**: Enables GPS in Bettercap for location-aware captures.
-   
-- **Auto-Setup**: Installs gpsd and configures services on first run (if auto=true).
-- 
+
+- **GPS Display**: Shows selected fields on the UI once a fix is acquired, with streamed updates for low latency.
+  
+- **Handshake Logging**: Adds .gps.json files with lat/long, altitude, and speed to captured .pcap files.
+  
+- **Bettercap Tagging**: Enables GPS in Bettercap for location-aware captures (server/peer modes).
+  
+- **Auto-Setup**: Installs gpsd and configures services on first run (if auto=true in server mode).
+
 ### Monitoring the UI
 
-Your Pwnagotchi's display will show GPS details in real-time (e.g., "lat: 37.7749 ", "lon: -122.4194 ").
+Your Pwnagotchi's display will show GPS details in real-time (e.g., "lat: 37.7749 ", "lon: -122.4194 ", "sat: 12").
 
 ### Viewing Logged Networks
 
 Logged data is in /home/pi/handshakes/ as .gps.json files—open them for coordinates or use tools like Wireshark for analysis.
 
 ##Notes
-- **GPS Dependency**: Requires valid GPS hardware; logs warnings if no fix.
+
+- **GPS Dependency**: Requires valid GPS hardware or mobile app; logs warnings if no fix.
 - **Internet for Setup**: Needed initially for gpsd install; skips if offline.
 - **Bettercap Troubleshooting**: If integration fails, check Bettercap status.
 - **Logging**: Detailed logs in /var/log/pwnagotchi.log for setup and errors.
+
 ## Community and Contributions
+
 TheyLive thrives thanks to its community! We're always improving the plugin with new features and fixes. Want to get involved? Here's how:
 - **Contribute**: Submit pull requests with enhancements or bug fixes.
 - **Report Issues**: Found a bug? Let us know on the GitHub Issues page.
@@ -1466,27 +1529,19 @@ You need Internet connection to your pwnagotchi and it takes up to 5-10 mins to 
 ```toml
 ls /dev/tty*
 ```
-
 Then plug in your gps adapter and run the same command:
-
 ```toml
 ls /dev/tty*
 ```
-
 To see which one was not there previously then plug that in to your config.toml at:
-
 ```toml
 main.plugins.theylive.device = "/dev/ttyACM0"
 ```
 
 ## Notes on Modifications
-
 TheyLive is a modified version of the original "gpsdeasy" plugin. https://github.com/rai68/gpsd-easy.
-
 Join the fun and help make TheyLive even better.
-
-
-TheyLive Beta config.toml settings:
+TheyLive PwnDroid config.toml settings:
 
 ```toml
 main.plugins.theylive.enabled = true
@@ -1495,17 +1550,19 @@ main.plugins.theylive.fields = [
  "lat",
  "lon",
  "alt",
- "spd"
+ "spd",
+ "sat"
 ]
 main.plugins.theylive.speedUnit = "mph"
 main.plugins.theylive.distanceUnit = "m"
-main.plugins.theylive.bettercap = false  # Must be false for PwnDroid mode
+main.plugins.theylive.bettercap = false # Must be false for PwnDroid mode
 main.plugins.theylive.auto = true
-main.plugins.theylive.mode = "pwndroid"  # Change to this for PwnDroid
-main.plugins.theylive.pwndroid_host = "192.168.44.1"  # Your phone's BT tether IP
+main.plugins.theylive.mode = "pwndroid" # Change to this for PwnDroid
+main.plugins.theylive.pwndroid_host = "192.168.44.1" # Your phone's BT tether IP
 main.plugins.theylive.pwndroid_port = 8080  # PwnDroid's WebSocket port (default/common value)
 main.plugins.theylive.topleft_x = 130
 main.plugins.theylive.topleft_y = 47
+
 ```
 
 
