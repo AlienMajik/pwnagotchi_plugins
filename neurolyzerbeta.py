@@ -13,7 +13,7 @@ import pwnagotchi.ui.fonts as fonts
 
 class Neurolyzer(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.6.1'  # Updated version for resilience fixes
+    __version__ = '1.6.0'
     __license__ = 'GPL3'
     __description__ = "Advanced WIDS/WIPS evasion system with hardware-aware adaptive countermeasures"
 
@@ -29,8 +29,7 @@ class Neurolyzer(plugins.Plugin):
 
     def __init__(self):
         self.enabled = False
-        self.wifi_interface = 'wlan0'  # Physical interface
-        self.monitor_iface = 'mon0'    # Monitor interface, configurable
+        self.wifi_interface = 'wlan0'
         self.operation_mode = 'stealth'
         self.mac_change_interval = 3600  # Default interval
         self.last_operations = {
@@ -72,6 +71,7 @@ class Neurolyzer(plugins.Plugin):
         self.deauth_throttle = 0.5  # Fraction of APs to deauth per cycle
         self.whitelist_ssids = []
         self.nexmon_enabled = False
+        self.monitor_iface = None  # Will set in on_ready
 
     def _acquire_lock(self):
         """Acquire exclusive lock for atomic operations"""
@@ -113,11 +113,11 @@ class Neurolyzer(plugins.Plugin):
                     return result
                 except subprocess.CalledProcessError as e:
                     error = e.stderr.strip()
-                    if attempt < retries:
-                        if "Device or resource busy" in error:
-                            logging.debug(f"[Neurolyzer] Interface busy, retrying {method[0]} (attempt {attempt+1})")
-                            time.sleep(random.uniform(0.5, 1.5))
-                            continue
+                    if "Device or resource busy" in error:
+                        logging.debug(f"[Neurolyzer] Interface busy, retrying {method[0]} after sleep")
+                        time.sleep(2 ** attempt)  # Exponential backoff: 1s, 2s, 4s, 8s, 16s
+                        continue
+                    if attempt == retries:
                         if "Operation not supported" in error:
                             self._update_hw_capability(method[0], False)
                     logging.debug(f"[Neurolyzer] Attempt {attempt+1} failed: {' '.join(method)} - {error}")
@@ -159,7 +159,7 @@ class Neurolyzer(plugins.Plugin):
             original_mac = self._get_current_mac()
             new_mac = self._generate_valid_mac().lower()  # Normalize to lowercase
             
-            # Handle monitor interface
+            # New: Handle monitor interface for Pwnagotchi/Broadcom
             mon_delete = ['iw', 'dev', self.monitor_iface, 'del'] if os.path.exists(f'/sys/class/net/{self.monitor_iface}') else None
             if mon_delete:
                 self._execute(mon_delete)
@@ -246,10 +246,10 @@ class Neurolyzer(plugins.Plugin):
     def _validate_interface(self):
         """Ensure interface exists and is ready"""
         retries = 0
-        while retries < 3:
+        while retries < 5:
             if os.path.exists(f'/sys/class/net/{self.wifi_interface}'):
                 return True
-            logging.warning(f"[Neurolyzer] Interface missing, retrying... ({retries+1}/3)")
+            logging.warning(f"[Neurolyzer] Interface missing, retrying... ({retries+1}/5)")
             time.sleep(2 ** retries)
             retries += 1
         return False
@@ -268,31 +268,56 @@ class Neurolyzer(plugins.Plugin):
             self.enabled = False
             return
 
-        self.wifi_interface = self.options.get('wifi_interface', 'wlan0')  # Physical interface
-        self.monitor_iface = self.options.get('monitor_iface', 'mon0')     # Monitor interface, now configurable
+        self.wifi_interface = self.options.get('wifi_interface', 'wlan0')
         self.mac_change_interval = self.options.get('mac_change_interval', 3600)
         self.whitelist_ssids = self.options.get('whitelist_ssids', [])
         self.enabled = self.options.get('enabled', True)
+        self.options['monitor_iface'] = self.options.get('monitor_iface', None)  # Allow config override, e.g., 'wlan0mon'
 
-        # Enhanced initialization sequence
+        # Reworked UI configuration loading
+        self.ui_config['mode'] = (
+            self.options.get('mode_label_x', self.ui_config['mode'][0]),
+            self.options.get('mode_label_y', self.ui_config['mode'][1])
+        )
+        self.ui_config['mac_timer'] = (
+            self.options.get('next_mac_change_label_x', self.ui_config['mac_timer'][0]),
+            self.options.get('next_mac_change_label_y', self.ui_config['mac_timer'][1])
+        )
+        self.ui_config['tx_power'] = (
+            self.options.get('tx_power_label_x', self.ui_config['tx_power'][0]),
+            self.options.get('tx_power_label_y', self.ui_config['tx_power'][1])
+        )
+        self.ui_config['channel'] = (
+            self.options.get('channel_label_x', self.ui_config['channel'][0]),
+            self.options.get('channel_label_y', self.ui_config['channel'][1])
+        )
+        self.ui_config['stealth'] = (
+            self.options.get('stealth_label_x', self.ui_config['stealth'][0]),
+            self.options.get('stealth_label_y', self.ui_config['stealth'][1])
+        )
+
+    def on_ready(self, agent):
+        if not self.enabled:
+            return
         try:
+            # Set monitor_iface dynamically if not overridden
+            if self.options['monitor_iface'] is None:
+                # Assume common naming; for accuracy, parse 'iw dev' output
+                result = self._execute(['iw', 'dev'])
+                if result:
+                    mon_match = re.search(r'Interface (wlan0mon|mon0)', result.stdout)
+                    self.monitor_iface = mon_match.group(1) if mon_match else f'{self.wifi_interface}mon'
+                else:
+                    self.monitor_iface = 'mon0'  # Fallback
+            else:
+                self.monitor_iface = self.options['monitor_iface']
+            
             if not self._validate_interface():
                 raise RuntimeError("Network interface unavailable")
-
-            # Force-reset interface for resilience against improper shutdowns
-            self._execute(['killall', 'wpa_supplicant', 'dhclient'])  # Kill conflicting processes
-            self._execute(['rfkill', 'unblock', 'wifi'])  # Unblock WiFi
-            self._execute(['ifconfig', self.monitor_iface, 'down'])
-            self._execute(['iw', 'dev', self.monitor_iface, 'del'])
-            self._execute(['ifconfig', self.wifi_interface, 'down'])
-            self._execute(['ifconfig', self.wifi_interface, 'up'])
-            self._execute(['iw', 'dev', self.wifi_interface, 'set', 'type', 'managed'])
-            time.sleep(3)  # Increased delay for state to settle
             
-            # Dynamic capability discovery
             self._discover_hardware_capabilities()
             
-            # Fallback to sane defaults if detection failed
+            # Fallbacks (existing code)
             if not self.hw_caps['supported_channels']:
                 self.hw_caps['supported_channels'] = self.SAFE_CHANNELS
                 
@@ -300,12 +325,10 @@ class Neurolyzer(plugins.Plugin):
                 self.hw_caps['tx_power'] = {'min': 1, 'max': 20, 'supported': False}
             
             if self.nexmon_enabled:
-                # Optional: Load Nexmon if not auto-loaded (assume it is)
-                self._execute(['modprobe', 'brcmfmac'])  # Reload if needed
+                self._execute(['modprobe', 'brcmfmac'])
             
             self._apply_initial_config()
-            logging.info(f"[Neurolyzer] Active in {self.operation_mode} mode")
-
+            logging.info(f"[Neurolyzer] Active in {self.operation_mode} mode on monitor {self.monitor_iface}")
         except Exception as e:
             logging.error(f"[Neurolyzer] Initialization failed: {str(e)}")
             self.enabled = False
@@ -542,7 +565,7 @@ class Neurolyzer(plugins.Plugin):
                 new_channel = random.choice([1, 6, 11, 36, 40]) if self.nexmon_enabled else random.choice(valid_channels)  # Include 5GHz if Nexmon
             else:  # Stealth: safe channels
                 new_channel = random.choice(self.SAFE_CHANNELS)
-            if self._execute(['iw', 'dev', self.monitor_iface, 'set', 'channel', str(new_channel)]):  # Use monitor for channel hop
+            if self._execute(['iw', 'dev', self.wifi_interface, 'set', 'channel', str(new_channel)]):
                 self.current_channel = new_channel
                 self.last_operations['channel_hop'] = time.time()
         except Exception as e:
@@ -577,7 +600,7 @@ class Neurolyzer(plugins.Plugin):
                     f.write('\n'.join(self.probe_blacklist))
                 
                 self._execute([
-                    'hcxdumptool', '-i', self.monitor_iface,  # Use monitor if appropriate
+                    'hcxdumptool', '-i', self.wifi_interface,
                     '--filterlist=/tmp/neuro_filter', '--filtermode=2'
                 ])
         except Exception as e:
