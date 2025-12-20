@@ -1,6 +1,6 @@
 # Pwnagotchi Plugins Collection
 
-**Author:** AlienMajik  
+**Author:** AlienMajik
 
 ### Support & Contributions
 Feel free to open issues or pull requests to improve this plugin or suggest new features. Enjoy leveling up your Pwnagotchi!
@@ -30,66 +30,66 @@ An enhanced plugin with frequent titles, dynamic quotes, progress bars, random e
 The plugin tracks four primary statistics that reflect your Pwnagotchi's journey:
 
 ### Age (♥ Age)
-- Tracks the number of epochs your Pwnagotchi has lived.  
+- Tracks the number of epochs your Pwnagotchi has lived.
 - Earns frequent titles like "Baby Steps" (100 epochs), "Getting the Hang of It" (500 epochs), "Neon Spawn" (1,000 epochs), and more.
 
 ### Strength (Str)
-- Reflects training progress, increasing by 1 every 10 epochs.  
+- Reflects training progress, increasing by 1 every 10 epochs.
 - Titles include "Sparring Novice" (100 train epochs), "Gear Tickler" (300 train epochs), "Fleshbag" (500 train epochs), and beyond.
 
 ### Network Points (★ Pts)
-- Earn points by capturing handshakes, with values based on encryption strength:  
-  - WPA3: +10 points  
-  - WPA2: +5 points  
-  - WEP/WPA: +2 points  
+- Earn points by capturing handshakes, with values based on encryption strength:
+  - WPA3: +10 points
+  - WPA2: +5 points
+  - WEP/WPA: +2 points
   - Open/Unknown: +1 point
 - Points decay if the Pwnagotchi is inactive for too long.
 
 ### Personality
 - Develops based on actions:
-  - Aggro: Increases with each handshake.  
-  - Scholar: Increases every 10 epochs.  
+  - Aggro: Increases with each handshake.
+  - Scholar: Increases every 10 epochs.
   - Stealth: Reserved for future use.
 - Displayed on the UI if enabled.
 
 ## New Enhancements in v3.1.0
 
-- **More Frequent Titles:** Age and strength titles are awarded more often, making progression feel rewarding at every stage. 
-- **Context-Aware Dynamic Quotes:** Motivational messages respond to your actions, like capturing handshakes or recovering from decay. 
-- **Progress Bars:** A visual bar shows how close you are to the next age title (e.g., [===  ] for 60% progress).  
-- **Random Events:** Every 100 epochs, there's a 5% chance of events like "Lucky Break" (double points) or "Signal Noise" (half points).  
-- **Handshake Streaks:** Capture 5+ consecutive handshakes for a 20% point bonus per handshake.  
-- **Personality Evolution:** Your Pwnagotchi's dominant trait (Aggro, Scholar, Stealth) evolves based on its actions.  
-- **Secret Achievements:** Unlock hidden goals like "Night Owl" (10 handshakes between 2-4 AM) or "Crypto King" (capture all encryption types) for bonus points. 
-- **UI Optimization:** Streamlined to avoid clutter; personality display is optional.  
-- **Enhanced Data Persistence:** Saves streak, personality, and achievement progress.  
-- **Thread Safety:** Ensures reliable data saving.  
+- **More Frequent Titles:** Age and strength titles are awarded more often, making progression feel rewarding at every stage.
+- **Context-Aware Dynamic Quotes:** Motivational messages respond to your actions, like capturing handshakes or recovering from decay.
+- **Progress Bars:** A visual bar shows how close you are to the next age title (e.g., [===  ] for 60% progress).
+- **Random Events:** Every 100 epochs, there's a 5% chance of events like "Lucky Break" (double points) or "Signal Noise" (half points).
+- **Handshake Streaks:** Capture 5+ consecutive handshakes for a 20% point bonus per handshake.
+- **Personality Evolution:** Your Pwnagotchi's dominant trait (Aggro, Scholar, Stealth) evolves based on its actions.
+- **Secret Achievements:** Unlock hidden goals like "Night Owl" (10 handshakes between 2-4 AM) or "Crypto King" (capture all encryption types) for bonus points.
+- **UI Optimization:** Streamlined to avoid clutter; personality display is optional.
+- **Enhanced Data Persistence:** Saves streak, personality, and achievement progress.
+- **Thread Safety:** Ensures reliable data saving.
 - **Improved Logging:** Detailed logs for better tracking and debugging.
 
 ## Features
 
-- **Persistent Stats:** Age, Strength, Points, and Personality survive reboots.  
-- **UI Integration:** Stats, progress bars, and messages are displayed on the screen.  
-- **Points Logging:** Handshake events are logged in `/root/network_points.log`.  
-- **Decay Mechanism:** Points decay after inactivity to encourage regular use.  
-- **Dynamic Status Messages:** Context-aware quotes and inactivity alerts.  
-- **Personality Evolution:** Develops based on actions; display optional.  
-- **Secret Achievements:** Hidden goals for bonus points.  
-- **Random Events:** Periodic events that spice up gameplay. 
+- **Persistent Stats:** Age, Strength, Points, and Personality survive reboots.
+- **UI Integration:** Stats, progress bars, and messages are displayed on the screen.
+- **Points Logging:** Handshake events are logged in `/root/network_points.log`.
+- **Decay Mechanism:** Points decay after inactivity to encourage regular use.
+- **Dynamic Status Messages:** Context-aware quotes and inactivity alerts.
+- **Personality Evolution:** Develops based on actions; display optional.
+- **Secret Achievements:** Hidden goals for bonus points.
+- **Random Events:** Periodic events that spice up gameplay.
 - **Handshake Streaks:** Bonus points for consecutive captures.
 
 ## Installation Instructions
 
-### Copy the Plugin File  
-Place `age.py` in `/usr/local/share/pwnagotchi/custom-plugins/`. 
+### Copy the Plugin File
+Place `age.py` in `/usr/local/share/pwnagotchi/custom-plugins/`.
 
-Or use SCP:  
+Or use SCP:
 ```bash
 sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
 ```
 
-### Update config.toml  
-Add to `/etc/pwnagotchi/config.toml`: 
+### Update config.toml
+Add to `/etc/pwnagotchi/config.toml`:
 ```toml
 main.plugins.age.enabled = true
 main.plugins.age.age_x = 10
@@ -107,27 +107,27 @@ main.plugins.age.decay_interval = 50
 main.plugins.age.decay_amount = 10
 ```
 
-### Restart Pwnagotchi  
-Apply changes with:  
+### Restart Pwnagotchi
+Apply changes with:
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
 ## Usage
 
-- **Monitor Stats:** Watch Age, Strength, and Points increase on the screen. 
-- **Capture Handshakes:** Earn points and build streaks for bonuses.  
-- **Track Progress:** See how close you are to the next age title with the progress bar. 
-- **Experience Events:** Encounter random events that affect point earnings. 
-- **Develop Personality:** Your Pwnagotchi's actions shape its dominant trait. 
-- **Unlock Achievements:** Discover secret goals for extra points.  
+- **Monitor Stats:** Watch Age, Strength, and Points increase on the screen.
+- **Capture Handshakes:** Earn points and build streaks for bonuses.
+- **Track Progress:** See how close you are to the next age title with the progress bar.
+- **Experience Events:** Encounter random events that affect point earnings.
+- **Develop Personality:** Your Pwnagotchi's actions shape its dominant trait.
+- **Unlock Achievements:** Discover secret goals for extra points.
 - **Avoid Decay:** Stay active to prevent point loss from inactivity.
 
 ## Logs and Data
 
-- **Stats Data:** `/root/age_strength.json`  
+- **Stats Data:** `/root/age_strength.json`
   Stores epochs, train_epochs, points, handshakes, personality, and more.
-- **Points Log:** `/root/network_points.log`  
+- **Points Log:** `/root/network_points.log`
   Records each handshake with timestamp, ESSID, encryption, and points.
 
 ---
@@ -151,7 +151,7 @@ To configure the RTL-SDR and test rtl_adsb, you'll need to access the terminal o
 
 ### 3. Install RTL-SDR Drivers and Utilities
 Once you're in the terminal, you'll likely need to install the RTL-SDR drivers and the rtl_adsb utility. Pwnagotchi is based on Raspbian, so you can use apt-get to install these packages. Run the following commands:
-     
+
 ```bash
 sudo apt-get install rtl-sdr
 ```
@@ -178,7 +178,7 @@ This command starts the ADS-B reception. If your RTL-SDR is set up correctly and
 
 Add `adsbsniffer.py` to `/usr/local/share/pwnagotchi/installed-plugins` and `/usr/local/share/pwnagotchi/available-plugins`
 
-In `/etc/pwnagotchi/config.toml` file add: 
+In `/etc/pwnagotchi/config.toml` file add:
 
 ```toml
 main.plugins.adsbsniffer.enabled = true
@@ -225,7 +225,7 @@ The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth
 - **What's New:** Adapts to your device's hardware capabilities, now with explicit detection for Broadcom chipsets (e.g., Raspberry Pi 5's CYW43455) and Nexmon patches.
 - **How It Works:** Detects support for TX power control, monitor mode, MAC spoofing, and packet injection at startup, tailoring operations accordingly. If Nexmon is detected on Broadcom hardware, enables monitor mode, 5GHz channels, and injection features.
 - **What's Better:** Ensures compatibility and stability across diverse Pwnagotchi setups, including Raspberry Pi 5, avoiding errors from unsupported features and enabling advanced capabilities with patches.
-  
+
 ### 3. Atomic MAC Rotation with Locking Mechanism
 - **What's Improved:** MAC changes are now atomic, using an exclusive lock.
 - **How It Works:** A lock file prevents conflicts during MAC updates, ensuring smooth execution.
@@ -298,7 +298,7 @@ The Neurolyzer plugin has evolved into a powerful tool for enhancing the stealth
 - **What's New:** Automatic detection and enablement for Broadcom chipsets.
 - **How It Works:** Checks for Nexmon patches; enables monitor mode, packet injection (where supported), and 5GHz channels on compatible hardware like Pi 5's bcm43455c0.
 - **What's Better:** Overcomes native limitations on Pi 5 for full evasion features, with fallback to passive mode if unpatched.
-- 
+-
 ## Legacy Improvements Retained and Enhanced
 
 - **Initial MAC Randomization:** Randomizes the MAC address on load for immediate privacy.
@@ -343,7 +343,7 @@ Select "No" when asked about changing the MAC on startup.
 2. **Update and install:**
    ```bash
    sudo pwnagotchi plugins update
-   sudo pwnagotchi plugins install neurolyzer 
+   sudo pwnagotchi plugins install neurolyzer
    ```
 
 ### Manual Installation (Alternative)
@@ -469,7 +469,7 @@ The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Insta
 
 This release builds on v1.5.0 with major enhancements focused on stability, increased aggression in mobility, better GPS handling, and refined attack logic, making ProbeNpwn even more reliable and effective for high-speed or dynamic environments. Key additions include:
 
-### 1. Inverted Scaling for Aggression in Mobility 
+### 1. Inverted Scaling for Aggression in Mobility
 
 **What's New:**
 Parameter scaling now inverts for deauth/assoc probabilities and throttles to increase attack intensity with higher mobility scores (e.g., probs rise to 1.0, throttles drop to 0.1 when score~1).
@@ -483,7 +483,7 @@ Parameter scaling now inverts for deauth/assoc probabilities and throttles to in
 - Mobility Optimization: More aggressive attacks (higher probs, lower delays) when on the move, capturing more in transient scenarios without overwhelming stationary setups.
 - Balance: Complements existing scaling (e.g., shorter recon_time in mobility) for smoother adaptations.
 
-### 2. Time-Based GPS History Pruning 
+### 2. Time-Based GPS History Pruning
 
 **What's New:**
 Added GPS_HISTORY_MAX_AGE (300 seconds) to prune stale entries from gps_history, ensuring only recent data is used.
@@ -496,7 +496,7 @@ Added GPS_HISTORY_MAX_AGE (300 seconds) to prune stale entries from gps_history,
 - Accuracy: Prevents outdated positions skewing speed estimates in long or intermittent GPS sessions.
 - Efficiency: Keeps the buffer lean, reducing memory use without affecting fallback AP rate scoring.
 
-### 3. Enhanced Concurrency Safety with Executor Locks 
+### 3. Enhanced Concurrency Safety with Executor Locks
 
 **What's New:**
 Introduced self.executor_lock (threading.Lock()) for synchronizing executor access, with RuntimeError handling for shutdown races.
@@ -509,7 +509,7 @@ Introduced self.executor_lock (threading.Lock()) for synchronizing executor acce
 - Stability: Prevents race conditions during dynamic worker adjustments or unloads, reducing crashes in high-load or mobility scenarios.
 - Reliability: Ensures tasks aren't lost mid-submit, especially in Maniac mode's rapid attacks.
 
-### 4. Unrestricted Maniac Mode 
+### 4. Unrestricted Maniac Mode
 
 **What's New:**
 Removed the attempts cap (>50) in Maniac mode, making it truly unrestricted with no self-imposed retry queuing based on attempts.
@@ -521,7 +521,7 @@ Removed the attempts cap (>50) in Maniac mode, making it truly unrestricted with
 - Maximum Aggression: Allows non-stop attacks in crowded or high-value areas, boosting captures without artificial limits.
 - Flexibility: Pairs with dynamic concurrency to handle the intensity without overwhelming the device.
 
-### 5. Early RSSI Filtering for APs and Clients 
+### 5. Early RSSI Filtering for APs and Clients
 
 **What's New:**
 Added RSSI checks in ok_to_attack (for APs) and attack_target (for clients), using scaled 'min_rssi' (-85 to -60 dBm).
@@ -547,7 +547,7 @@ Deauth now conditional on scaled 'deauth_prob'; assoc forces (prob=1.0) if no cl
 - PMKID Emphasis: Guarantees assoc attempts on isolated APs, capturing more from client-less networks.
 - Control: Prob/throttle scaling ties into mobility for tuned aggression; improves diversity in attack vectors.
 
-### 7. Improved Error Handling and Logging 
+### 7. Improved Error Handling and Logging
 
 **What's New:**
 Decoded subprocess outputs in watchdog errors; warning log if handshake event has no client; try-except for ok_to_attack data.
@@ -589,7 +589,7 @@ You can install ProbeNpwn in two ways: the easy way (recommended) or the manual 
 
 ### Easy Way (Recommended)
 
-1. **Update Your Config File**  
+1. **Update Your Config File**
    Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories:
 
    ```toml
@@ -606,7 +606,7 @@ You can install ProbeNpwn in two ways: the easy way (recommended) or the manual 
    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
    ```
 
-2. **Install the Plugin**  
+2. **Install the Plugin**
    Run these commands to update the plugin list and install SnoopR:
 
    ```bash
@@ -627,7 +627,7 @@ If you prefer a hands-on approach:
    cd pwnagotchi_plugins
    ```
 
-2. **Copy the Plugin File**  
+2. **Copy the Plugin File**
    Move probenpwn.py to your Pwnagotchi's custom plugins directory:
 
    ```bash
@@ -741,9 +741,9 @@ SnoopR is loaded with capabilities to make your wireless adventures both fun and
 Before installing SnoopR, ensure you have the following:
 
 - **GPS Adapter**: Connected via bettercap (easily done with the gps plugin). GPS is essential for logging device locations.
-    
+
 - **Bluetooth Enabled**: Required for Bluetooth scanning. Ensure Bluetooth is activated on your Pwnagotchi (`sudo hciconfig hci0 up`).
-    
+
 - **Internet Access (for Viewing)**: The device you use to view the web interface (e.g., your phone or computer) needs internet to load map tiles and Leaflet.js. The Pwnagotchi itself doesn't require an internet connection.
 
 
@@ -753,7 +753,7 @@ You can install SnoopR in two ways: the easy way (recommended) or the manual way
 
 ### Easy Way (Recommended)
 
-1. **Update Your Config File**  
+1. **Update Your Config File**
    Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories:
 
    ```toml
@@ -770,7 +770,7 @@ You can install SnoopR in two ways: the easy way (recommended) or the manual way
    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
    ```
 
-2. **Install the Plugin**  
+2. **Install the Plugin**
    Run these commands to update the plugin list and install SnoopR:
 
    ```bash
@@ -791,7 +791,7 @@ If you prefer a hands-on approach:
    cd pwnagotchi_plugins
    ```
 
-2. **Copy the Plugin File**  
+2. **Copy the Plugin File**
    Move snoopr.py to your Pwnagotchi's custom plugins directory:
 
    ```bash
@@ -824,23 +824,23 @@ main.plugins.snoopr.prune_days = 30                       # Days before pruning 
 ### Available Options
 
 - **enabled**: Set to true to activate the plugin. Default: false
-    
+
 - **path**: Directory for the SQLite database (e.g., /root/snoopr/snoopr.db). Default: /root/snoopr
-    
+
 - **ui.enabled**: Show stats on the Pwnagotchi UI. Default: true
-    
+
 - **gps.method**: GPS data source (only "bettercap" supported). Default: "bettercap"
-    
+
 - **movement_threshold**: Minimum distance (miles) a device must move to be flagged as a snooper. Default: 0.1
-    
+
 - **time_threshold_minutes**: Time interval (minutes) between detections for snooper checks. Default: 5
-    
+
 - **bluetooth_enabled**: Enable Bluetooth scanning. Default: true
-    
+
 - **timer**: Interval (seconds) between Bluetooth scans. Default: 45
-    
+
 - **whitelist**: List of network names (SSIDs or Bluetooth device names) to exclude from logging. Default: []
-    
+
 - **prune_days**: Number of days to retain detection records before pruning. Default: 30
 
 
@@ -859,13 +859,13 @@ On startup, SnoopR checks the detections table for channel and auth_mode columns
 Once installed and configured, SnoopR runs automatically when you power up your Pwnagotchi. Here's how it works:
 
 - **Wi-Fi Logging**: Logs Wi-Fi access points with details like MAC, SSID, channel, authentication mode, encryption, signal strength, and location. Skips whitelisted SSIDs during on_unfiltered_ap_list.
-    
+
 - **Bluetooth Scanning**: If enabled, scans for Bluetooth devices every timer seconds using hcitool inq --flush, logging their details and locations. Retries name retrieval up to three times with hcitool name.
-    
+
 - **Snooper Detection**: Flags devices as snoopers if they move beyond movement_threshold across at least three detections within time_threshold_minutes. Updates the is_snooper flag in the networks table.
-    
+
 - **Whitelisting**: Excludes specified networks from being logged or flagged during Wi-Fi and Bluetooth scans.
-    
+
 - **Data Pruning**: Automatically deletes old detection records from the detections table on startup if older than prune_days.
 
 ### Monitoring the UI
@@ -880,16 +880,16 @@ Your Pwnagotchi's display will show real-time stats (if ui.enabled is true):
 
 To see detailed logs and the interactive map, access the web interface:
 
-1. **Connect to Your Pwnagotchi's Network**  
+1. **Connect to Your Pwnagotchi's Network**
    - Via USB: Typically 10.0.0.2
    - Via Bluetooth tethering: Typically 172.20.10.2
 
-2. **Open the Web Interface**  
+2. **Open the Web Interface**
    In a browser on a device with internet access:
    - USB: http://10.0.0.2:8080/plugins/snoopr/
    - Bluetooth: http://172.20.10.2:8080/plugins/snoopr/
 
-3. **Explore the Interface**  
+3. **Explore the Interface**
    - **Table**: Lists all detected networks with sorting (by “Device Type” or “Snooper”) and filtering (“All,” “Snoopers,” “Bluetooth,” or “Aircraft”).
    - **Map**: hows device locations—click a network in the table to pan the Leaflet.js map to its marker (blue for regular, red for snoopers, green for aircraft, gray for no coordinates) with popups showing details.
    - **Scroll Buttons**: "Scroll to Top" and "Scroll to Bottom" for easy navigation of long lists.
@@ -938,7 +938,7 @@ SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the 
 
 - **Export Capabilities (CSV and KML):** Users can download data for offline analysis or integration with tools like Google Earth (KML) or spreadsheet software (CSV), adding flexibility for processing or visualizing data outside the plugin.
 
-- **Metadata Caching:** Aircraft metadata (e.g., model, registration) is now cached in a JSON file (skyhigh_metadata.json), loaded at startup, and saved when the plugin unloads. Caching reduces repeated API calls for previously seen aircraft, improving performance and reducing network load—especially beneficial for frequent users tracking recurring aircraft. 
+- **Metadata Caching:** Aircraft metadata (e.g., model, registration) is now cached in a JSON file (skyhigh_metadata.json), loaded at startup, and saved when the plugin unloads. Caching reduces repeated API calls for previously seen aircraft, improving performance and reducing network load—especially beneficial for frequent users tracking recurring aircraft.
 
 - **Type-Specific Icons** New map icons for commercial jets (blue), small planes (yellow), drones (purple), gliders (orange), and military aircraft (green), alongside helicopters (red).
 
@@ -958,7 +958,7 @@ SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the 
 - **User-Friendly Interface:** The simplified table, filtering options, and export links make the web interface cleaner and more intuitive, focusing on essential data and user interaction.
 
 - **Performance Improvements:** Background fetching and metadata caching reduce resource usage and improve responsiveness, making the plugin more efficient.
-  
+
 - **Flexibility and Control:** Features like blocklist/allowlist, filtering, and export options empower users to customize their experience and use data in diverse ways.
 
 - **Reliability:** Enhanced error handling and embedded icons ensure consistent operation, even under suboptimal conditions.
@@ -994,7 +994,7 @@ You can install SkyHigh in two ways: the easy way (recommended) or the manual wa
 #### Easy Way (Recommended)
 
 1. **Update Your Config File**
-   
+
    Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories:
    ```toml
    main.confd = "/etc/pwnagotchi/conf.d/"
@@ -1011,7 +1011,7 @@ You can install SkyHigh in two ways: the easy way (recommended) or the manual wa
    ```
 
 2. **Install the Plugin**
-   
+
    Run these commands to update the plugin list and install SkyHigh:
    ```bash
    sudo pwnagotchi update plugins
@@ -1029,7 +1029,7 @@ If you prefer a hands-on approach:
    ```
 
 2. **Copy the Plugin File**
-   
+
    Move skyhigh.py to your Pwnagotchi's custom plugins directory:
    ```bash
    sudo cp skyhigh.py /usr/local/share/pwnagotchi/custom-plugins/
@@ -1143,7 +1143,7 @@ The plugin tracks essential battery and system statistics to keep you informed a
 ### Battery Capacity (🔋 %)
 - Displays the current state-of-charge (SOC) as a percentage.
 - Read directly from fuel gauge chips (e.g., MAX170xx, PiSugar) or approximated using a lookup table for INA219-based HATs for better accuracy.
-  
+
 ### Voltage (V)
 - Shows real-time battery voltage.
 - Helps identify low-power conditions or charging efficiency.
@@ -1323,7 +1323,7 @@ sudo systemctl restart pwnagotchi
 - **Optimize Polling:** Tune poll_interval for balance between freshness and efficiency.
 - **Detect HATs Automatically:** Leave ups_type as 'auto' for plug-and-play; override if needed.
 - **Avoid Low Battery Issues:** Respond to warnings and ensure regular charging to prevent shutdowns.
- 
+
 ## Logs and Data
 - **System Logs:** Events and errors are logged with prefixes like [MadHatter] or [MadHatterUPS] in the Pwnagotchi system logs (viewable via journalctl or /var/log/pwnagotchi.log).
   Includes detection info, poll results, warnings, shutdown triggers, and calibration successes.
@@ -1336,6 +1336,9 @@ sudo systemctl restart pwnagotchi
 Welcome to TheyLive, a robust GPS plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! TheyLive enhances your Pwnagotchi by leveraging gpsd to display real-time GPS coordinates on the screen, log locations with captured handshakes, and integrate seamlessly with Bettercap for precise packet capture tagging. Whether you're a security researcher, a mobile auditor, or just exploring wireless environments, TheyLive provides accurate location awareness to make your sessions more insightful.
 
 This updated version (1.4.0) includes compatibility fixes for the latest jayofelony Pwnagotchi images, improved auto-setup for gpsd (with PPS support for high-precision timing), customizable UI fields and units, and enhanced error handling for reliable operation. Key enhancements include streamed GPSD data for real-time updates without polling, connection retries for gpsd, WebSocket keep-alive pings for PwnDroid mode, a new 'sat' field for displaying satellite count, optimized UI updates, and expanded handshake logging to include altitude and speed. It's actively refined, community-inspired, and designed to work out-of-the-box with USB or serial GPS devices, remote sharing, and mobile app integrations. Let's explore what TheyLive offers and how to get started!
+
+The last update includes the configs for a second GPS device (not serial, but like a tcp socket), and a little bit of cleaning and retries for the GPS fix received before setting the data to a error or nofix status.
+Also a new option permits to force the GPSD daemon to restart every time the plugin is loaded (a must for gps connected via socket on your mobile device thet sometimes gpsd try to connect before the bt-tether is up)
 
 ## Features
 
@@ -1366,9 +1369,9 @@ TheyLive is packed with tools to integrate GPS into your Pwnagotchi workflow. He
 Before installing TheyLive, ensure you have the following:
 
 - **GPS Hardware**: A USB or serial GPS adapter (e.g., connected to /dev/ttyACM0 or /dev/ttyS0). PPS-enabled devices for advanced timing. For mobile modes, an Android/iOS device with Bluetooth tethering.
-  
+
 - **Internet Access (Initial Setup)**: Required for auto-installing gpsd if not present; offline mode skips this.
-  
+
 - **Pwnagotchi Compatibility**: Works with jayofelony images (tested up to 2.9.5.3 and beyond); Bettercap for integration. Bluetooth tethering enabled for mobile modes.
 
 ## Installation Instructions
@@ -1407,7 +1410,7 @@ That's it! You're ready to configure TheyLive.
 
 ### Manual Way (Alternative)
 if you're working from a computer, use SCP:
-  
+
    ```bash
    sudo scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
    ```
@@ -1419,6 +1422,7 @@ To enable and customize TheyLive, edit `/etc/pwnagotchi/config.toml` and add the
 ```toml
 main.plugins.theylive.enabled = true
 main.plugins.theylive.device = "/dev/ttyACM0"
+main.plugins.theylive.second_device = "tcp://172.20.10.1:4352"
 main.plugins.theylive.baud = 115200
 main.plugins.theylive.fields = [
  "fix",
@@ -1437,38 +1441,43 @@ main.plugins.theylive.host = "127.0.0.1"
 main.plugins.theylive.port = 2947
 main.plugins.theylive.topleft_x = 130
 main.plugins.theylive.topleft_y = 47
+main.plugins.theylive.restart_on_load = false
 ```
 
 ### Available Options
 
 - **enabled**: Set to true to activate the plugin. Default: false
-  
+
 - **device**: Serial port for GPS hardware (e.g., /dev/ttyACM0). Default: ''
-  
+
+- **second_device**: Additional GPS Device, on tcp socket (e.g.,tcp://172.20.10.1:4352). Default: ''
+
 - **baud**: Baud rate for GPS communication. Default: 9600
-  
+
 - **fields**: Array of GPS fields to display (e.g., ['fix', 'lat', 'lon', 'alt', 'spd', 'sat']). Default: ['fix', 'lat', 'lon', 'alt', 'spd', 'sat']
-  
+
 - **speedUnit**: Speed unit (kph, mph, ms). Default: ms
-  
+
 - **distanceUnit**: Altitude unit (m, ft). Default: m
-  
+
 - **bettercap**: Enable Bettercap GPS integration. Default: true
-  
+
 - **auto**: Auto-install/configure gpsd. Default: true
-  
+
 - **mode**: Operation mode ('server', 'peer', 'pwndroid'). Default: server
-  
+
 - **host**: gpsd host IP (for server/peer modes). Default: 127.0.0.1
-  
+
 - **port**: gpsd port. Default: 2947
-  
+
+- **restart_on_load**: Force restart GPSD every time the plugin is loaded. Default: False
+
 - **pwndroid_host**: WebSocket host IP for PwnDroid mode (e.g., phone's BT tether IP). Default: 192.168.44.1
-  
+
 - **pwndroid_port**: WebSocket port for PwnDroid mode. Default: 8080
-  
+
 - **topleft_x / topleft_y**: UI position for display elements. Default: 130 / 47
-  
+
 After editing the config, restart your Pwnagotchi to apply the changes:
 ```bash
 sudo systemctl restart pwnagotchi
@@ -1510,11 +1519,11 @@ sudo systemctl restart pwnagotchi
 Once installed and configured, TheyLive runs automatically when you power up your Pwnagotchi. Here's how it works:
 
 - **GPS Display**: Shows selected fields on the UI once a fix is acquired, with streamed updates for low latency.
-  
+
 - **Handshake Logging**: Adds .gps.json files with lat/long, altitude, and speed to captured .pcap files.
-  
+
 - **Bettercap Tagging**: Enables GPS in Bettercap for location-aware captures (server/peer modes).
-  
+
 - **Auto-Setup**: Installs gpsd and configures services on first run (if auto=true in server mode).
 
 ### Monitoring the UI

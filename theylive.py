@@ -1,19 +1,18 @@
 import logging
 import time
 import threading
-import os
 import subprocess
-import random
 import asyncio
-import websockets
-import json
-import requests
 import socket
+import json
+import websockets
+import requests
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.fonts as fonts
 from pwnagotchi.ui.components import LabeledValue
 from pwnagotchi.ui.view import BLACK
 import pwnagotchi
+
 
 def is_connected():
     try:
@@ -26,6 +25,7 @@ def is_connected():
         pass
     return False
 
+
 class GPSBackend:
     def __init__(self, plugin):
         self.plugin = plugin
@@ -34,6 +34,7 @@ class GPSBackend:
 
     def get_current(self, poll):
         raise NotImplementedError("get_current must be implemented by subclasses")
+
 
 class GPSD(GPSBackend):
     def __init__(self, gpsdhost, gpsdport, plugin):
@@ -78,14 +79,50 @@ class GPSD(GPSBackend):
                     continue
                 data = json.loads(raw)
                 with self.lock:
-                    if data.get('class') == 'TPV':
-                        self.latest_tpv = data
-                    elif data.get('class') == 'SKY':
+                    if data.get("class") == "TPV":
+                        mode = int(data.get("mode", 0) or 0)
+                        if mode < 2:
+                            # try to read a few more TPV updates before accepting low-fix TPV
+                            retries = 0
+                            accepted = False
+                            while retries < 5 and self.running:
+                                try:
+                                    raw_retry = self.stream.readline().strip()
+                                    if not raw_retry:
+                                        retries += 1
+                                        time.sleep(1)
+                                        continue
+                                    data_retry = json.loads(raw_retry)
+                                    if data_retry.get("class") == "TPV":
+                                        mode = int(data_retry.get("mode", 0) or 0)
+                                        if mode >= 2:
+                                            self.latest_tpv = data_retry
+                                            accepted = True
+                                            break
+                                        # keep the most recent low-fix tpv so we have something
+                                        self.latest_tpv = data_retry
+                                    elif data_retry.get("class") == "SKY":
+                                        self.latest_sky = data_retry
+                                    retries += 1
+                                except (json.JSONDecodeError, ValueError) as e:
+                                    logging.error("[TheyLive] Error decoding gpsd response: %s - Raw: %s",
+                                                  e, raw_retry if "raw_retry" in locals() else "")
+                                    retries += 1
+                                except (OSError, RuntimeError) as e:
+                                    logging.error("[TheyLive] Stream read error: %s", e)
+                                    break
+                            if not accepted:
+                                # if no better fix arrived, store the original TPV
+                                self.latest_tpv = self.latest_tpv or data
+                        else:
+                            self.latest_tpv = data
+                    elif data.get("class") == "SKY":
                         self.latest_sky = data
             except (json.JSONDecodeError, ValueError) as e:
-                logging.error(f"[TheyLive] Error decoding gpsd response: {e} - Raw data: {raw}")
-            except Exception as e:
-                logging.error(f"[TheyLive] Unexpected error in stream reader: {e}")
+                logging.error("[TheyLive] Error decoding gpsd response: %s - Raw data: %s",
+                              e, raw if "raw" in locals() else "")
+            except (OSError, RuntimeError) as e:
+                logging.error("[TheyLive] Unexpected error in stream reader: %s", e)
                 break
 
     def get_current(self, poll):
@@ -95,6 +132,7 @@ class GPSD(GPSBackend):
             elif poll == 'sky':
                 return self.latest_sky
         return None
+
 
 class PwnDroidGPS(GPSBackend):
     def __init__(self, host, port, plugin):
@@ -150,6 +188,7 @@ class PwnDroidGPS(GPSBackend):
             return self.coordinates if self.coordinates else None
         return None  # 'sky' not supported
 
+
 class TheyLive(plugins.Plugin):
     __author__ = "discord@rai68"  # Original author
     __version__ = "1.2.0"  # Updated version with enhancements
@@ -178,10 +217,12 @@ class TheyLive(plugins.Plugin):
         self.ui_setup = False
         self.valid_device = False
         self.running = False
+        self.restart_on_load = False
         # display setup
         self._black = 0x00
         self.pps_device = ''
         self.device = ''
+        self.second_device = ''
         self.baud = 9600
         # auto setup
         self.disableAuto = False
@@ -207,6 +248,7 @@ class TheyLive(plugins.Plugin):
             'GPSD_OPTIONS="-n -N -b"\n',
             f'BAUDRATE="{self.baud}"\n',
             f'MAIN_GPS="{self.device}"\n',
+            f'SECOND_GPS="{self.second_device}"\n',
             f'PPS_DEVICES="{self.pps_device}"\n',
             'GPSD_SOCKET="/var/run/gpsd.sock"\n',
             '/bin/stty -F ${MAIN_GPS} ${BAUDRATE}\n',
@@ -218,7 +260,7 @@ class TheyLive(plugins.Plugin):
             'Requires=gpsd.socket\n',
             '[Service]\n',
             'EnvironmentFile=/etc/default/gpsd\n',
-            'ExecStart=/usr/sbin/gpsd $GPSD_OPTIONS $MAIN_GPS $PPS_DEVICES\n',
+            'ExecStart=/usr/sbin/gpsd $GPSD_OPTIONS $MAIN_GPS $SECOND_GPS $PPS_DEVICES\n',
             '[Install]\n',
             'WantedBy=multi-user.target\n',
             'Also=gpsd.socket\n',
@@ -244,7 +286,10 @@ class TheyLive(plugins.Plugin):
             gpsdSocket.writelines(baseSocket)
         subprocess.run(["systemctl", "daemon-reload"])
         serRes = subprocess.run(['systemctl', "status", "gpsd.service"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        if 'active (running)' not in serRes.stdout:
+        # Restart gpsd if not running or if restart_on_load is set from options
+        if 'restart_on_load' in self.options:
+            self.restart_on_load = self.options['restart_on_load']
+        if 'active (running)' not in serRes.stdout or self.restart_on_load:
             subprocess.run(["systemctl", "restart", "gpsd.service"])  # Use restart for safety
         return True
 
@@ -267,6 +312,8 @@ class TheyLive(plugins.Plugin):
             self.baud = self.options['baud']
         if 'device' in self.options:
             self.device = self.options['device']
+        if 'second_device' in self.options:
+            self.second_device = self.options['second_device']
         if 'pps_device' in self.options:
             self.pps_device = self.options['pps_device']
         logging.debug("[TheyLive] starting major setup function")
