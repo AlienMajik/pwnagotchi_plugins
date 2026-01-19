@@ -432,6 +432,9 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 # ProbeNpwn Plugin
 **Version:** 1.7.0
 
+**Educational and Research Tool Only**  
+This plugin is provided strictly for **Educational purposes, Security research, and Authorized penetration testing**. It must only be used on networks and devices you own or have explicit written permission to test. Unauthorized use is illegal under laws such as the Computer Fraud and Abuse Act (CFAA) in the United States and equivalent legislation worldwide. The author and contributors are not responsible for any misuse or legal consequences.
+
 ## Overview
 ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 1.7.0 delivers **Adaptive Mode** (auto-switches between tactical and maniac based on success/density), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **PMF bypass attacks** (Bad Msg & Association Sleep via Scapy), **Automatic Scapy installation**, **Persistent failure blacklist**, **JSON capture logging**, **smarter UI updates**, **RSSI-based delay caching**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
 
