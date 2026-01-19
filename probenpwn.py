@@ -30,13 +30,13 @@ except ImportError:
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.7.0'
+    __version__ = '1.7.1'
     __license__ = 'GPL3'
     __description__ = (
         'Aggressive handshake capture with adaptive/tactical/maniac modes, UCB1 channel hopping, '
         'vendor targeting, multi-band support (2.4/5/6 GHz), PMF bypass (Bad Msg & Assoc Sleep), '
         'JSON logging, persistent failure blacklist, dynamic scaling via mobility, and auto-Scapy install. '
-        'Uses overridden "status" element with configurable position for tweakview compatibility.'
+        'Uses custom "pnp_status" element (tweakview-safe, no conflicts) with configurable position.'
     )
 
     MAX_RECENTS = 1000
@@ -87,9 +87,9 @@ class ProbeNpwn(plugins.Plugin):
         self.handshakes_x = 10
         self.handshakes_y = 40
 
-        # Configurable status position (overrides core status)
-        self.status_x = 10
-        self.status_y = 0
+        # Configurable custom status line position (pnp_status - tweakview-safe)
+        self.pnp_status_x = 10
+        self.pnp_status_y = 90
 
         self.ui_initialized = False
         self.last_ui_update = 0
@@ -208,9 +208,9 @@ class ProbeNpwn(plugins.Plugin):
         self.handshakes_x = plugin_cfg.get("handshakes_x_coord", 10)
         self.handshakes_y = plugin_cfg.get("handshakes_y_coord", 40)
 
-        # Configurable status position
-        self.status_x = plugin_cfg.get("status_x_coord", 10)
-        self.status_y = plugin_cfg.get("status_y_coord", 0)
+        # Custom pnp_status position (tweakview-safe, no core conflict)
+        self.pnp_status_x = plugin_cfg.get("pnp_status_x_coord", 10)
+        self.pnp_status_y = plugin_cfg.get("pnp_status_y_coord", 90)
 
         self.enable_5ghz = plugin_cfg.get("enable_5ghz", False)
         self.enable_6ghz = plugin_cfg.get("enable_6ghz", False)
@@ -254,7 +254,7 @@ class ProbeNpwn(plugins.Plugin):
         with ui._lock:
             if self.old_name:
                 ui.set('name', f"{self.old_name}>")
-            for elem in ['attacks', 'success', 'handshakes', 'mobility', 'status']:
+            for elem in ['attacks', 'success', 'handshakes', 'mobility', 'pnp_status']:
                 if ui.has_element(elem):
                     ui.remove_element(elem)
         self._watchdog_thread_running = False
@@ -270,8 +270,8 @@ class ProbeNpwn(plugins.Plugin):
             ui.add_element('success', components.Text(position=(self.success_x, self.success_y), value='Success: 0.0%', color=255))
             ui.add_element('handshakes', components.Text(position=(self.handshakes_x, self.handshakes_y), value='Handshakes: 0', color=255))
             ui.add_element('mobility', components.Text(position=(self.handshakes_x, self.handshakes_y + 10), value='Mobility: 0%', color=255))
-            # Override core status with configurable position
-            ui.add_element('status', components.Text(position=(self.status_x, self.status_y), value='Probe ready', color=255))
+            # Custom pnp_status element (tweakview-safe, no core conflict)
+            ui.add_element('pnp_status', components.Text(position=(self.pnp_status_x, self.pnp_status_y), value='Probe ready', color=255))
             self.ui_initialized = True
 
     def on_ui_update(self, ui):
@@ -321,7 +321,7 @@ class ProbeNpwn(plugins.Plugin):
             status_msg = "PMF disabled (no Scapy)"
 
         with agent._view._lock:
-            agent._view.set('status', status_msg)
+            agent._view.set('pnp_status', status_msg)
 
     def _watchdog(self, agent):
         CHECK_INTERVAL = 10
