@@ -430,13 +430,13 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ---
 
 # ProbeNpwn Plugin
-**Version:** 1.7.0
+**Version:** 1.7.1
 
 **Educational and Research Tool Only**  
 This plugin is provided strictly for **Educational purposes, Security research, and Authorized penetration testing**. It must only be used on networks and devices you own or have explicit written permission to test. Unauthorized use is illegal under laws such as the Computer Fraud and Abuse Act (CFAA) in the United States and equivalent legislation worldwide. The author and contributors are not responsible for any misuse or legal consequences.
 
 ## Overview
-ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 1.7.0 delivers **Adaptive Mode** (auto-switches between tactical and maniac based on success/density), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **PMF bypass attacks** (Bad Msg & Association Sleep via Scapy), **Automatic Scapy installation**, **Persistent failure blacklist**, **JSON capture logging**, **smarter UI updates**, **RSSI-based delay caching**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
+ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 1.7.1 delivers **Adaptive Mode** (auto-switches between tactical and maniac based on success/density), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **PMF bypass attacks** (Bad Msg & Association Sleep via Scapy), **Automatic Scapy installation**, **Persistent failure blacklist**, **JSON capture logging**, **smarter UI updates**, **RSSI-based delay caching**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
 
 ## Key Features
 - **Triple Modes (Tactical, Maniac, Adaptive):**
@@ -460,7 +460,7 @@ ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—a
 - **Comprehensive Safety:**
   Whitelist support, early RSSI filtering, retry queue, cooldowns, watchdog recovery, pycache clearing.
 
-## What's New in ProbeNpwn v1.7.0?
+## What's New in ProbeNpwn v1.7.1?
 This release pushes ProbeNpwn to new heights with **Adaptive Intelligence**, **PMF bypass superpowers**, **True ML-style hopping**, and user-friendly enhancements—making it unstoppable on modern Wi-Fi networks.
 
 ### 1. Adaptive Mode (Auto-Switch Tactical/Maniac)
@@ -528,7 +528,7 @@ Overrides core status with own element + config coords.
 - Full tweakview compatibility—move status freely without conflicts.
 
 ## Why You'll Love It
-ProbeNpwn v1.7.0 is the smartest, most aggressive handshake plugin yet:
+ProbeNpwn v1.7.1 is the smartest, most aggressive handshake plugin yet:
 - **Adaptive Intelligence:** Auto-tunes aggression for any scenario.
 - **PMF Slayer:** Bypasses modern protections others can't touch.
 - **Future-Proof:** 6GHz, UCB1 hopping, vendor smarts.
@@ -573,8 +573,8 @@ main.plugins.probenpwn.success_x_coord = 110
 main.plugins.probenpwn.success_y_coord = 30
 main.plugins.probenpwn.handshakes_x_coord = 110
 main.plugins.probenpwn.handshakes_y_coord = 40
-main.plugins.probenpwn.status_x_coord = 10         # Custom status position
-main.plugins.probenpwn.status_y_coord = 0
+main.plugins.probenpwn.pnp_status_x_coord = 130   # Hotfix 1.7.1 changed from core status to its own
+main.plugins.probenpwn.pnp_status_y_coord = 47    # Hotfix 1.7.1 changed from core status to its own
 main.plugins.probenpwn.verbose = true
 main.plugins.probenpwn.enable_5ghz = true
 main.plugins.probenpwn.enable_6ghz = false         # Only if Wi-Fi 6E hardware
