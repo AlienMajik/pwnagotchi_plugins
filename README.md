@@ -430,242 +430,156 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ---
 
 # ProbeNpwn Plugin
-
-**Version:** 1.6.0
+**Version:** 1.7.0
 
 ## Overview
-The ProbeNpwn Plugin is an aggressively enhanced evolution of the original Instattack by Sniffleupagus, now supercharged for maximum Wi-Fi handshake captures! This updated version (1.6.0) introduces a suite of cutting-edge features, including dual operational modes (Tactical and Maniac), client scoring, ML-inspired channel hopping, intelligent retries, handshake deduplication, dynamic concurrency, continuous mobility detection with GPS integration for a mobility score (0-1), multi-band support (2.4GHz and 5GHz), min/max parameter scaling for stability, PMKID capture emphasis, and more. Building on v1.5.0, this release adds enhanced concurrency safety with executor locks, inverted scaling for increased aggression in high-mobility scenarios, time-based GPS history pruning, unrestricted Maniac mode, early RSSI filtering for APs and clients, conditional deauth probabilities, forced assoc on client-less APs, and improved error handling for stability. If you've used Instattack, you'll love ProbeNpwn - it combines deauthentication and association attacks into one powerful, adaptable tool designed to capture handshakes faster and smarter than ever before.
+ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 1.7.0 delivers **Adaptive Mode** (auto-switches between tactical and maniac based on success/density), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **PMF bypass attacks** (Bad Msg & Association Sleep via Scapy), **Automatic Scapy installation**, **Persistent failure blacklist**, **JSON capture logging**, **smarter UI updates**, **RSSI-based delay caching**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
 
 ## Key Features
+- **Triple Modes (Tactical, Maniac, Adaptive):**
+  Tactical for smart efficiency, Maniac for unrestricted chaos, and new **Adaptive** that auto-switches based on success rate/density.
+- **PMF Bypass Attacks (Bad Msg & Association Sleep):**
+  Bypass 802.11w-protected networks with malformed EAPOL Msg1 and power-save spoofing—automatically preferred when PMF detected (requires Scapy, auto-installed).
+- **UCB1 Intelligent Channel Hopping:**
+  True exploration/exploitation balancing activity, success history, and bonuses for PMKID-potential channels.
+- **Multi-Band Support (2.4/5/6 GHz):**
+  Seamless hopping across bands (configurable), with unique channel lists for stability.
+- **Dynamic Mobility Scaling:**
+  Continuous 0-1 mobility score (GPS Haversine + AP discovery rate) scales recon_time, TTLs, probs, RSSI thresholds, and throttles—inverted for aggression when mobile.
+- **Aggressive Deauth + Association:**
+  Parallel attacks with conditional probabilities, forced assoc on client-less APs for PMKID focus, and dynamic throttles.
+- **Concurrency & Stability:**
+  Dynamic thread workers (CPU/load-based), executor locks, runtime error handling, persistent blacklist for failing APs, heap/LRU cleanup.
+- **Smart UI & Logging:**
+  Attacks/success/handshakes/mobility stats with change-threshold updates; configurable custom status line (tweakview-safe); JSON handshake logging.
+- **Auto-Scapy Install:**
+  Detects missing Scapy and installs on first load (with internet); status feedback on screen.
+- **Comprehensive Safety:**
+  Whitelist support, early RSSI filtering, retry queue, cooldowns, watchdog recovery, pycache clearing.
 
-- **Efficient Deauthentication & Association Attacks:**
-  Launch both simultaneously to force devices to reconnect quickly, maximizing handshake captures, with added focus on PMKID leaks via targeted associations—now with conditional probabilities, throttles scaled for aggression, and always-on assoc for client-less APs.
+## What's New in ProbeNpwn v1.7.0?
+This release pushes ProbeNpwn to new heights with **Adaptive Intelligence**, **PMF bypass superpowers**, **True ML-style hopping**, and user-friendly enhancements—making it unstoppable on modern Wi-Fi networks.
 
-- **Concurrent Attack Threads:**
-  Handle multiple networks and clients at once with multi-threading for efficient, parallel attacks—now with added executor locks for thread safety and RuntimeError handling to prevent races during dynamic adjustments.
-
-- **Customizable Settings:**
-  Fine-tune attack behavior, enable/disable features (including 5GHz support), set min/max scaling ranges, and whitelist networks or clients via config.toml—now with unique channel lists for multi-band to avoid duplicates.
-
-- **Capture More Handshakes:**
-  Aggressive methods ensure rapid device reconnections, boosting handshake capture rates, including PMKIDs from client-less APs—now with inverted scaling to ramp up probabilities and reduce throttles in high-mobility for more captures on the move.
-
-- **Comprehensive Logging:**
-  Track every attack and capture with detailed logs for performance insights—now with decoded subprocess outputs for better debugging of recoveries and warnings for client-less handshakes.
-
-- **Lightweight and Seamless Integration:**
-  Fully compatible with Pwnagotchi for easy setup and operation—now with time-based GPS pruning (max age 300s) to keep history fresh and prevent stale data in long sessions.
-
-- **Continuous Mobility Detection:**
-   Automatically calculates a mobility score (0 for stationary to 1 for high mobility) using Bettercap GPS data or AP discovery rates, dynamically scaling autotune/personality parameters for optimal performance—now with inverted logic for probs/throttles to increase aggression when mobile.
-
-- **Multi-Band Support:**
-   Intelligent channel hopping across 2.4GHz and optional 5GHz bands for broader Wi-Fi coverage, with weights favoring PMKID-potential channels—now ensuring unique channels and early RSSI checks to filter weak signals.
-
-- **Enhanced Stability Measures:**
-  LRU caches, heap-based data cleanup, delay caching, psutil fallback for monitoring, watchdog with restart backoff, pycache clearing, channel locks, and client caps per AP to prevent crashes—now with executor locks, try-except for malformed data, and race condition handling for submits.
-
-## What's New in ProbeNpwn v1.6.0?
-
-This release builds on v1.5.0 with major enhancements focused on stability, increased aggression in mobility, better GPS handling, and refined attack logic, making ProbeNpwn even more reliable and effective for high-speed or dynamic environments. Key additions include:
-
-### 1. Inverted Scaling for Aggression in Mobility 
-
+### 1. Adaptive Mode (Auto-Switch Tactical/Maniac)
 **What's New:**
-Parameter scaling now inverts for deauth/assoc probabilities and throttles to increase attack intensity with higher mobility scores (e.g., probs rise to 1.0, throttles drop to 0.1 when score~1).
-
+Third mode "adaptive" automatically ramps aggression based on real-time performance.
 **How It Works:**
-- For 'deauth_prob' and 'assoc_prob': min + score * (max - min) to boost from 0.9 to 1.0 as mobility increases.
-- For 'throttle_a' and 'throttle_d': max - score * (max - min) to reduce from 0.2 to 0.1 for faster pacing when moving.
-- Applied dynamically in apply_scaling on score updates or config changes.
-
+- Every 10 epochs, evaluates success rate and network density.
+- Switches to Maniac if low success/high density; back to Tactical if improving/low density.
 **Why It's Better:**
-- Mobility Optimization: More aggressive attacks (higher probs, lower delays) when on the move, capturing more in transient scenarios without overwhelming stationary setups.
-- Balance: Complements existing scaling (e.g., shorter recon_time in mobility) for smoother adaptations.
+- Hands-free optimization: Starts smart, goes full beast mode only when needed—perfect for varying environments.
 
-### 2. Time-Based GPS History Pruning 
-
+### 2. PMF Bypass Attacks (Bad Msg + Association Sleep)
 **What's New:**
-Added GPS_HISTORY_MAX_AGE (300 seconds) to prune stale entries from gps_history, ensuring only recent data is used.
-
+Two advanced DoS techniques to disconnect clients on 802.11w-protected networks.
 **How It Works:**
-- In calculate_mobility_score, before appending new GPS, loop to remove entries older than 300s from the buffer's start.
-- Combines with size-based limit (gps_history_size) for a fresh, relevant history in speed calculations (Haversine, median speeds).
-
+- Auto-detects PMF-required APs (`mfpr=True`).
+- Prefers bypass over standard deauth: Bad Msg (malformed EAPOL Msg1) + Assoc Sleep (power-save spoof).
+- Falls back to deauth on non-PMF; always attempts PMKID assoc.
 **Why It's Better:**
-- Accuracy: Prevents outdated positions skewing speed estimates in long or intermittent GPS sessions.
-- Efficiency: Keeps the buffer lean, reducing memory use without affecting fallback AP rate scoring.
+- Cracks modern protected networks where deauth fails—massive handshake boost on enterprise/modern home Wi-Fi.
 
-### 3. Enhanced Concurrency Safety with Executor Locks 
-
+### 3. UCB1 Channel Hopping (Exploration/Exploitation)
 **What's New:**
-Introduced self.executor_lock (threading.Lock()) for synchronizing executor access, with RuntimeError handling for shutdown races.
-
+Replaced weighted random with true UCB1 algorithm.
 **How It Works:**
-- Wraps all executor.submit calls (in attack_target, event handlers, epochs) and shutdowns (in _watchdog, on_unload) with the lock.
-- On RuntimeError ("cannot schedule new futures after shutdown"), logs a warning; suggests retry with sleep/queue but doesn't auto-implement.
-
+- Balances proven success (exploitation) with untried channels (exploration) + activity bonus.
 **Why It's Better:**
-- Stability: Prevents race conditions during dynamic worker adjustments or unloads, reducing crashes in high-load or mobility scenarios.
-- Reliability: Ensures tasks aren't lost mid-submit, especially in Maniac mode's rapid attacks.
+- Smarter, faster convergence on best channels—especially in dense/multi-band areas.
 
-### 4. Unrestricted Maniac Mode 
-
+### 4. Persistent Blacklist
 **What's New:**
-Removed the attempts cap (>50) in Maniac mode, making it truly unrestricted with no self-imposed retry queuing based on attempts.
-
+Configurable auto-blacklist for chronic failures.
 **How It Works:**
-- In attack_target, skips the cap check for Maniac; still respects whitelists, RSSI, and other filters but attacks indefinitely.
-
+- Blacklists APs with high attempts/low success for 1 hour.
 **Why It's Better:**
-- Maximum Aggression: Allows non-stop attacks in crowded or high-value areas, boosting captures without artificial limits.
-- Flexibility: Pairs with dynamic concurrency to handle the intensity without overwhelming the device.
+- Prioritizes high-yield clients; avoids wasting time on stubborn APs.
+  
 
-### 5. Early RSSI Filtering for APs and Clients 
-
+### 5. 6GHz Support + Auto-Scapy Install
 **What's New:**
-Added RSSI checks in ok_to_attack (for APs) and attack_target (for clients), using scaled 'min_rssi' (-85 to -60 dBm).
-
+Full 6GHz channel list + automatic Scapy installation on first load.
 **How It Works:**
-- If AP or client RSSI < scaled threshold, skip the attack early.
-- Integrated with try-except in ok_to_attack for malformed data (e.g., non-string mac, returns False).
-
+- Config flag for 6GHz; unique channel merging.
+- Detects missing Scapy → pip installs → prompts restart.
 **Why It's Better:**
-- Efficiency: Filters weak signals upfront, focusing resources on viable targets and reducing wasted attacks.
-- Adaptability: Threshold rises with mobility (accepts weaker signals when moving), improving captures in dynamic environments.
+- Future-proof for Wi-Fi 6E; zero manual setup for PMF attacks.
 
-### 6. Refined Attack Logic with Conditionals and Forcing 🛡
-
+### 6. JSON Logging, Smarter UI, RSSI Delay Cache
 **What's New:**
-Deauth now conditional on scaled 'deauth_prob'; assoc forces (prob=1.0) if no clients; throttles applied via multiplication with dynamic delays.
-
+Per-handshake JSON logs; change-threshold UI updates; RSSI-adjusted delay TTL.
 **How It Works:**
-- Deauth: If random < 'deauth_prob' (and enabled), submit with throttle = dynamic_delay * 'throttle_d'.
-- Assoc: Checks has_clients (cl or group); if not, prob=1.0 for PMKID focus; else, scaled 'assoc_prob'; throttle = dynamic_delay * 'throttle_a'.
-
+- Logs to `/root/handshakes/probenpwn_captures.jsonl`.
+- UI only refreshes on meaningful changes.
+- Delay cache TTL scales with signal strength.
 **Why It's Better:**
-- PMKID Emphasis: Guarantees assoc attempts on isolated APs, capturing more from client-less networks.
-- Control: Prob/throttle scaling ties into mobility for tuned aggression; improves diversity in attack vectors.
+- Easy post-analysis; less screen flicker; smarter pacing on weak signals.
 
-### 7. Improved Error Handling and Logging 
-
+### 7. Custom Configurable Status Line
 **What's New:**
-Decoded subprocess outputs in watchdog errors; warning log if handshake event has no client; try-except for ok_to_attack data.
-
+Overrides core status with own element + config coords.
 **How It Works:**
-- In _watchdog, decodes stdout/stderr for readable logs on recovery failures.
-- In on_handshake, warns if cl is None but proceeds with empty MAC in hash.
-- Try-except in ok_to_attack skips invalid APs without crashing.
-
+- `status_x_coord` / `status_y_coord` for positioning.
+- tweakview-safe (no resets on restarts).
 **Why It's Better:**
-- Debugging: Clearer logs for issues like interface recoveries or rare events.
-- Robustness: Handles edge cases (e.g., malformed events, client-less captures) gracefully.
-
-### 8. Unique Channel Lists in Multi-Band 📡
-
-**What's New:**
-When enabling 5GHz, uses set to ensure unique possible_channels.
-
-**How It Works:**
-- In on_config_changed, self.possible_channels = list(set(2.4GHz + 5GHz)) to eliminate any theoretical duplicates.
-
-**Why It's Better:**
-- Efficiency: Cleaner lists for hopping and selection, avoiding redundant weights or picks.
+- Full tweakview compatibility—move status freely without conflicts.
 
 ## Why You'll Love It
+ProbeNpwn v1.7.0 is the smartest, most aggressive handshake plugin yet:
+- **Adaptive Intelligence:** Auto-tunes aggression for any scenario.
+- **PMF Slayer:** Bypasses modern protections others can't touch.
+- **Future-Proof:** 6GHz, UCB1 hopping, vendor smarts.
+- **User-Friendly:** Auto-Scapy, JSON logs, tweakview-safe UI.
+- **Relentless & Stable:** Blacklists failures, dynamic everything, rock-solid concurrency.
 
-ProbeNpwn v1.6.0 is your handshake-capturing Swiss Army knife:
-
-- **Smart & Aggressive:** Tactical for strategy, Maniac for mayhem, now with inverted mobility scaling and unrestricted attacks for even more captures on the go.
-- **Efficient:** Scoring, concurrency, and caching optimize every attack, with early filters and pruning for lean operation.
-- **Relentless:** Retries and floods leave no handshake behind, across more bands, with forced PMKID attempts.
-- **Stable:** Keeps your Pwnagotchi happy under pressure, even at high speeds, with locks, handling, and robust logging.
-
-Big props to Sniffleupagus for the original Instattack—this builds on that legacy! 🙏
+Big thanks to the Pwnagotchi community and original Instattack creators—this evolution wouldn't be possible without you! 🙏
 
 ## How to Get Started
-
-You can install ProbeNpwn in two ways: the easy way (recommended) or the manual way. Here's how:
-
 ### Easy Way (Recommended)
-
-1. **Update Your Config File**  
-   Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories:
-
+1. **Add Repo to config.toml** (if not already):
    ```toml
-   main.confd = "/etc/pwnagotchi/conf.d/"
    main.custom_plugin_repos = [
-   "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
-   "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
-   "https://github.com/NeonLightning/pwny/archive/master.zip",
-   "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-   "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
-   "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
-   "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
+    "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+    "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+    "https://github.com/NeonLightning/pwny/archive/master.zip",
+    "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+    "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
+    "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
    ]
    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
    ```
-
-2. **Install the Plugin**  
-   Run these commands to update the plugin list and install SnoopR:
-
+2. **Install**:
    ```bash
    sudo pwnagotchi plugins update
    sudo pwnagotchi plugins install probenpwn
    ```
 
-That's it! You're ready to configure ProbeNpwn.
-
-### Manual Way (Alternative)
-
-If you prefer a hands-on approach:
-
-1. **Clone the SnoopR plugin repo from GitHub**:
-
-   ```bash
-   sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
-   cd pwnagotchi_plugins
-   ```
-
-2. **Copy the Plugin File**  
-   Move probenpwn.py to your Pwnagotchi's custom plugins directory:
-
-   ```bash
-   sudo cp probenpwn.py /usr/local/share/pwnagotchi/custom-plugins/
-   ```
-
-   Alternatively, if you're working from a computer, use SCP:
-
-   ```bash
-   sudo scp probenpwn.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
-   ```
-
-### Install psutil (if not already installed):
-
-Run:
-
+### Manual Way
 ```bash
-sudo apt-get install python3-psutil
+git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
+sudo cp probenpwn.py /usr/local/share/pwnagotchi/custom-plugins/
 ```
 
-Why: psutil enables precise dynamic thread scaling based on system resources, keeping your Pwnagotchi stable during intense operations. If not installed, ProbeNpwn falls back to built-in monitoring. Not really needed if you don't need to use it.
-
-### Edit config.toml:
-
+### Config Example (`config.toml`)
 ```toml
 main.plugins.probenpwn.enabled = true
-main.plugins.probenpwn.mode = "tactical" # or "maniac"
+main.plugins.probenpwn.mode = "adaptive"           # tactical/maniac/adaptive
 main.plugins.probenpwn.attacks_x_coord = 110
 main.plugins.probenpwn.attacks_y_coord = 20
 main.plugins.probenpwn.success_x_coord = 110
 main.plugins.probenpwn.success_y_coord = 30
 main.plugins.probenpwn.handshakes_x_coord = 110
 main.plugins.probenpwn.handshakes_y_coord = 40
-main.plugins.probenpwn.verbose = true # For detailed logs
-main.plugins.probenpwn.enable_5ghz = false # Set to true for 5GHz support (requires compatible hardware)
-main.plugins.probenpwn.max_retries = 3 # Max retries per target
-main.plugins.probenpwn.gps_history_size = 5 # GPS buffer size for speed calc
-main.plugins.probenpwn.env_check_interval = 10 # Epochs between mobility checks
+main.plugins.probenpwn.status_x_coord = 10         # Custom status position
+main.plugins.probenpwn.status_y_coord = 0
+main.plugins.probenpwn.verbose = true
+main.plugins.probenpwn.enable_5ghz = true
+main.plugins.probenpwn.enable_6ghz = false         # Only if Wi-Fi 6E hardware
+main.plugins.probenpwn.enable_bad_msg = true       # PMF bypass
+main.plugins.probenpwn.enable_assoc_sleep = true   # PMF bypass
+main.plugins.probenpwn.max_retries = 5
+main.plugins.probenpwn.gps_history_size = 10
+main.plugins.probenpwn.env_check_interval = 3
 main.plugins.probenpwn.min_recon_time = 2
 main.plugins.probenpwn.max_recon_time = 30
 main.plugins.probenpwn.min_ap_ttl = 30
@@ -684,23 +598,14 @@ main.plugins.probenpwn.min_throttle_d = 0.1
 main.plugins.probenpwn.max_throttle_d = 0.2
 ```
 
-### Whitelist (Optional):
-
-Add safe networks/MACs to `/etc/pwnagotchi/config.toml` under `main.whitelist`.
-
-### Restart & Monitor:
-
-```bash
-sudo systemctl restart pwnagotchi
-```
+Restart: `sudo systemctl restart pwnagotchi`
 
 ## Pro Tip 💡
-Use Tactical Mode for efficiency and enable continuous mobility detection for automatic scaling on the go—now even more aggressive in high-mobility with inverted probs/throttles. Switch to unrestricted Maniac Mode in crowded areas for a handshake bonanza, and turn on 5GHz in modern Wi-Fi zones—just keep an eye on your device's temperature!
+Start with **adaptive mode**—it handles everything automatically. Enable the PMF bypass attacks (Bad Msg & Association Sleep) to dominate modern 802.11w-protected networks—they're based on the brilliant research by Mathy Vanhoef in his WISEC 2022 paper (huge thanks for the groundbreaking techniques!). Keep 6GHz off unless you have compatible hardware(6E wifi adapters only!!). Watch the custom status line for Scapy install prompts!
+https://papers.mathyvanhoef.com/wisec2022.pdf
 
 ## Disclaimer
-This software is provided for educational and research purposes only. Use of this plugin on networks or devices that you do not own or have explicit permission to test is strictly prohibited. The author(s) and contributors are not responsible for any misuse, damages, or legal consequences that may result from unauthorized or improper usage. By using this plugin, you agree to assume all risks and take full responsibility for ensuring that all applicable laws and regulations are followed.
-
----
+## This software is provided for educational and research purposes only. Use of this plugin on networks or devices that you do not own or have explicit permission to test is strictly prohibited. The author(s) and contributors are not responsible for any misuse, damages, or legal consequences that may result from unauthorized or improper usage. By using this plugin, you agree to assume all risks and take full responsibility for ensuring that all applicable laws and regulations are followed.
 
 # SnoopR Plugin
 
