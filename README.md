@@ -435,7 +435,7 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ### Recent Hotfix (v1.7.1)
 - **Fixed status line position resets on restart**  
   Switched from overriding the core "status" element to using a dedicated custom element called `pnp_status`.  
-  This eliminates conflicts with tweakview and other plugins (e.g., theylive, adsbsniffer).  
+  This eliminates conflicts with tweakview and other plugins.  
   The new line is fully movable with tweakview and persists across reboots.  
   Configurable via:  
   ```toml
