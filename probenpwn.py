@@ -30,13 +30,13 @@ except ImportError:
 
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '1.7.1'
+    __version__ = '1.9.1'
     __license__ = 'GPL3'
     __description__ = (
         'Aggressive handshake capture with adaptive/tactical/maniac modes, UCB1 channel hopping, '
         'vendor targeting, multi-band support (2.4/5/6 GHz), PMF bypass (Bad Msg & Assoc Sleep), '
-        'JSON logging, persistent failure blacklist, dynamic scaling via mobility, and auto-Scapy install. '
-        'Uses custom "pnp_status" element (tweakview-safe, no conflicts) with configurable position.'
+        'JSON logging, persistent failure blacklist, dynamic scaling via mobility, and reliable Scapy install. '
+        'Uses custom "pnp_status" element (tweakview-safe) with configurable position.'
     )
 
     MAX_RECENTS = 1000
@@ -48,7 +48,7 @@ class ProbeNpwn(plugins.Plugin):
     GPS_HISTORY_MAX_AGE = 300
 
     def __init__(self):
-        logging.debug("ProbeNpwn v1.8.1 created")
+        logging.debug("ProbeNpwn v1.9.1 created")
         self.old_name = None
         self.recents = {}
         self.recent_heap = []
@@ -149,7 +149,7 @@ class ProbeNpwn(plugins.Plugin):
         self.scapy_install_success = False
 
     def on_loaded(self):
-        logging.info("ProbeNpwn v1.8.1 loaded")
+        logging.info("ProbeNpwn v1.9.1 loaded")
 
         # Clear pycache
         pycache_path = "/usr/local/share/pwnagotchi/custom-plugins/__pycache__"
@@ -161,27 +161,52 @@ class ProbeNpwn(plugins.Plugin):
             except Exception as e:
                 logging.warning(f"Failed to clear pycache: {e}")
 
-        # Auto-install Scapy
+        # Reliable Scapy check and install (apt first, then pip fallback)
         if not self.scapy_available:
-            logging.warning("Scapy missing - attempting auto-install (needs internet)...")
+            logging.warning("Scapy missing - attempting reliable installation...")
             self.scapy_install_attempted = True
+
+            # Primary: apt install python3-scapy (safe on Bookworm/Trixie, no PEP 668 issues)
             try:
                 result = subprocess.run(
-                    ["pip3", "install", "--user", "scapy"],
+                    ["sudo", "apt", "install", "-y", "python3-scapy"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
-                    timeout=180
+                    timeout=300
                 )
                 if result.returncode == 0:
-                    logging.info("Scapy installed! Restart Pwnagotchi.")
+                    logging.info("Scapy installed via apt! Restart recommended.")
                     self.scapy_install_success = True
-                    self.scapy_available = True
                 else:
-                    logging.error(f"Scapy install failed: {result.stderr.decode()}")
-            except subprocess.TimeoutExpired:
-                logging.error("Scapy install timeout")
+                    logging.warning(f"apt install failed: {result.stderr.decode()}")
             except Exception as e:
-                logging.error(f"Scapy install error: {e}")
+                logging.warning(f"apt install error: {e}")
+
+            # Fallback: pip if apt didn't succeed
+            if not self.scapy_install_success:
+                try:
+                    result = subprocess.run(
+                        ["pip3", "install", "--user", "scapy"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        timeout=180
+                    )
+                    if result.returncode == 0:
+                        logging.info("Scapy installed via pip! Restart recommended.")
+                        self.scapy_install_success = True
+                    else:
+                        logging.error(f"pip install failed: {result.stderr.decode()}")
+                except Exception as e:
+                    logging.error(f"pip install error: {e}")
+
+            # Final re-check after install attempts
+            try:
+                from scapy.all import RadioTap  # noqa: F401
+                self.scapy_available = True
+                logging.info("Scapy now available.")
+            except ImportError:
+                logging.error("Scapy still not available — manual install may be needed.")
+
         else:
             logging.info("Scapy detected - PMF bypass ready.")
 
@@ -208,7 +233,7 @@ class ProbeNpwn(plugins.Plugin):
         self.handshakes_x = plugin_cfg.get("handshakes_x_coord", 10)
         self.handshakes_y = plugin_cfg.get("handshakes_y_coord", 40)
 
-        # Custom pnp_status position (tweakview-safe, no core conflict)
+        # Custom pnp_status position (tweakview-safe)
         self.pnp_status_x = plugin_cfg.get("pnp_status_x_coord", 10)
         self.pnp_status_y = plugin_cfg.get("pnp_status_y_coord", 90)
 
@@ -270,7 +295,7 @@ class ProbeNpwn(plugins.Plugin):
             ui.add_element('success', components.Text(position=(self.success_x, self.success_y), value='Success: 0.0%', color=255))
             ui.add_element('handshakes', components.Text(position=(self.handshakes_x, self.handshakes_y), value='Handshakes: 0', color=255))
             ui.add_element('mobility', components.Text(position=(self.handshakes_x, self.handshakes_y + 10), value='Mobility: 0%', color=255))
-            # Custom pnp_status element (tweakview-safe, no core conflict)
+            # Custom pnp_status element (tweakview-safe)
             ui.add_element('pnp_status', components.Text(position=(self.pnp_status_x, self.pnp_status_y), value='Probe ready', color=255))
             self.ui_initialized = True
 
