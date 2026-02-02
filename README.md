@@ -1298,7 +1298,7 @@ sudo systemctl restart pwnagotchi
 - **System Logs:** Events and errors are logged with prefixes like [MadHatter] or [MadHatterUPS] in the Pwnagotchi system logs (viewable via journalctl or /var/log/pwnagotchi.log).
   Includes detection info, poll results, warnings, shutdown triggers, and calibration successes.
 - **No Persistent Data Files:** Stats are read live from hardware; caches are in-memory for the session.
-```markdown
+
 
 ---
 
