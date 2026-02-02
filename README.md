@@ -430,12 +430,13 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ---
 
 # ProbeNpwn Plugin
-**Version:** 1.7.1
+**Version:** 1.9.1
 
-### Recent Hotfix (v1.7.1)
+### Recent Update (v1.9.1)
+- **Reliable Scapy Installation**
+  Enhanced auto-install logic: now prefers apt install python3-scapy (system package, safe on Bookworm/Trixie) before falling back to pip — eliminates PEP 668 issues on newer images.
 - **Fixed status line position resets on restart**  
-  Switched from overriding the core "status" element to using a dedicated custom element called `pnp_status`.  
-  This eliminates conflicts with tweakview and other plugins.  
+  Uses dedicated pnp_status element with configurable position — no more conflicts/resets with tweakview or other plugins (e.g., theylive).
   The new line is fully movable with tweakview and persists across reboots.  
   Configurable via:  
   ```toml
@@ -465,12 +466,12 @@ ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—a
   Dynamic thread workers (CPU/load-based), executor locks, runtime error handling, persistent blacklist for failing APs, heap/LRU cleanup.
 - **Smart UI & Logging:**
   Attacks/success/handshakes/mobility stats with change-threshold updates; configurable custom status line (tweakview-safe); JSON handshake logging.
-- **Auto-Scapy Install:**
-  Detects missing Scapy and installs on first load (with internet); status feedback on screen.
+- **Reliable Scapy Installation**
+  Enhanced auto-install: prefers system package (apt install python3-scapy) then pip fallback; provides clear on-screen and log feedback
 - **Comprehensive Safety:**
   Whitelist support, early RSSI filtering, retry queue, cooldowns, watchdog recovery, pycache clearing.
 
-## What's New in ProbeNpwn v1.7.1?
+## What's New in ProbeNpwn v1.9.1?
 This release pushes ProbeNpwn to new heights with **Adaptive Intelligence**, **PMF bypass superpowers**, **True ML-style hopping**, and user-friendly enhancements—making it unstoppable on modern Wi-Fi networks.
 
 ### 1. Adaptive Mode (Auto-Switch Tactical/Maniac)
@@ -537,8 +538,11 @@ Overrides core status with own element + config coords.
 **Why It's Better:**
 - Full tweakview compatibility—move status freely without conflicts.
 
+### 8. Reliable Scapy Installation
+- Prioritizes apt for system package (avoids PEP 668 issues on Bookworm/Trixie), with pip fallback.
+
 ## Why You'll Love It
-ProbeNpwn v1.7.1 is the smartest, most aggressive handshake plugin yet:
+ProbeNpwn v1.9.1 is the smartest, most aggressive handshake plugin yet:
 - **Adaptive Intelligence:** Auto-tunes aggression for any scenario.
 - **PMF Slayer:** Bypasses modern protections others can't touch.
 - **Future-Proof:** 6GHz, UCB1 hopping, vendor smarts.
