@@ -438,16 +438,63 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 - **Fixed status line position resets on restart**  
   Uses dedicated pnp_status element with configurable position — no more conflicts/resets with tweakview or other plugins (e.g., theylive).
   The new line is fully movable with tweakview and persists across reboots.  
-  Configurable via:  
+  Configurable via:
   ```toml
+  min_assoc_prob = 0.9
   main.plugins.probenpwn.pnp_status_x_coord = 130
   main.plugins.probenpwn.pnp_status_y_coord = 47
-  
+
+### Compatibility with jayofelony Image 2.9.5.4 (Debian Trixie)
+ProbeNpwn v1.9.1 is fully compatible with the latest jayofelony image (2.9.5.4), which is based on Debian Trixie.  
+Benefits on this image:
+- Reliable Scapy installation (via `apt` — no PEP 668 issues)
+- Improved monitor mode/injection stability for PMF bypass attacks
+- Faster Python 3.12 performance
+
+### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image):
+
+[main.plugins.probenpwn]
+enabled = true
+mode = "adaptive"
+attacks_x_coord = 110
+attacks_y_coord = 20
+success_x_coord = 110
+success_y_coord = 30
+handshakes_x_coord = 110
+handshakes_y_coord = 40
+pnp_status_x_coord = 110
+pnp_status_y_coord = 10
+verbose = true
+enable_5ghz = true
+enable_6ghz = true
+max_retries = 5
+gps_history_size = 10
+env_check_interval = 3
+min_recon_time = 2
+max_recon_time = 30
+min_ap_ttl = 30
+max_ap_ttl = 300
+min_sta_ttl = 30
+max_sta_ttl = 300
+min_deauth_prob = 0.9
+max_deauth_prob = 1
+min_assoc_prob = 0.9
+max_assoc_prob = 1
+min_min_rssi = -85
+max_min_rssi = -60
+min_throttle_a = 0.1
+max_throttle_a = 0.2
+min_throttle_d = 0.1
+max_throttle_d = 0.2
+enable_bad_msg = true
+enable_assoc_sleep = true
+
+
 **Educational and Research Tool Only**  
 This plugin is provided strictly for **Educational purposes, Security research, and Authorized penetration testing**. It must only be used on networks and devices you own or have explicit written permission to test. Unauthorized use is illegal under laws such as the Computer Fraud and Abuse Act (CFAA) in the United States and equivalent legislation worldwide. The author and contributors are not responsible for any misuse or legal consequences.
 
 ## Overview
-ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 1.7.1 delivers **Adaptive Mode** (auto-switches between tactical and maniac based on success/density), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **PMF bypass attacks** (Bad Msg & Association Sleep via Scapy), **Automatic Scapy installation**, **Persistent failure blacklist**, **JSON capture logging**, **smarter UI updates**, **RSSI-based delay caching**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
+ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 1.9.1 delivers **Adaptive Mode** (auto-switches between tactical and maniac based on success/density), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **PMF bypass attacks** (Bad Msg & Association Sleep via Scapy), **Automatic Scapy installation**, **Persistent failure blacklist**, **JSON capture logging**, **smarter UI updates**, **RSSI-based delay caching**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
 
 ## Key Features
 - **Triple Modes (Tactical, Maniac, Adaptive):**
