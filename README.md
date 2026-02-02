@@ -452,7 +452,6 @@ Benefits on this image:
 - Faster Python 3.12 performance
 
 ### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image):
-  ### Config Example (`config.toml`)
 ```toml
 [main.plugins.probenpwn]
 enabled = true
