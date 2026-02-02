@@ -452,7 +452,8 @@ Benefits on this image:
 - Faster Python 3.12 performance
 
 ### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image):
-
+  ### Config Example (`config.toml`)
+```toml
 [main.plugins.probenpwn]
 enabled = true
 mode = "adaptive"
@@ -488,6 +489,7 @@ min_throttle_d = 0.1
 max_throttle_d = 0.2
 enable_bad_msg = true
 enable_assoc_sleep = true
+```
 
 
 **Educational and Research Tool Only**  
