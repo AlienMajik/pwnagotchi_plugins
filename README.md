@@ -1101,113 +1101,127 @@ This plugin fetches nearby aircraft data using the OpenSky Network API.
 ---
 
 # MadHatter Plugin
-
-**Version:** 1.2.2
+**Version:** 1.3.3  
+**Author:** AlienMajik (with community enhancements)
 
 ## Description
-A universal enhanced plugin for various UPS HATs, providing advanced battery monitoring, voltage tracking, auto-shutdown, customizable polling, UI optimization, error diagnostics, battery health tracking, and automatic detection of HAT types. Supports popular HATs like Geekworm X1200, UPS Lite, Waveshare UPS C, PiSugar, SB Components UPS, Geekworm X750, and EP-0136, ensuring a seamless and reliable power management experience without cluttering the UI. Now with improved charging detection, calibration, SOC estimation, and cycle counting across more HATs for enhanced accuracy and robustness.
+A fully universal and highly accurate UPS plugin for Pwnagotchi, delivering precise battery monitoring, real-time current-based estimates (where supported), dynamic runtime and charge-time prediction, persistent health tracking, robust error resilience, and graceful auto-shutdown.
+
+Supports a wide range of popular UPS HATs with reliable auto-detection:
+- Geekworm X1200 / UPS Lite (MAX170xx fuel gauge)
+- Waveshare UPS, Seengreat, SB Components, EP-0136, and all other INA219-based boards (addresses 0x40–0x43)
+- PiSugar series
+- Geekworm X750 (IP5310)
+
+The plugin provides smoother SOC curves, current-based charging detection, dynamic time-to-full estimates, low-battery icons, persistent cycle counting across reboots, on-screen error alerts, and extensive bug fixes — all in a clean, customizable UI.
 
 ## Key Stats
-The plugin tracks essential battery and system statistics to keep you informed about your Pwnagotchi's power status:
+The plugin displays essential battery information directly on the Pwnagotchi screen:
 
-### Battery Capacity (🔋 %)
-- Displays the current state-of-charge (SOC) as a percentage.
-- Read directly from fuel gauge chips (e.g., MAX170xx, PiSugar) or approximated using a lookup table for INA219-based HATs for better accuracy.
-  
+### Battery Capacity (🔋 % or 🪫 %)
+- Accurate state-of-charge from fuel gauge chips (MAX170xx, PiSugar) or advanced linear-interpolated voltage table (INA219).
+- Automatically switches to low-battery icon 🪫 when capacity drops below 20%.
+
 ### Voltage (V)
-- Shows real-time battery voltage.
-- Helps identify low-power conditions or charging efficiency.
+- Real-time battery voltage shown to two decimal places (e.g., 4.20V).
+- Optional via `show_voltage`.
 
-### Charging Status (+/-)
-- Indicates if the battery is charging ('+') or discharging ('-').
-- Detected via GPIO pins (with refined logic for X1200, UPS Lite, Waveshare), current direction (INA219), or custom registers (PiSugar, X750).
+### Charging Status (+ / - / ⚡)
+- '+' with ⚡ icon when charging, '-' when discharging.
+- Detected via GPIO (MAX170xx boards), real current direction (INA219), or dedicated registers (PiSugar/X750).
 
-### Estimated Runtime (~m)
-- Calculates remaining battery life in minutes based on capacity, battery mAh, and average current draw.
-- Configurable via `battery_mah` and `avg_current_ma` settings for precise estimates.
+### Estimated Time
+- Dynamic runtime on battery: `~Xm` minutes remaining.
+- Dynamic time-to-full when charging (INA219 boards): `↑Xm` minutes to 100%.
+- Uses real measured current when available (INA219); falls back to configured `avg_current_ma` for other boards.
 
-### Battery Health
-- Tracks charge cycles across MAX170xx, INA219, and PiSugar-based HATs by detecting full charge events.
-- Monitors error counts during I2C reads for diagnostics (visible in debug mode).
+### Battery Health & Diagnostics (debug mode)
+- Persistent charge cycle count saved to `/root/.mad_hatter_cycle_count` (survives reboots/shutdowns).
+- I2C read error counter.
+- Current draw in mA when significant.
 
-## New Enhancements in v1.2.2
+## New Enhancements in v1.3.3 (and 1.3.x series)
+Compared to v1.2.2, the 1.3.x series introduces major accuracy, usability, and reliability improvements:
 
-- **Improved UPS Type Detection:**
-  - Enhanced I2C scanning to support INA219 at both 0x40 and 0x41 addresses, reducing misidentification.
-  - Added model register (0x08) check for MAX170xx to distinguish X1200 (model 0x0044) from UPS Lite, improving auto-detection accuracy.
-  - Fallback to manual `ups_type` selection if detection fails, with detailed debug logging.
+- **Faster & More Reliable Detection:**
+  - Scans only known I2C addresses for quicker startup.
+  - Expanded INA219 support to addresses 0x40–0x43 (adds full compatibility with Seengreat and other variants).
+  - Unified "ina219_generic" type for all INA219 boards with current-based charging detection (no GPIO required).
 
-- **Accurate SOC Estimation for INA219:**
-  - Replaced linear SOC approximation with a lookup table for 3.7V LiPo batteries, using voltage thresholds (e.g., 4.2V = 100%, 3.3V = 0%) for more precise capacity estimates.
-  - Improves reliability for Waveshare, SB UPS, and EP-0136 HATs.
+- **Superior INA219 SOC Estimation:**
+  - Upgraded from lookup table to linear interpolation between finer voltage points for smoother, more accurate percentage changes.
 
-- **Extended Cycle Counting:**
-  - Added cycle counting for INA219-based HATs (detects full charge at >4.15V with low current) and PiSugar (based on voltage >4.15V).
-  - Enhances battery health monitoring across more HAT types, previously limited to MAX170xx.
+- **Dynamic Time Estimation Using Real Current:**
+  - INA219 boards now use actual measured current for highly accurate `~Xm` (runtime) and new `↑Xm` (time-to-full when charging > ~30mA).
+  - Falls back gracefully to configured average for non-INA219 boards.
 
-- **Optimized Shutdown Logic:**
-  - Introduced immediate shutdown for critically low battery (<2%) to protect large batteries (e.g., 7000mAh).
-  - Resets shutdown counters when charging resumes or capacity recovers above threshold, preventing premature shutdowns.
-  - Extended default `shutdown_grace_period` to 60 seconds for robust decision-making.
+- **Visual UI Improvements:**
+  - Low-battery icon 🪫 below 20%.
+  - Voltage displayed to two decimal places.
+  - On-screen "UPS ERR" alert after excessive read failures (>10).
 
-- **Enhanced Charging Detection:**
-  - Added GPIO 25 for Waveshare UPS C (configurable via `charging_gpio`), complementing X1200 (GPIO 6) and UPS Lite (GPIO 16).
-  - Refined logic ensures accurate '+'/' -' status for GPIO and I2C-based detection.
+- **Persistent Cycle Counting:**
+  - Cycle count now saved to file on unload and loaded on startup — survives reboots and crashes (previously in-memory only).
 
-- **Improved Error Handling:**
-  - Added specific exception logging in `_read_with_retry` for better debugging.
-  - Resets error count after 10 successful reads to avoid misleading diagnostics.
+- **Enhanced Error Resilience & Bug Fixes:**
+  - Fixed quick-start initialization for MAX170xx boards.
+  - Resolved UnboundLocalError crashes during UI updates.
+  - Safer GPIO handling and cleanup.
+  - Improved retry logic and last-value caching.
 
-- **Dynamic UI Positioning:**
-  - Default `ui_position_x` now set to `ui.width() - 50` to minimize overlap with other UI elements, improving compatibility across display sizes.
+- **Cleaner Code & Default Behaviors:**
+  - Reduced duplication and better structure.
+  - Automatic default GPIO fallback for MAX170xx boards if not configured.
+  - Robust `charging_gpio = null` handling (required for INA219 boards).
 
-- **Verbose Debug Logging:**
-  - Added detailed logs for polling results, I2C operations, and calibration steps when `debug_mode` is enabled, aiding troubleshooting.
-
-- **Configuration Optimization:**
-  - Updated default settings: `poll_interval = 30` for lower power usage, `shutdown_threshold = 3`, `warning_threshold = 20` for large batteries, and `avg_current_ma = 200` for realistic Pwnagotchi power draw.
-
-- **Conditional GPIO Cleanup:**
-  - Only cleans up specified `charging_gpio` on unload to avoid interfering with other plugins.
-
-- **Previous Enhancements (v1.2.1):**
-  - Improved calibration for MAX170xx (MODE register 0x06, write 0x4000).
-  - Enhanced charging detection for X1200 (GPIO 6, HIGH = charging).
-  - Updated logging for calibration success.
-  - Auto-detection of UPS types via I2C scanning.
-  - Battery health monitoring with cycle counts and low-battery alerts.
-  - Error diagnostics with retry mechanisms and debug display.
-  - UI customization with icons, voltage, and runtime estimates.
-  - Polling optimization with configurable intervals.
-  - Auto-shutdown with grace periods.
-  - Thread-safe caching of last known values.
-  - Detailed prefixed logs ([MadHatter]/[MadHatterUPS]).
+- **Retained & Refined Features from v1.2.2:**
+  - All previous enhancements (lookup table SOC, extended cycle counting, optimized shutdown, improved detection, etc.) are preserved and built upon.
 
 ## Features
-- **Universal HAT Support:** Auto-detects and configures for MAX170xx, INA219, PiSugar, and IP5310-based HATs.
-- **Persistent Monitoring:** Caches voltage, capacity, and charging status across polls for reliability.
-- **UI Integration:** Customizable labeled display with stats, icons, and estimates, optimized for minimal clutter.
-- **Auto-Shutdown Mechanism:** Triggers safe shutdown on critically low battery (<2% immediate or below threshold with grace periods).
-- **Warning System:** Logs alerts for low battery or warning thresholds.
-- **Health Tracking:** Cycle counting for MAX170xx, INA219, and PiSugar, plus chip-level alerts.
-- **Efficient Polling:** Configurable intervals with retries to minimize I2C/GPIO usage.
-- **Customizable Alerts:** Set thresholds for shutdown, warnings, and chip alerts.
-- **Debug Tools:** Optional UI elements for errors and cycles, with verbose logging.
+- **Universal HAT Support:** Auto-detects and optimally configures MAX170xx, INA219 (all variants), PiSugar, and IP5310-based HATs.
+- **Accurate Monitoring:** Direct fuel-gauge reads where available, interpolated voltage SOC for INA219, real-time voltage.
+- **Smart Charging Detection:** Current-based (INA219), GPIO-based (MAX170xx), or register-based (PiSugar/X750).
+- **Dynamic Runtime Prediction:** Real current when possible, configurable fallback.
+- **UI Integration:** Clean display with icons (🔋/🪫/⚡), optional voltage, time estimates, and debug info.
+- **Auto-Shutdown Mechanism:** Immediate shutdown below 2%, grace-based below threshold, resets on charging/recovery.
+- **Warning System:** Logs low-battery and warning-threshold alerts.
+- **Health Tracking:** Persistent cycle counting, chip alerts (MAX170xx), error monitoring.
+- **Efficient Polling:** Configurable interval with retries and caching for reliability.
+- **Customizable Everything:** Thresholds, positions, icons, debug mode, and manual override.
+- **Debug Tools:** Verbose logging, on-screen errors/cycles/current.
 
 ## Installation Instructions
 ### Copy the Plugin File
-
 Place `mad_hatter.py` in `/usr/local/share/pwnagotchi/custom-plugins/`.
-
 Or use SCP:
-
 ```bash
 sudo scp mad_hatter.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+```
+
+### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
+```toml
+[main.plugins.mad_hatter]
+enabled = true
+show_voltage = true # Shows voltage like "4.20V 95%⚡"
+shutdown_enabled = false
+shutdown_threshold = 5
+warning_threshold = 15
+shutdown_grace = 3
+shutdown_grace_period = 30
+poll_interval = 10
+ui_position_x = 150 # Adjust to your preference
+ui_position_y = 0
+show_icon = true
+battery_mah = 7000 # Good if you have a larger pack; adjust to your actual capacity
+avg_current_ma = 400 # Reasonable average draw for pwnagotchi + display
+debug_mode = false # Set to true temporarily if you want extra log info
+charging_gpio = null # ← IMPORTANT: null (no quotes) for INA219 boards
+alert_threshold = 10
+ups_type = "auto" # Will correctly detect your Seengreat board at 0x43
+```
 
 ### Update config.toml
-
-Add to `/etc/pwnagotchi/config.toml`:
-
+Add (or update) in `/etc/pwnagotchi/config.toml` (flat style shown; nested sections also work):
 ```toml
 main.plugins.mad_hatter.enabled = true
 main.plugins.mad_hatter.show_voltage = false
@@ -1217,7 +1231,7 @@ main.plugins.mad_hatter.warning_threshold = 15
 main.plugins.mad_hatter.shutdown_grace = 3
 main.plugins.mad_hatter.shutdown_grace_period = 30
 main.plugins.mad_hatter.poll_interval = 10
-main.plugins.mad_hatter.ui_position_x = 150
+main.plugins.mad_hatter.ui_position_x = null
 main.plugins.mad_hatter.ui_position_y = 0
 main.plugins.mad_hatter.show_icon = true
 main.plugins.mad_hatter.battery_mah = 2000
@@ -1225,81 +1239,74 @@ main.plugins.mad_hatter.avg_current_ma = 200
 main.plugins.mad_hatter.debug_mode = false
 main.plugins.mad_hatter.charging_gpio = null
 main.plugins.mad_hatter.alert_threshold = 10
-main.plugins.mad_hatter.ups_type = 'auto'
+main.plugins.mad_hatter.ups_type = "auto"
 ```
 
 ### MadHatter Plugin Configuration Options
-
 ## main.plugins.mad_hatter.show_voltage = false
-Controls whether the battery voltage (in volts, e.g., "4.1V") is displayed in the UI string alongside capacity and charging status. If true, voltage is included; if false, it's omitted to keep the UI cleaner. (Default: False)
+Shows battery voltage to two decimals (e.g., "4.20V") in the UI. (Default: false)
 
 ## main.plugins.mad_hatter.shutdown_enabled = false
-Enables or disables the auto-shutdown feature. When true, the plugin monitors battery capacity and triggers a safe shutdown (pwnagotchi.shutdown()) if it falls below the shutdown threshold for a sustained period (based on grace settings). If false, no shutdown checks occur. (Default: False)
+Enables safe auto-shutdown on low battery. (Default: false)
 
 ## main.plugins.mad_hatter.shutdown_threshold = 5
-Sets the battery capacity percentage (%) below which the plugin considers initiating a shutdown (if shutdown_enabled is true and the battery is discharging). This is the critical low-battery trigger point. (Default: 5)
+Critical capacity % for shutdown trigger (when discharging). (Default: 5)
 
 ## main.plugins.mad_hatter.warning_threshold = 15
-Sets the battery capacity percentage (%) below which the plugin logs a warning message (e.g., "Battery low (X%) - Consider charging!") if the battery is discharging. This acts as an early alert before shutdown. (Default: 15)
+Capacity % for logged low-battery warnings. (Default: 15)
 
 ## main.plugins.mad_hatter.shutdown_grace = 3
-Defines the number of consecutive low-battery readings (below shutdown_threshold) required before triggering a shutdown. This helps prevent false positives from temporary dips. The counter resets if the battery recovers or starts charging. (Default: 3)
+Consecutive low readings required before shutdown. (Default: 3)
 
 ## main.plugins.mad_hatter.shutdown_grace_period = 30
-Specifies the minimum duration (in seconds) that the low-battery condition must persist (after the grace count is met) before shutdown is triggered. This adds an extra layer of persistence checking. (Default: 30)
+Minimum seconds low condition must persist after grace count. (Default: 30)
 
 ## main.plugins.mad_hatter.poll_interval = 10
-Sets the interval (in seconds) between hardware reads (e.g., voltage, capacity, charging status) from the UPS HAT. Lower values provide fresher data but increase overhead; higher values reduce I2C/GPIO usage. Between polls, cached values are used. (Default: 10)
+Seconds between hardware polls (cached values used in between). (Default: 10)
 
 ## main.plugins.mad_hatter.ui_position_x = null
-Sets the x-coordinate (horizontal position) for the UI display element on the Pwnagotchi screen. If set to null (or None in code), it defaults to a calculated position (screen width / 2 + 15, typically top-right). Use an integer for custom placement. (Default: None)
+X position (null = auto right-aligned). (Default: null)
 
 ## main.plugins.mad_hatter.ui_position_y = 0
-Sets the y-coordinate (vertical position) for the UI display element. A value of 0 places it at the top of the screen. Adjust for custom layouts. (Default: 0)
+Y position (0 = top). (Default: 0)
 
 ## main.plugins.mad_hatter.show_icon = true
-Controls whether Unicode icons are included in the UI display string: "🔋" for battery and "⚡" for charging (if active). If true, icons are shown; if false, only text (e.g., capacity and charging symbol) is displayed. (Default: True)
+Shows 🔋/🪫 and ⚡ icons. (Default: true)
 
 ## main.plugins.mad_hatter.battery_mah = 2000
-Specifies the battery capacity in milliamp-hours (mAh) used to estimate remaining runtime. This value is plugged into the formula: (capacity / 100) * battery_mah / avg_current_ma * 60 to calculate minutes left, shown in the UI as "(~Xm)". Adjust based on your actual battery specs. (Default: 2000)
+Battery capacity in mAh for time estimates. (Default: 2000)
 
 ## main.plugins.mad_hatter.avg_current_ma = 200
-Sets the assumed average current draw in milliamps (mA) for runtime estimates. This represents the typical power consumption of your Pwnagotchi setup and is used in the runtime calculation formula. Tune it based on measurements for accuracy. (Default: 200)
+Fallback average draw in mA (used when real current unavailable). (Default: 200)
 
 ## main.plugins.mad_hatter.debug_mode = false
-Enables or disables debug information in the UI display string. If true, it appends error counts (from failed reads) and battery cycle counts (e.g., "Err:X Cyc:Y"). Useful for troubleshooting; if false, this info is hidden. (Default: False)
+Appends error count, cycle count, and current (mA) to UI. (Default: false)
 
-## main.plugins.mad_hatter.charging_gpio = 6
-GPIO pin (BCM mode) for charging detection (e.g., X1200: 6, UPS Lite: 16, Waveshare: 25). Set to null for I2C-based detection (e.g., PiSugar). (Default: None)
+## main.plugins.mad_hatter.charging_gpio = null
+GPIO pin for charging detection (null = auto/current-based for INA219). (Default: null)
 
 ## main.plugins.mad_hatter.alert_threshold = 10
-Sets the low-battery alert threshold percentage (%) for the fuel gauge chip (primarily MAX170xx-based HATs). This configures the chip's internal alert register to trigger at (32 - threshold), notifying the system of low power. Ignored for non-supported HATs. (Default: 10)
+Low-battery alert threshold for MAX170xx chips. (Default: 10)
 
-## main.plugins.mad_hatter.ups_type = 'auto'
-UPS HAT type. "auto" enables I2C scanning; options include "x1200", "ups_lite", "waveshare_c", "pisugar", "sb_ups", "x750", "ep0136". Overrides auto-detection. (Default: "auto")
+## main.plugins.mad_hatter.ups_type = "auto"
+HAT type ("auto" recommended). (Default: "auto")
 
 ### Restart Pwnagotchi
-Apply changes with:
-
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
 ## Usage
-- **Monitor Battery Stats:** View capacity, charging status, voltage (optional), and runtime on the UI.
-- **Enable Auto-Shutdown:** Set shutdown_enabled to true for safe power-off on low battery.
-- **Customize UI:** Adjust positions, icons, and debug info to fit your display preferences.
-- **Track Health:** Use debug_mode to see cycle counts and errors; monitor logs for warnings.
-- **Optimize Polling:** Tune poll_interval for balance between freshness and efficiency.
-- **Detect HATs Automatically:** Leave ups_type as 'auto' for plug-and-play; override if needed.
-- **Avoid Low Battery Issues:** Respond to warnings and ensure regular charging to prevent shutdowns.
- 
+- **Monitor Battery:** Watch capacity, voltage, charging, and dynamic time estimates on screen.
+- **Auto-Shutdown:** Enable for protection against deep discharge.
+- **Customize UI:** Tweak position, icons, voltage display, and debug info.
+- **Health Tracking:** Enable debug_mode to view persistent cycles and errors.
+- **Accurate Estimates:** Set correct `battery_mah`; INA219 users get real-current precision automatically.
+- **Troubleshooting:** Check logs for [MadHatter]/[MadHatterUPS] entries.
+
 ## Logs and Data
-- **System Logs:** Events and errors are logged with prefixes like [MadHatter] or [MadHatterUPS] in the Pwnagotchi system logs (viewable via journalctl or /var/log/pwnagotchi.log).
-  Includes detection info, poll results, warnings, shutdown triggers, and calibration successes.
-- **No Persistent Data Files:** Stats are read live from hardware; caches are in-memory for the session.
-
-
+- **System Logs:** Detailed events, detection, polls, warnings, and errors prefixed [MadHatter] / [MadHatterUPS] (view via `journalctl -u pwnagotchi`).
+- **Persistent Data:** Cycle count saved to `/root/.mad_hatter_cycle_count`; all other stats read live with in-memory caching.
 ---
 
 # TheyLive Plugin
