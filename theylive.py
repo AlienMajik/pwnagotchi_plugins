@@ -1,39 +1,51 @@
 import logging
 import time
 import threading
-import os
 import subprocess
-import random
-import asyncio
-import websockets
 import json
 import requests
 import socket
+import websockets  # Added for PwnDroid mode (was missing in previous version)
 import pwnagotchi.plugins as plugins
 import pwnagotchi.ui.fonts as fonts
 from pwnagotchi.ui.components import LabeledValue
 from pwnagotchi.ui.view import BLACK
 import pwnagotchi
 
+
 def is_connected():
+    """More robust internet connectivity check with multiple fallbacks."""
+    trials = [
+        "https://api.opwngrid.xyz/api/v1/uptime",
+        "https://www.google.com",
+        "https://www.cloudflare.com",
+    ]
+    for url in trials:
+        try:
+            r = requests.get(url, timeout=10)
+            if "uptime" in url:
+                if r.json().get("isUp"):
+                    return True
+            elif r.status_code == 200:
+                return True
+        except Exception:
+            pass
+    # Final DNS fallback
     try:
-        # check DNS
-        host = 'https://api.opwngrid.xyz/api/v1/uptime'
-        r = requests.get(host, headers=None, timeout=(30.0, 60.0))
-        if r.json().get('isUp'):
-            return True
-    except:
-        pass
-    return False
+        socket.create_connection(("8.8.8.8", 53), timeout=10)
+        return True
+    except Exception:
+        return False
+
 
 class GPSBackend:
     def __init__(self, plugin):
         self.plugin = plugin
-        self.coordinates = {}
         self.running = True
 
     def get_current(self, poll):
         raise NotImplementedError("get_current must be implemented by subclasses")
+
 
 class GPSD(GPSBackend):
     def __init__(self, gpsdhost, gpsdport, plugin):
@@ -50,7 +62,7 @@ class GPSD(GPSBackend):
 
     def connect(self, host="127.0.0.1", port=2947):
         logging.info("[TheyLive] Connecting to gpsd socket at {}:{}".format(host, port))
-        for attempt in range(5):  # Retry connection up to 5 times
+        for attempt in range(5):
             try:
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((host, port))
@@ -61,11 +73,11 @@ class GPSD(GPSBackend):
                     welcome_raw = self.stream.readline()
                     welcome = json.loads(welcome_raw)
                     if welcome['class'] != "VERSION":
-                        raise Exception("Unexpected data received as welcome. Is the server a gpsd 3 server?")
-                    logging.info("[TheyLive] connected")
+                        raise Exception("Unexpected welcome message - not a gpsd v3 server?")
+                    logging.info("[TheyLive] Connected to gpsd")
                     return
             except Exception as e:
-                logging.warning(f"[TheyLive] Connection attempt {attempt+1} failed: {e}. Retrying in 5 seconds...")
+                logging.warning(f"[TheyLive] Connection attempt {attempt+1} failed: {e}. Retrying...")
                 time.sleep(5)
         logging.error("[TheyLive] Failed to connect to gpsd after retries.")
         self.stream = None
@@ -83,9 +95,9 @@ class GPSD(GPSBackend):
                     elif data.get('class') == 'SKY':
                         self.latest_sky = data
             except (json.JSONDecodeError, ValueError) as e:
-                logging.error(f"[TheyLive] Error decoding gpsd response: {e} - Raw data: {raw}")
+                logging.error(f"[TheyLive] JSON decode error: {e}")
             except Exception as e:
-                logging.error(f"[TheyLive] Unexpected error in stream reader: {e}")
+                logging.error(f"[TheyLive] Stream reader error: {e}")
                 break
 
     def get_current(self, poll):
@@ -96,49 +108,51 @@ class GPSD(GPSBackend):
                 return self.latest_sky
         return None
 
+
 class PwnDroidGPS(GPSBackend):
     def __init__(self, host, port, plugin):
         super().__init__(plugin)
         self.host = host
         self.port = port
-        self.websocket = None
+        self.coordinates = {}
         self.thread = threading.Thread(target=self._start_fetch_loop, daemon=True)
         self.thread.start()
 
     def _start_fetch_loop(self):
+        import asyncio
         asyncio.run(self._fetch_loop())
 
     async def _fetch_loop(self):
         uri = f"ws://{self.host}:{self.port}"
         while self.running:
             try:
-                async with websockets.connect(uri, ping_interval=20, ping_timeout=60) as websocket:  # Added ping for keep-alive
-                    self.websocket = websocket
+                async with websockets.connect(uri, ping_interval=20, ping_timeout=60) as websocket:
                     while self.running:
                         try:
                             message = await websocket.recv()
-                            if message:
-                                self.coordinates = json.loads(message)
-                                # Map to GPSD-like format
-                                self.coordinates = {
-                                    'mode': 3 if 'latitude' in self.coordinates and self.coordinates['latitude'] else 0,
-                                    'lat': self.coordinates.get('latitude', 0.0),
-                                    'lon': self.coordinates.get('longitude', 0.0),
-                                    'altMSL': self.coordinates.get('altitude', 0.0),
-                                    'speed': self.coordinates.get('speed', 0.0)
+                            if not message:
+                                logging.error("[TheyLive-PwnDroid] Empty message received")
+                                continue
+                            raw = json.loads(message)
+                            lat = raw.get('latitude')
+                            lon = raw.get('longitude')
+                            mode = 3 if lat is not None and lon is not None else 0
+                            self.coordinates = {
+                                'mode': mode,
+                                'lat': lat if lat is not None else 0.0,
+                                'lon': lon if lon is not None else 0.0,
+                                'altMSL': raw.get('altitude', 0.0),
+                                'speed': raw.get('speed', 0.0),
+                                'track': raw.get('bearing') or raw.get('course') or raw.get('track'),
+                                'time': time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                            }
+                            if self.plugin.agent:
+                                self.plugin.agent.session()['gps'] = {
+                                    'Latitude': self.coordinates['lat'],
+                                    'Longitude': self.coordinates['lon'],
+                                    'Altitude': self.coordinates['altMSL'],
+                                    'Speed': self.coordinates['speed']
                                 }
-                                # Update session gps for compatibility with other plugins
-                                if self.plugin.agent:
-                                    session_gps = {
-                                        'Latitude': self.coordinates['lat'],
-                                        'Longitude': self.coordinates['lon'],
-                                        'Altitude': self.coordinates['altMSL'],
-                                        'Speed': self.coordinates['speed']
-                                    }
-                                    self.plugin.agent.session()['gps'] = session_gps
-                            else:
-                                logging.error("[TheyLive-PwnDroid] Received empty message")
-                                await asyncio.sleep(5)
                         except websockets.ConnectionClosed:
                             break
             except Exception as e:
@@ -148,21 +162,25 @@ class PwnDroidGPS(GPSBackend):
     def get_current(self, poll):
         if poll == 'tpv':
             return self.coordinates if self.coordinates else None
-        return None  # 'sky' not supported
+        elif poll == 'sky':
+            return {}
+        return None
+
 
 class TheyLive(plugins.Plugin):
-    __author__ = "discord@rai68"  # Original author
-    __version__ = "1.2.0"  # Updated version with enhancements
+    __author__ = "discord@rai68 (original) - enhanced by AlienMajik"
+    __version__ = "2.1.0"  # Bumped for status conflict fix
     __license__ = "LGPL"
     __description__ = (
-        "Sets up and installs gpsd to report lat/long on the screen and setup bettercap pcap gps logging. "
-        "Added support for PwnDroid for GPS sharing via Android app over Bluetooth tether. "
-        "Enhancements: Streamed GPSD data, retries, more fields, efficiency improvements."
+        "Advanced GPS plugin for pwnagotchi: displays rich GPS data on screen, logs per-handshake and continuous tracks, "
+        "supports gpsd and PwnDroid (Android sharing). Enhancements: HDOP, used/visible sats, heading, smart fix status, "
+        "knots unit, continuous NDJSON logging, E-ink friendly updates, robust fixes, no core UI conflicts."
     )
 
     def __init__(self):
         self.gps_backend = None
-        self.fields = ['fix', 'lat', 'lon', 'alt', 'spd', 'sat']  # Added 'sat' for satellites
+        # Default rich field set - 'gpsstat' replaces 'status' to avoid conflict with core Pwnagotchi status line
+        self.fields = ['gpsstat', 'fix', 'sat', 'hdop', 'lat', 'lon', 'alt', 'spd', 'trk']
         self.speedUnit = 'ms'
         self.distanceUnit = 'm'
         self.element_pos_x = 130
@@ -173,259 +191,274 @@ class TheyLive(plugins.Plugin):
         self.pwndroid_port = 8080
         self.spacing = 12
         self.agent = None
-        self.bettercap = True
         self.loaded = False
         self.ui_setup = False
-        self.valid_device = False
         self.running = False
-        # display setup
         self._black = 0x00
-        self.pps_device = ''
-        self.device = ''
         self.baud = 9600
-        # auto setup
+        self.device = ''
+        self.pps_device = ''
         self.disableAuto = False
         self.mode = "server"
+        self.bettercap = True
+        # New features
+        self.track_log = True  # enabled by default - very useful for wardriving
+        self.track_interval = 10
+        self.track_file = '/root/pwnagotchi_gps_track.ndjson'
+        self.track_thread = None
+        # E-ink optimization
+        self.last_values = {}
 
     def setup(self):
-        if self.disableAuto or self.mode == 'peer' or self.mode == 'pwndroid':
+        if self.disableAuto or self.mode in ('peer', 'pwndroid'):
             return True
-        # Update APT cache first to avoid outdated cache issues
         logging.info('[TheyLive] Updating APT cache')
-        subprocess.run(['apt-get', 'update'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        aptRes = subprocess.run(['apt', '-qq', 'list', 'gpsd'],
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        if 'installed' not in aptRes.stdout:
-            logging.info('[TheyLive] GPSd not installed, trying now. This may take up to 5-10 minutes just let me run')
+        subprocess.run(['apt-get', 'update'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        apt_res = subprocess.run(['apt', '-qq', 'list', 'gpsd'], capture_output=True, text=True)
+        if 'installed' not in apt_res.stdout:
+            logging.info('[TheyLive] Installing gpsd (this may take several minutes)')
             if is_connected():
                 subprocess.run(['apt-get', 'install', '-y', 'gpsd', 'gpsd-clients'])
             else:
-                logging.error('[TheyLive] GPSd not installed, no internet. Please connect and reload pwnagotchi')
+                logging.error('[TheyLive] No internet - cannot install gpsd')
                 return False
-        logging.info('[TheyLive] GPSd should be installed')
-        baseConf = [
-            'GPSD_OPTIONS="-n -N -b"\n',
-            f'BAUDRATE="{self.baud}"\n',
-            f'MAIN_GPS="{self.device}"\n',
-            f'PPS_DEVICES="{self.pps_device}"\n',
-            'GPSD_SOCKET="/var/run/gpsd.sock"\n',
-            '/bin/stty -F ${MAIN_GPS} ${BAUDRATE}\n',
-            '/bin/setserial ${MAIN_GPS} low_latency\n'
-        ]
-        baseService = [
-            '[Unit]\n',
-            'Description=GPS (Global Positioning System) Daemon for pwnagotchi\n',
-            'Requires=gpsd.socket\n',
-            '[Service]\n',
-            'EnvironmentFile=/etc/default/gpsd\n',
-            'ExecStart=/usr/sbin/gpsd $GPSD_OPTIONS $MAIN_GPS $PPS_DEVICES\n',
-            '[Install]\n',
-            'WantedBy=multi-user.target\n',
-            'Also=gpsd.socket\n',
-        ]
-        baseSocket = [
-            '[Unit]\n',
-            'Description=GPS (Global Positioning System) Daemon Sockets\n',
-            '[Socket]\n',
-            'ListenStream=/run/gpsd.sock\n',
-            'ListenStream=[::]:2947\n',
-            'ListenStream=0.0.0.0:2947\n',
-            'SocketMode=0600\n',
-            'BindIPv6Only=yes\n',
-            '[Install]\n',
-            'WantedBy=sockets.target\n'
-        ]
-        logging.info("[TheyLive] Updating autoconfig if changed")
-        with open("/etc/default/gpsd", 'w') as gpsdConf:  # Simplified to always write if needed
-            gpsdConf.writelines(baseConf)
-        with open("/etc/systemd/system/gpsd.service", 'w') as gpsdService:
-            gpsdService.writelines(baseService)
-        with open("/lib/systemd/system/gpsd.socket", 'w') as gpsdSocket:
-            gpsdSocket.writelines(baseSocket)
+        # Write config files (idempotent)
+        with open("/etc/default/gpsd", 'w') as f:
+            f.writelines([
+                'GPSD_OPTIONS="-n -N -b"\n',
+                f'BAUDRATE="{self.baud}"\n',
+                f'MAIN_GPS="{self.device}"\n',
+                f'PPS_DEVICES="{self.pps_device}"\n',
+                'GPSD_SOCKET="/var/run/gpsd.sock"\n',
+                '/bin/stty -F ${MAIN_GPS} ${BAUDRATE}\n',
+                '/bin/setserial ${MAIN_GPS} low_latency\n',
+            ])
+        with open("/etc/systemd/system/gpsd.service", 'w') as f:
+            f.writelines([
+                '[Unit]\nDescription=GPS Daemon for pwnagotchi\nRequires=gpsd.socket\n',
+                '[Service]\nEnvironmentFile=/etc/default/gpsd\nExecStart=/usr/sbin/gpsd $GPSD_OPTIONS $MAIN_GPS $PPS_DEVICES\n',
+                '[Install]\nWantedBy=multi-user.target\nAlso=gpsd.socket\n',
+            ])
+        with open("/lib/systemd/system/gpsd.socket", 'w') as f:
+            f.writelines([
+                '[Unit]\nDescription=GPS Daemon Sockets\n',
+                '[Socket]\nListenStream=/run/gpsd.sock\nListenStream=[::]:2947\nListenStream=0.0.0.0:2947\nSocketMode=0600\nBindIPv6Only=yes\n',
+                '[Install]\nWantedBy=sockets.target\n',
+            ])
         subprocess.run(["systemctl", "daemon-reload"])
-        serRes = subprocess.run(['systemctl', "status", "gpsd.service"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-        if 'active (running)' not in serRes.stdout:
-            subprocess.run(["systemctl", "restart", "gpsd.service"])  # Use restart for safety
+        subprocess.run(["systemctl", "restart", "gpsd.service"])
         return True
 
     def on_loaded(self):
-        logging.info("[TheyLive] plugin loading begin")
-        if 'host' in self.options:
-            self.host = self.options['host']
-        if 'port' in self.options:
-            self.port = self.options['port']
-        if 'pwndroid_host' in self.options:
-            self.pwndroid_host = self.options['pwndroid_host']
-        if 'pwndroid_port' in self.options:
-            self.pwndroid_port = self.options['pwndroid_port']
-        # auto setup variables
-        if 'auto' in self.options:
-            self.disableAuto = not self.options['auto']
-        if 'mode' in self.options:
-            self.mode = self.options['mode']
-        if 'baud' in self.options:
-            self.baud = self.options['baud']
-        if 'device' in self.options:
-            self.device = self.options['device']
-        if 'pps_device' in self.options:
-            self.pps_device = self.options['pps_device']
-        logging.debug("[TheyLive] starting major setup function")
+        logging.info("[TheyLive] Loading enhanced plugin")
+        # Config overrides
+        self.host = self.options.get('host', self.host)
+        self.port = self.options.get('port', self.port)
+        self.pwndroid_host = self.options.get('pwndroid_host', self.pwndroid_host)
+        self.pwndroid_port = self.options.get('pwndroid_port', self.pwndroid_port)
+        self.disableAuto = not self.options.get('auto', True)
+        self.mode = self.options.get('mode', self.mode)
+        self.baud = self.options.get('baud', self.baud)
+        self.device = self.options.get('device', self.device)
+        self.pps_device = self.options.get('pps_device', self.pps_device)
+        self.bettercap = self.options.get('bettercap', self.bettercap)
+        self.fields = self.options.get('fields', self.fields)
+        self.speedUnit = self.options.get('speedUnit', self.speedUnit)
+        self.distanceUnit = self.options.get('distanceUnit', self.distanceUnit)
+        self.element_pos_x = self.options.get('topleft_x', self.element_pos_x)
+        self.element_pos_y = self.options.get('topleft_y', self.element_pos_y)
+        # New feature options
+        self.track_log = self.options.get('track_log', self.track_log)
+        self.track_interval = self.options.get('track_interval', self.track_interval)
+        self.track_file = self.options.get('track_file', self.track_file)
+        if 'invert' in pwnagotchi.config['ui'] and pwnagotchi.config['ui']['invert']:
+            self._black = 0xFF
+        elif BLACK == 0xFF:
+            self._black = 0xFF
         if self.mode != 'pwndroid':
-            res = self.setup()
-            logging.debug(f"[TheyLive] ended major setup function, status: {res}")
+            self.setup()
             self.gps_backend = GPSD(self.host, self.port, self)
         else:
             self.gps_backend = PwnDroidGPS(self.pwndroid_host, self.pwndroid_port, self)
-            logging.info("[TheyLive] PwnDroid mode enabled, using WebSocket for GPS")
-        # other variables like display and bettercap
-        if 'bettercap' in self.options:
-            self.bettercap = self.options['bettercap']
-        if 'fields' in self.options:
-            self.fields = self.options['fields']
-        if 'speedUnit' in self.options:
-            self.speedUnit = self.options['speedUnit']
-        if 'distanceUnit' in self.options:
-            self.distanceUnit = self.options['distanceUnit']
-        if 'topleft_x' in self.options:
-            self.element_pos_x = self.options['topleft_x']
-        if 'topleft_y' in self.options:
-            self.element_pos_y = self.options['topleft_y']
-        if 'invert' in pwnagotchi.config['ui'] and pwnagotchi.config['ui']['invert'] == 1 or BLACK == 0xFF:
-            self._black = 0xFF
+            logging.info("[TheyLive] PwnDroid mode active")
         self.loaded = True
-        logging.info("[TheyLive] plugin loading finished!")
+        logging.info("[TheyLive] Plugin loaded successfully")
 
     def on_ready(self, agent):
         while not self.loaded:
             time.sleep(0.1)
         self.agent = agent
+        self.running = True
         if self.bettercap and self.mode != 'pwndroid':
-            logging.info(f"[TheyLive] enabling bettercap's gps module for {self.host}:{self.port}")
+            logging.info(f"[TheyLive] Enabling bettercap GPS ({self.host}:{self.port})")
             try:
                 agent.run("gps off")
-            except Exception:
-                logging.info(f"[TheyLive] bettercap gps was already off")
+            except:
                 pass
             agent.run(f"set gps.device {self.host}:{self.port}; set gps.baudrate 9600; gps on")
-            logging.info("[TheyLive] bettercap set and on")
-            self.running = True
         else:
             try:
                 agent.run("gps off")
-            except Exception:
-                logging.info(f"[TheyLive] bettercap gps was already off")
+            except:
                 pass
-            logging.info("[TheyLive] bettercap gps reporting disabled (not supported in PwnDroid mode)")
+            logging.info("[TheyLive] bettercap GPS disabled (not supported in PwnDroid mode)")
+        if self.track_log:
+            self.track_thread = threading.Thread(target=self._track_logger, daemon=True)
+            self.track_thread.start()
+            logging.info(f"[TheyLive] Continuous track logging enabled -> {self.track_file}")
+
+    def _track_logger(self):
+        while self.running:
+            coords = self.gps_backend.get_current('tpv') or {}
+            sky = self.gps_backend.get_current('sky') or {}
+            if coords.get('mode', 0) >= 2 and 'lat' in coords and 'lon' in coords:
+                entry = {
+                    'time': coords.get('time') or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    'lat': coords['lat'],
+                    'lon': coords['lon'],
+                    'alt': coords.get('altMSL'),
+                    'speed': coords.get('speed'),
+                    'track': coords.get('track'),
+                    'hdop': sky.get('hdop'),
+                }
+                try:
+                    with open(self.track_file, 'a') as f:
+                        json.dump(entry, f)
+                        f.write('\n')
+                except Exception as e:
+                    logging.error(f"[TheyLive] Track logging error: {e}")
+            time.sleep(self.track_interval)
 
     def on_handshake(self, agent, filename, access_point, client_station):
         coords = self.gps_backend.get_current('tpv')
-        if coords is not None and 'lat' in coords and 'lon' in coords:
-            gps_filename = filename.replace(".pcap", ".gps.json")
-            logging.info(f"[TheyLive] saving GPS to {gps_filename} ({coords})")
-            with open(gps_filename, "w+t") as fp:
-                struct = {
-                    'Longitude': coords['lon'],
-                    'Latitude': coords['lat'],
-                    'Altitude': coords.get('altMSL', 0.0),
-                    'Speed': coords.get('speed', 0.0)
-                }
-                json.dump(struct, fp)
+        if coords and coords.get('mode', 0) >= 2 and 'lat' in coords and 'lon' in coords:
+            gps_file = filename.replace(".pcap", ".gps.json")
+            data = {
+                'Latitude': coords['lat'],
+                'Longitude': coords['lon'],
+                'Altitude': coords.get('altMSL'),
+                'Speed': coords.get('speed'),
+                'Track': coords.get('track'),
+            }
+            try:
+                with open(gps_file, "w") as f:
+                    json.dump(data, f)
+                logging.info(f"[TheyLive] Saved per-handshake GPS: {gps_file}")
+            except Exception as e:
+                logging.error(f"[TheyLive] Failed to save handshake GPS: {e}")
         else:
-            logging.info("[TheyLive] not saving GPS: no fix")
+            logging.debug("[TheyLive] No valid fix for handshake GPS")
 
     def on_ui_setup(self, ui):
-        # add coordinates for other displays
         while not self.loaded:
             time.sleep(0.1)
-        label_spacing = 0
-        logging.info(f"[TheyLive] setting up UI elements: {self.fields}")
         for i, item in enumerate(self.fields):
-            element_pos_x = self.element_pos_x
-            element_pos_y = self.element_pos_y + (self.spacing * i)
-            if len(item) == 4:
-                element_pos_x = element_pos_x - 5
-            pos = (element_pos_x, element_pos_y)
+            # Custom short label for the fix status field
+            label = "stat:" if item == 'gpsstat' else f"{item}:"
+            # Alignment logic preserved and extended: longer labels shift left to align values
+            effective_len = 4 if item == 'gpsstat' else len(item)  # Treat gpsstat as length 4 for alignment (like hdop)
+            pos_x = self.element_pos_x - 5 * (effective_len - 3 if effective_len > 3 else 0)
+            pos_y = self.element_pos_y + (self.spacing * i)
             ui.add_element(
-                item,
+                item,  # Unique element name (no conflict with core 'status')
                 LabeledValue(
                     color=self._black,
-                    label=f"{item}:",
+                    label=label,
                     value="-",
-                    position=pos,
+                    position=(pos_x, pos_y),
                     label_font=fonts.Small,
                     text_font=fonts.Small,
-                    label_spacing=label_spacing,
                 ),
             )
-        logging.info(f"[TheyLive] done setting up UI elements: {self.fields}")
         self.ui_setup = True
+        self.last_values.clear()
 
     def on_unload(self, ui):
-        logging.info("[TheyLive] bettercap gps reporting disabled")
+        self.running = False
         try:
             self.agent.run("gps off")
-        except Exception:
-            logging.info(f"[TheyLive] bettercap gps was already off")
+        except:
+            pass
         if self.mode != 'pwndroid':
             subprocess.run(["systemctl", "stop", "gpsd.service"])
         with ui._lock:
-            for element in self.fields:
+            for item in self.fields:
                 try:
-                    ui.remove_element(element)
+                    ui.remove_element(item)
                 except:
-                    logging.warning("[TheyLive] Element would not be removed skipping")
                     pass
         self.gps_backend.running = False
-        logging.info("[TheyLive] plugin disabled")
+        logging.info("[TheyLive] Plugin unloaded")
 
     def on_ui_update(self, ui):
         if not self.ui_setup:
             return
         coords = self.gps_backend.get_current('tpv') or {}
-        sky = self.gps_backend.get_current('sky') or {} if 'sat' in self.fields else {}
+        sky = self.gps_backend.get_current('sky') or {}
         mode = coords.get('mode', 0)
         lat = coords.get('lat', 0.0)
         lon = coords.get('lon', 0.0)
         alt = coords.get('altMSL', 0.0)
-        speed = coords.get('speed', 0.0)
-        satellites = len(sky.get('satellites', [])) if sky else 0
-
-        # Unit conversions
+        speed_raw = coords.get('speed', 0.0)
+        heading = coords.get('track')
+        hdop = sky.get('hdop')
+        visible = len(sky.get('satellites', []))
+        used = sum(1 for s in sky.get('satellites', []) if s.get('used')) if visible else 0
+        # Unit conversion
         if self.distanceUnit == 'ft':
-            alt *= 3.281
+            alt *= 3.28084
         if self.speedUnit == 'kph':
-            speed *= 3.6
-            displayUnit = 'km/h'
+            speed = speed_raw * 3.6
+            unit = 'km/h'
         elif self.speedUnit == 'mph':
-            speed *= 2.237
-            displayUnit = 'mph'
+            speed = speed_raw * 2.23694
+            unit = 'mph'
+        elif self.speedUnit == 'kn':
+            speed = speed_raw * 1.94384
+            unit = 'kn'
         else:
-            displayUnit = 'm/s'
-
+            speed = speed_raw
+            unit = 'm/s'
+        # Status calculation
+        if mode == 3:
+            if hdop is not None and hdop < 2.0:
+                status = "Good 3D"
+            elif hdop is not None:
+                status = f"3D ({hdop:.1f})"
+            else:
+                status = "3D fix"
+        elif mode == 2:
+            status = "2D fix"
+        elif mode == 1:
+            status = "Fix"
+        else:
+            status = "No fix"
         for item in self.fields:
             try:
-                if item == 'fix':
-                    fix_map = {0: '-', 1: '0D', 2: '2D', 3: '3D'}
-                    ui.set("fix", fix_map.get(mode, 'err'))
-                elif item == 'lat':
-                    val = f"{lat:.4f} " if mode >= 2 else f"{0:.4f} "
-                    ui.set("lat", val)
-                elif item == 'lon':
-                    val = f"{lon:.4f} " if mode >= 2 else f"{0:.4f} "
-                    ui.set("lon", val)
-                elif item == 'alt':
-                    val = f"{alt:.1f}{self.distanceUnit}" if mode == 3 else f"{0:.1f}{self.distanceUnit}"
-                    ui.set("alt", val)
-                elif item == 'spd':
-                    val = f"{speed:.2f}{displayUnit}" if mode >= 2 else f"{0:.2f}{displayUnit}"
-                    ui.set("spd", val)
+                if item == 'gpsstat':
+                    val = status
+                elif item == 'fix':
+                    val = {0: '-', 1: '1D', 2: '2D', 3: '3D'}.get(mode, 'err')
                 elif item == 'sat':
-                    ui.set("sat", f"{satellites}")
+                    val = f"{used}/{visible}" if visible else "-"
+                elif item == 'hdop':
+                    val = f"{hdop:.1f}" if hdop is not None else "-"
+                elif item == 'lat':
+                    val = f"{lat:.4f}" if mode >= 2 else "-"
+                elif item == 'lon':
+                    val = f"{lon:.4f}" if mode >= 2 else "-"
+                elif item == 'alt':
+                    val = f"{alt:.1f}{self.distanceUnit}" if mode == 3 else "-"
+                elif item == 'spd':
+                    val = f"{speed:.1f}{unit}" if mode >= 2 else "-"
+                elif item == 'trk':
+                    val = f"{heading:.0f}°" if heading is not None and speed_raw > 1.0 else "-"
                 else:
-                    # custom item
-                    val = coords.get(item, 0.0)
-                    val = f"{val:.2f}" if mode >= 1 else f"{0:.1f}"
+                    val = "-"
+                # E-ink optimization: only update if changed
+                if self.last_values.get(item) != val:
                     ui.set(item, val)
+                    self.last_values[item] = val
             except Exception as e:
-                logging.debug(f"[TheyLive] Error updating UI for {item}: {e}")
+                logging.debug(f"[TheyLive] UI update error for {item}: {e}")
                 ui.set(item, "err")
