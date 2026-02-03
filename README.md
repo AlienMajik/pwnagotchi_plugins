@@ -1101,7 +1101,7 @@ This plugin fetches nearby aircraft data using the OpenSky Network API.
 ---
 
 # MadHatter Plugin
-**Version:** 1.3.3  
+**Version:** 1.3.4  
 **Author:** AlienMajik (with community enhancements)
 
 ## Description
@@ -1140,9 +1140,14 @@ The plugin displays essential battery information directly on the Pwnagotchi scr
 - I2C read error counter.
 - Current draw in mA when significant.
 
-## New Enhancements in v1.3.3 (and 1.3.x series)
-Compared to v1.2.2, the 1.3.x series introduces major accuracy, usability, and reliability improvements:
+## New Enhancements in v1.3.4 
+Compared to v1.2.2, the 1.3.4 series introduces major accuracy, usability, and reliability improvements:
 
+## V1.3.4: Fixed by adding the exact same byte swap (struct.unpack("<H", struct.pack(">H", read))[0]) to:
+
+- INA219 bus voltage reading → now shows real ~4.xxV (matches your INA219.py script).
+- INA219 current reading → more accurate charging detection and dynamic time estimates.
+  
 - **Faster & More Reliable Detection:**
   - Scans only known I2C addresses for quicker startup.
   - Expanded INA219 support to addresses 0x40–0x43 (adds full compatibility with Seengreat and other variants).
