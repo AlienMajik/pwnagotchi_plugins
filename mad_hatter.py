@@ -129,7 +129,7 @@ class MadHatterUPS:
             self.current = self._ina_current
             try:
                 self._bus.write_word_data(self._ina_addr, INA_REG_CONFIG, 0x399F)
-                logging.info("[MadHatterUPS] INA219 configured")
+                logging.info("[MadHatterUPS] INA219 configured with 0x399F")
             except Exception as e:
                 logging.warning(f"[MadHatterUPS] INA219 config failed: {e}")
 
@@ -148,7 +148,7 @@ class MadHatterUPS:
         else:
             raise ValueError(f"Unsupported UPS type: {self._type}")
 
-        # MAX170xx initialization (quick-start + alert threshold)
+        # MAX170xx initialization
         if self._type in ['x1200', 'ups_lite']:
             try:
                 self._bus.write_word_data(KNOWN_I2C_ADDRESSES['max170xx'], MAX_REG_MODE, 0x4000)
@@ -166,7 +166,7 @@ class MadHatterUPS:
             except Exception as e:
                 logging.error(f"[MadHatterUPS] Alert threshold failed: {e}")
 
-    # MAX170xx methods
+    # MAX170xx methods (with byte swap)
     def _max_voltage(self):
         def read_func():
             read = self._bus.read_word_data(KNOWN_I2C_ADDRESSES['max170xx'], MAX_REG_VCELL)
@@ -196,11 +196,12 @@ class MadHatterUPS:
         except:
             return self._last_capacity
 
-    # INA219 methods
+    # INA219 methods (NOW WITH BYTE SWAP for correct voltage/current on most Pi setups)
     def _ina_voltage(self):
         def read_func():
             read = self._bus.read_word_data(self._ina_addr, INA_REG_BUS_V)
-            return (read >> 3) * 0.004
+            swapped = struct.unpack("<H", struct.pack(">H", read))[0]
+            return (swapped >> 3) * 0.004
         try:
             voltage = self._read_with_retry(read_func)
             self._last_voltage = voltage
@@ -211,9 +212,10 @@ class MadHatterUPS:
     def _ina_current(self):
         def read_func():
             read = self._bus.read_word_data(self._ina_addr, INA_REG_CURRENT)
-            if read > 32767:
-                read -= 65536
-            return read * 0.001
+            swapped = struct.unpack("<H", struct.pack(">H", read))[0]
+            if swapped > 32767:
+                swapped -= 65536
+            return swapped * 0.001  # Common scaling for many UPS hats; adjust if current seems off
         try:
             return self._read_with_retry(read_func)
         except:
@@ -257,7 +259,7 @@ class MadHatterUPS:
         current = self.current()
         return '+' if current > 0 else '-'
 
-    # PiSugar / X750
+    # PiSugar / X750 (unchanged)
     def _pisugar_voltage(self):
         def read_func():
             high = self._bus.read_byte_data(KNOWN_I2C_ADDRESSES['pisugar'], 0x22)
@@ -329,10 +331,10 @@ class MadHatterUPS:
 
 class MadHatter(plugins.Plugin):
     __name__ = 'mad_hatter'
-    __author__ = 'AlienMajik'
-    __version__ = '1.3.3'
+    __author__ = 'AlienMajik (with community enhancements)'
+    __version__ = '1.3.4'
     __license__ = 'GPL3'
-    __description__ = 'Universal UPS plugin – supports X1200/UPS Lite, INA219 hats (Waveshare/Seengreat/etc.), PiSugar, with accurate SOC, dynamic runtime, icons, and shutdown.'
+    __description__ = 'Universal UPS plugin – fixed INA219 voltage reading (byte swap) for Seengreat/Waveshare/etc., accurate ~4.xV now!'
 
     __defaults__ = {
         'enabled': True,
@@ -349,7 +351,6 @@ class MadHatter(plugins.Plugin):
         'battery_mah': 2000,
         'avg_current_ma': 200,
         'debug_mode': False,
-        'charging_gpio': None,
         'alert_threshold': 10,
         'ups_type': 'auto',
     }
@@ -375,7 +376,7 @@ class MadHatter(plugins.Plugin):
         except Exception as e:
             logging.debug(f"[MadHatter] Cycle count load failed: {e}")
 
-        logging.info("[MadHatter] Plugin v1.3.3 loaded")
+        logging.info("[MadHatter] Plugin v1.3.4 loaded!")
 
     def on_ui_setup(self, ui):
         pos_x = self.options['ui_position_x'] if self.options['ui_position_x'] is not None else ui.width() - 50
@@ -496,4 +497,3 @@ class MadHatter(plugins.Plugin):
                 pass
 
         logging.info("[MadHatter] Unloaded.")
-
