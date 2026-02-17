@@ -674,225 +674,187 @@ https://papers.mathyvanhoef.com/wisec2022.pdf
 
 # SnoopR Plugin
 
-Welcome to SnoopR, a powerful plugin for Pwnagotchi, the pocket-sized Wi-Fi security testing tool! SnoopR supercharges your Pwnagotchi by detecting and logging Wi-Fi and Bluetooth devices, identifying potential snoopers based on movement patterns, and presenting everything on an interactive, real-time map. Whether you're a security enthusiast, a tinkerer, or just curious about the wireless world around you, SnoopR has something to offer.
+Welcome to **SnoopR**, the most advanced surveillance-detection and wardriving plugin for **Pwnagotchi**! SnoopR turns your pocket-sized AI companion into a powerful multi-modal sensor that logs Wi-Fi, Bluetooth/BLE, and even overhead aircraft, while intelligently identifying potential tails or persistent trackers through movement, velocity, spatial clustering, and RSSI-based positioning.
 
-This updated version (2.0.0) brings a host of new features, including richer data collection, smarter snooper detection, whitelisting, automatic data pruning, and an improved web interface. It's actively developed, community-driven, and packed with capabilities to help you explore and secure your wireless environment. Let's dive into what SnoopR can do and how you can get started!
+This major release (**v5.0.0**) represents a complete evolution from earlier versions. What started as a solid wardriving logger has become a professional-grade surveillance detection system with real persistence scoring, multilateration triangulation, aircraft awareness, encrypted mesh collaboration, modern BLE scanning, and a rich tactical web interface.
+
+Key enhancements and fixes over previous versions (and why they’re better):
+- **Fully implemented persistence scoring + spatial clustering** – Now actively computes a 0.0–1.0 score based on recent 5-minute activity windows, repeated presence, and distinct ~100m clusters. Far superior to old crude movement checks — catches slow, lingering followers with dramatically fewer false positives/negatives.
+- **Hybrid snooper detection** – Combines high persistence, configurable movement threshold, and velocity >1.5 m/s. More accurate and tunable than earlier versions.
+- **RSSI-based multilateration (triangulation)** – Uses Kalman-smoothed RSSI with configurable TX power/path-loss to estimate positions. Huge improvement for indoor/urban or hidden devices where GPS alone fails.
+- **Aircraft (ADS-B) integration** – Polls `aircraft.json` for overhead traffic with smart caching. Adds aerial awareness missing from all prior versions.
+- **Modern BLE scanning with Bleak** – Async, reliable scanning replaces deprecated `hcitool`. Fewer errors, better device/name detection on modern kernels.
+- **Encrypted mesh networking** – AES-GCM UDP sharing between units. Enables real-time collaborative detection (new capability).
+- **Server-Sent Events (SSE)** – Live count updates in web UI without reloads (smoother experience).
+- **Enhanced web UI** – Trails/polylines, persistence-weighted heatmap, KML export with colored trails, dark mode, search, advanced filters (High Persistence, Aircraft, Clients).
+- **Vendor lookup & classification** – Auto-downloads Bluetooth company IDs, uses OUI db, classifies devices (Apple, wearables, etc.).
+- **WiGLE fallback** – Optional SSID-based geolocation when GPS unavailable.
+- **Performance & stability** – Batch upserts, proper indexing, graceful dependency handling, robust background analysis thread.
+- **Config compatibility** – Supports both legacy flat keys and modern nested tables (especially for jayofelony custom images).
 
 ## Features
 
-SnoopR is loaded with capabilities to make your wireless adventures both fun and insightful. Here's what it brings to the table:
+- **Multi-source detection**: Wi-Fi APs + clients, Bluetooth/BLE (with manufacturer data), ADS-B aircraft.
+- **Intelligent persistence scoring**: Recent activity windows, cluster bonuses, configurable threshold.
+- **Hybrid snooper flagging**: Persistence + movement + velocity.
+- **RSSI triangulation**: Estimated position + MSE for Wi-Fi/BLE.
+- **Spatial clustering**: ~100m zone counting to detect repeated locations.
+- **Vendor & classification**: OUI + Bluetooth company IDs + heuristics.
+- **Aircraft tracking**: Smart caching, movement-aware logging.
+- **Modern BLE scanning**: Configurable async Bleak scanner.
+- **Encrypted mesh**: Optional real-time sharing.
+- **WiGLE fallback**: SSID geolocation.
+- **Kalman-smoothed RSSI**: Cleaner distance estimates.
+- **Rich web interface**: Trails, heatmap, KML export, dark mode, live SSE, search, sorting, filters.
+- **Pwnagotchi UI counters**: Wi-Fi, BT, Aircraft, Snoopers, High Persistence.
+- **Whitelisting**: SSID/MAC.
+- **Automatic pruning**: With VACUUM.
+- **Robust logging & error handling**.
 
-- **Enhanced Device Detection**: Captures Wi-Fi and Bluetooth devices with additional details like Wi-Fi channel and authentication mode, alongside GPS coordinates for precise location tracking. The SQLite database now includes new columns—channel (INTEGER) for Wi-Fi channel (e.g., 1, 6, 11) and auth_mode (TEXT) for authentication mode (e.g., WPA2, WEP)—offering deeper insights into network configurations for security testing and auditing.
+## Requirements & Dependencies
 
-- **Improved Snooper Identification**: Spots potential snoopers with more accurate detection logic—devices that move beyond a customizable threshold (default: 0.1 miles) or exhibit a velocity greater than 1.5 meters per second across at least three detections within a time window (default: 5 minutes) are flagged, reducing false positives. Uses the Haversine formula (Earth’s radius = 3958.8 miles) to calculate movement and velocity.
+### Core Requirements
+- **GPS** via Bettercap (gps plugin recommended).
+- **Bluetooth** enabled (`sudo hciconfig hci0 up` or your interface).
+- **Internet on viewing device** for map tiles/Leaflet.
 
-- **Whitelisting**: Exclude specific networks (e.g., your home Wi-Fi or personal devices) from being logged or flagged to keep your data focused. Configurable via the whitelist option (e.g., ["MyHomeWiFi", "MyPhone"]).
+### Python Dependencies (Recommended for Full Features)
+```bash
+sudo pip3 install bleak cryptography
+```
+- `bleak`: Modern BLE scanning.
+- `cryptography`: Mesh encryption.
 
-- **Automatic Data Pruning**: Deletes detection records older than a configurable number of days (default: 30) to manage database size and keep it efficient. Runs on startup with a DELETE query based on a cutoff date.
-
-- **Interactive Map**: Displays all detected devices on a dynamic map with sorting (by device type or snooper status), filtering (all, snoopers, or Bluetooth), and the ability to pan to a network's location by clicking on it in the table. Markers are blue for regular devices and red for snoopers.
-
-- **Real-Time Monitoring**: Shows live counts of detected networks, snoopers, and the last Bluetooth scan time (e.g., "Last Scan: 14:30:00") directly on the Pwnagotchi UI at position (7, 135).
-
-- **Customizable Detection**: Fine-tune movement and time thresholds to define what qualifies as a snooper, tailored to your needs.
-
-- **Reliable Bluetooth Scanning**: Includes a retry mechanism (up to three attempts with 1-second delays) for more consistent device name retrieval via hcitool name, ensuring better accuracy. Detects devices with hcitool inq --flush.
-
-- **Threaded Scans**: Bluetooth scans run in a separate thread every 45 seconds (configurable), ensuring smooth performance without interrupting other operations.
-
-- **Better Logging and Error Handling**: Improved logging for GPS warnings (e.g., unavailable coordinates) and Bluetooth errors (e.g., hcitool failures), making it easier to debug and maintain.
-
-- **Performance Optimizations:** Database indexes on detections.network_id, networks.mac, and detections.timestamp for faster queries. Batch insertions for Wi-Fi detections to reduce database overhead.
-
-- **Better Logging and Error Handling:** Improved logging for GPS warnings (e.g., unavailable coordinates), Bluetooth errors (e.g., hcitool failures), and mesh operations, making it easier to debug and maintain.
-
-## Requirements
-
-Before installing SnoopR, ensure you have the following:
-
-- **GPS Adapter**: Connected via bettercap (easily done with the gps plugin). GPS is essential for logging device locations.
-    
-- **Bluetooth Enabled**: Required for Bluetooth scanning. Ensure Bluetooth is activated on your Pwnagotchi (`sudo hciconfig hci0 up`).
-    
-- **Internet Access (for Viewing)**: The device you use to view the web interface (e.g., your phone or computer) needs internet to load map tiles and Leaflet.js. The Pwnagotchi itself doesn't require an internet connection.
-
+### System Dependencies
+- **Wireshark OUI database** (Wi-Fi vendors):
+  ```bash
+  sudo apt update && sudo apt install wireshark-common
+  ```
+- **ADS-B feed** (optional): Tool outputting valid `aircraft.json`.
+- **WiGLE API keys** (optional): For fallback geolocation.
 
 ## Installation Instructions
 
-You can install SnoopR in two ways: the easy way (recommended) or the manual way. Here's how:
+Manual installation recommended (advanced dependencies):
 
-### Easy Way (Recommended)
-
-1. **Update Your Config File**  
-   Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories:
-
-   ```toml
-   main.confd = "/etc/pwnagotchi/conf.d/"
-   main.custom_plugin_repos = [
-   "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
-   "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
-   "https://github.com/NeonLightning/pwny/archive/master.zip",
-   "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-   "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
-   "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
-   "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
-   ]
-   main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
-   ```
-
-2. **Install the Plugin**  
-   Run these commands to update the plugin list and install SnoopR:
-
-   ```bash
-   sudo pwnagotchi plugins update
-   sudo pwnagotchi plugins install snoopr
-   ```
-
-That's it! You're ready to configure SnoopR.
-
-### Manual Way (Alternative)
-
-If you prefer a hands-on approach:
-
-1. **Clone the SnoopR plugin repo from GitHub**:
-
-   ```bash
-   sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
-   cd pwnagotchi_plugins
-   ```
-
-2. **Copy the Plugin File**  
-   Move snoopr.py to your Pwnagotchi's custom plugins directory:
-
-   ```bash
-   sudo cp snoopr.py /usr/local/share/pwnagotchi/custom-plugins/
-   ```
-
-   Alternatively, if you're working from a computer, use SCP:
-
-   ```bash
-   sudo scp snoopr.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
-   ```
-
-## Configuration
-
-To enable and customize SnoopR, edit `/etc/pwnagotchi/config.toml` and add the following under the `[main.plugins.snoopr]` section:
-
-```toml
-main.plugins.snoopr.enabled = true
-main.plugins.snoopr.path = "/root/snoopr"                  # Directory for the database
-main.plugins.snoopr.ui.enabled = true                     # Show stats on the Pwnagotchi UI
-main.plugins.snoopr.gps.method = "bettercap"              # GPS source
-main.plugins.snoopr.movement_threshold = 0.2              # Distance (miles) for snooper detection
-main.plugins.snoopr.time_threshold_minutes = 5            # Time (minutes) between detections
-main.plugins.snoopr.bluetooth_enabled = true              # Enable Bluetooth scanning
-main.plugins.snoopr.timer = 45                            # Bluetooth scan interval (seconds)
-main.plugins.snoopr.whitelist = ["MyHomeWiFi", "MyPhone"] # Networks to exclude
-main.plugins.snoopr.prune_days = 30                       # Days before pruning old data
+```bash
+cd /usr/local/share/pwnagotchi/custom-plugins/
+sudo wget https://raw.githubusercontent.com/AlienMajik/pwnagotchi_plugins/main/snoopr.py
 ```
 
-### Available Options
+Or clone:
 
-- **enabled**: Set to true to activate the plugin. Default: false
-    
-- **path**: Directory for the SQLite database (e.g., /root/snoopr/snoopr.db). Default: /root/snoopr
-    
-- **ui.enabled**: Show stats on the Pwnagotchi UI. Default: true
-    
-- **gps.method**: GPS data source (only "bettercap" supported). Default: "bettercap"
-    
-- **movement_threshold**: Minimum distance (miles) a device must move to be flagged as a snooper. Default: 0.1
-    
-- **time_threshold_minutes**: Time interval (minutes) between detections for snooper checks. Default: 5
-    
-- **bluetooth_enabled**: Enable Bluetooth scanning. Default: true
-    
-- **timer**: Interval (seconds) between Bluetooth scans. Default: 45
-    
-- **whitelist**: List of network names (SSIDs or Bluetooth device names) to exclude from logging. Default: []
-    
-- **prune_days**: Number of days to retain detection records before pruning. Default: 30
+```bash
+sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git /tmp/pwnplugins
+sudo cp /tmp/pwnplugins/snoopr.py /usr/local/share/pwnagotchi/custom-plugins/
+sudo rm -rf /tmp/pwnplugins
+```
 
+Install dependencies:
 
-After editing the config, restart your Pwnagotchi to apply the changes:
+```bash
+sudo pip3 install bleak cryptography
+sudo apt install wireshark-common
+```
+
+Restart:
 
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
-## Database Schema Updates
+## Configuration
 
-On startup, SnoopR checks the detections table for channel and auth_mode columns using PRAGMA table_info. If missing, it adds them with ALTER TABLE commands, logging the updates (e.g., [SnoopR] Added "channel" column to detections table) for seamless compatibility. The database also includes indexes on detections.network_id, networks.mac, and detections.timestamp for faster queries.
+SnoopR supports both legacy flat config keys (for standard Pwnagotchi) and modern nested tables (optimized for jayofelony custom images like 2.9.5.4).
+
+### Legacy Flat Format (Standard Pwnagotchi Compatibility)
+```toml
+main.plugins.snoopr.enabled = true
+main.plugins.snoopr.base_dir = "/root/snoopr"
+main.plugins.snoopr.aircraft_file = "/root/aircraft.json"
+main.plugins.snoopr.scan_interval = 10
+main.plugins.snoopr.scan_duration = 5
+main.plugins.snoopr.bluetooth_enabled = true
+main.plugins.snoopr.log_without_gps = false
+main.plugins.snoopr.whitelist_ssids = ["MyHomeWiFi", "MyPhone"]
+main.plugins.snoopr.whitelist_macs = []
+main.plugins.snoopr.prune_days = 30
+main.plugins.snoopr.ui_enabled = true
+main.plugins.snoopr.mesh_enabled = false
+main.plugins.snoopr.movement_threshold = 0.8
+main.plugins.snoopr.time_threshold_minutes = 20
+main.plugins.snoopr.persistence_threshold = 0.85
+main.plugins.snoopr.triangulation_min_points = 8
+main.plugins.snoopr.mse_threshold = 75
+main.plugins.snoopr.update_interval = 300
+```
+
+### Modern Nested Format (jayofelony 2.9.5.4 Image & Newer)
+```toml
+[main.plugins.snoopr]
+enabled = true
+base_dir = "/root/snoopr"
+aircraft_file = "/root/handshakes/skyhigh_aircraft.json"
+scan_interval = 10
+scan_duration = 5
+bluetooth_enabled = true
+bluetooth_device = "hci1"
+log_without_gps = false
+whitelist_ssids = ["MyHomeWiFi", "MyPhone"]
+whitelist_macs = []
+prune_days = 7
+mesh_enabled = false
+mesh_host = "0.0.0.0"
+mesh_port = 8888
+mesh_peers = []
+mesh_key = ""
+web_user = ""
+web_pass = ""
+ui_enabled = true
+tx_power_wifi = -20
+tx_power_bt = -20
+path_loss_n_wifi = 2.7
+path_loss_n_bt = 2.7
+mse_threshold = 75
+triangulation_min_points = 8
+persistence_threshold = 0.85
+movement_threshold = 0.8
+time_threshold_minutes = 20
+update_interval = 300
+auto_install_deps = true
+
+[main.plugins.snoopr.wigle]
+enabled = true
+api_name = ""
+api_token = ""
+```
+
+Both formats work — use the one matching your image. Restart after changes.
 
 ## Usage
 
-Once installed and configured, SnoopR runs automatically when you power up your Pwnagotchi. Here's how it works:
+Runs automatically on boot.
 
-- **Wi-Fi Logging**: Logs Wi-Fi access points with details like MAC, SSID, channel, authentication mode, encryption, signal strength, and location. Skips whitelisted SSIDs during on_unfiltered_ap_list.
-    
-- **Bluetooth Scanning**: If enabled, scans for Bluetooth devices every timer seconds using hcitool inq --flush, logging their details and locations. Retries name retrieval up to three times with hcitool name.
-    
-- **Snooper Detection**: Flags devices as snoopers if they move beyond movement_threshold across at least three detections within time_threshold_minutes. Updates the is_snooper flag in the networks table.
-    
-- **Whitelisting**: Excludes specified networks from being logged or flagged during Wi-Fi and Bluetooth scans.
-    
-- **Data Pruning**: Automatically deletes old detection records from the detections table on startup if older than prune_days.
+- Wi-Fi/BLE/aircraft logged with full details.
+- Background analysis updates persistence, velocity, clusters, triangulation, snooper flags.
+- Web UI: `http://<pwnagotchi_ip>:8080/plugins/snoopr/` — trails, heatmap, live updates, KML export.
 
-### Monitoring the UI
+## Notes
 
-Your Pwnagotchi's display will show real-time stats (if ui.enabled is true):
-
-- Number of detected Wi-Fi networks and snoopers
-- Number of detected Bluetooth devices and snoopers (if enabled)
-- Time of the last Bluetooth scan (e.g., "Last Scan: 14:30:00")
-
-### Viewing Logged Networks
-
-To see detailed logs and the interactive map, access the web interface:
-
-1. **Connect to Your Pwnagotchi's Network**  
-   - Via USB: Typically 10.0.0.2
-   - Via Bluetooth tethering: Typically 172.20.10.2
-
-2. **Open the Web Interface**  
-   In a browser on a device with internet access:
-   - USB: http://10.0.0.2:8080/plugins/snoopr/
-   - Bluetooth: http://172.20.10.2:8080/plugins/snoopr/
-
-3. **Explore the Interface**  
-   - **Table**: Lists all detected networks with sorting (by “Device Type” or “Snooper”) and filtering (“All,” “Snoopers,” “Bluetooth,” or “Aircraft”).
-   - **Map**: hows device locations—click a network in the table to pan the Leaflet.js map to its marker (blue for regular, red for snoopers, green for aircraft, gray for no coordinates) with popups showing details.
-   - **Scroll Buttons**: "Scroll to Top" and "Scroll to Bottom" for easy navigation of long lists.
-
-
-
-
-
-
-##Notes
-
-- **Database**: All data is stored in snoopr.db in the directory specified by path.
-- **Data Pruning**: Detection records older than prune_days are automatically deleted to manage database size.
-- **GPS Dependency**: Logging requires GPS data. If unavailable (latitude/longitude = "-"), a warning is logged, and Bluetooth scans are skipped.
-- **Web Interface Requirements**: The viewing device needs internet to load Leaflet.js and OpenStreetMap tiles.
-- **Bluetooth Troubleshooting**: If scanning fails, ensure hcitool is installed and Bluetooth is enabled (`sudo hciconfig hci0 up`).
-- **Logging**: Improved logging for GPS and Bluetooth issues (e.g., [SnoopR] Error running hcitool: <error>), aiding in debugging.
+- Database: `<base_dir>/snoopr.db`.
+- Triangulated positions prioritized on map.
+- High Persistence uses `persistence_threshold`.
+- Bluetooth company DB auto-downloaded if missing.
+- SSE live updates visible in browser console (expandable later).
+- SkyHigh plugin needed to track aircrafts if not used no aircrafts will not be detected
 
 ## Community and Contributions
 
-SnoopR thrives thanks to its community! We're always improving the plugin with new features and fixes. Want to get involved? Here's how:
-
-- **Contribute**: Submit pull requests with enhancements or bug fixes.
-- **Report Issues**: Found a bug? Let us know on the GitHub Issues page.
-- **Suggest Features**: Have an idea? Share it with us!
-
-Join the fun and help make SnoopR even better.
+Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 
 ## Disclaimer
 
-SnoopR is built for educational and security testing purposes only. Always respect privacy and adhere to local laws when using this plugin. Use responsibly!
-
----
+For educational and security testing only. Respect privacy and local laws. Use responsibly!
 
 # SkyHigh Plugin
 
