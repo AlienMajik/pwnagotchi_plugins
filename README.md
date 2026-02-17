@@ -676,7 +676,7 @@ https://papers.mathyvanhoef.com/wisec2022.pdf
 
 Welcome to **SnoopR**, the most advanced surveillance-detection and wardriving plugin for **Pwnagotchi**! SnoopR turns your pocket-sized AI companion into a powerful multi-modal sensor that logs Wi-Fi, Bluetooth/BLE, and even overhead aircraft, while intelligently identifying potential tails or persistent trackers through movement, velocity, spatial clustering, and RSSI-based positioning.
 
-This major release (**v5.0.0**) represents a complete evolution from earlier versions. What started as a solid wardriving logger has become a professional-grade surveillance detection system with real persistence scoring, multilateration triangulation, aircraft awareness, encrypted mesh collaboration, modern BLE scanning, and a rich tactical web interface.
+This release (**v5.1.0**) is a hotfix update on top of the major v5.3.0 overhaul, focusing on stability and reliability. It fixes concurrent database access issues, handles rare duplicate network entries, corrects the Bluetooth company ID download URL, and ensures thread-safety across operations. These changes make SnoopR more robust for long-running sessions and multi-threaded environments, reducing crashes and data inconsistencies that could occur in previous versions.
 
 Key enhancements and fixes over previous versions (and why they’re better):
 - **Fully implemented persistence scoring + spatial clustering** – Now actively computes a 0.0–1.0 score based on recent 5-minute activity windows, repeated presence, and distinct ~100m clusters. Far superior to old crude movement checks — catches slow, lingering followers with dramatically fewer false positives/negatives.
@@ -686,10 +686,15 @@ Key enhancements and fixes over previous versions (and why they’re better):
 - **Modern BLE scanning with Bleak** – Async, reliable scanning replaces deprecated `hcitool`. Fewer errors, better device/name detection on modern kernels.
 - **Encrypted mesh networking** – AES-GCM UDP sharing between units. Enables real-time collaborative detection (new capability).
 - **Server-Sent Events (SSE)** – Live count updates in web UI without reloads (smoother experience).
-- **Enhanced web UI** KML Export with Colored Trails – Download your entire dataset as a KML file with persistence-colored markers (green/yellow/red) and full movement trails. Load directly into Google Earth or Google My Maps for offline analysis — massively better for post-session review than the old static map view.
+- **KML Export with Colored Trails** – Download your entire dataset as a KML file with persistence-colored markers (green/yellow/red) and full movement trails. Load directly into Google Earth or Google My Maps for offline analysis — massively better for post-session review than the old static map view.
+- **Enhanced web UI** – Trails/polylines, persistence-weighted heatmap, dark mode, search, advanced filters (High Persistence, Aircraft, Clients).
 - **Vendor lookup & classification** – Auto-downloads Bluetooth company IDs, uses OUI db, classifies devices (Apple, wearables, etc.).
 - **WiGLE fallback** – Optional SSID-based geolocation when GPS unavailable.
 - **Performance & stability** – Batch upserts, proper indexing, graceful dependency handling, robust background analysis thread.
+- **Thread-safe database operations** – All Database methods now protected by a reentrant lock to prevent concurrent access errors and nested transaction issues. Ensures reliability in multi-threaded environments like background analysis and scans.
+- **Duplicate network handling** – Safely manages rare cases of duplicate (mac, device_type) entries by using the first match and logging warnings. Prevents insertion failures.
+- **Corrected Bluetooth company URL** – Updated to the latest valid endpoint (v1/company_ids.json). Fixes download failures in v5.0.0.
+- **Protected analysis methods** – Wrapped direct cursor usage in locks to avoid conflicts. Improves overall stability during periodic updates.
 - **Config compatibility** – Supports both legacy flat keys and modern nested tables (especially for jayofelony custom images).
 
 ## Features
@@ -700,7 +705,7 @@ Key enhancements and fixes over previous versions (and why they’re better):
 - **RSSI triangulation**: Estimated position + MSE for Wi-Fi/BLE.
 - **Spatial clustering**: ~100m zone counting to detect repeated locations.
 - **Vendor & classification**: OUI + Bluetooth company IDs + heuristics.
-- **Aircraft tracking**: Smart caching, movement-aware logging. You need SkyHigh Plugin in order for it to work!
+- **Aircraft tracking**: Smart caching, movement-aware logging.
 - **Modern BLE scanning**: Configurable async Bleak scanner.
 - **Encrypted mesh**: Optional real-time sharing.
 - **WiGLE fallback**: SSID geolocation.
@@ -738,7 +743,7 @@ sudo apt update && sudo apt install wireshark-common
 - **Bluetooth Company Identifiers** (manually download to the configured path, default `/root/snoopr/company_identifiers.json`):
   ```bash
   sudo mkdir -p /root/snoopr
-  sudo wget -O /root/snoopr/company_identifiers.json https://github.com/NordicSemiconductor/bluetooth-numbers-database/blob/master/v1/company_ids.json
+  sudo wget -O /root/snoopr/company_identifiers.json https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/refs/heads/master/company_identifiers/company_identifiers.json
   ```
 
 - **Wireshark OUI Database** (manually download if wireshark-common not installed):
@@ -770,6 +775,7 @@ Install dependencies:
 
 ```bash
 sudo pip3 install bleak cryptography
+sudo apt install wireshark-common
 ```
 
 Restart:
@@ -846,6 +852,10 @@ api_token = ""
 
 Both formats work — use the one matching your image. Restart after changes.
 
+## Database Schema Updates
+
+On startup, SnoopR checks and migrates the database schema automatically, adding any missing columns (e.g., channel, auth_mode, triangulated_lat) with ALTER TABLE. Indexes are created for faster queries on network_id, mac, and timestamp.
+
 ## Usage
 
 Runs automatically on boot.
@@ -870,6 +880,19 @@ Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 ## Disclaimer
 
 For educational and security testing only. Respect privacy and local laws. Use responsibly!
+
+✅ What’s Fixed in v5.1.0
+
+1. Thread‑safe database operations – All public Database methods now use a reentrant lock (db_lock) to prevent nested transactions and concurrent write errors.
+
+2. Duplicate network handling – In add_detection_batch, if multiple rows are returned for a (mac, device_type) pair, the first is used and a warning is logged.
+
+3. Correct Bluetooth company URL – Updated to https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/master/v1/company_ids.json (confirmed working).
+
+4. Protected update_device_status – Wrapped the direct cursor usage with the database lock to avoid conflicts with other threads.
+
+5. Version bumped to 5.1.0 to reflect these stability improvements.
+---
 
 # SkyHigh Plugin
 ## Overview
