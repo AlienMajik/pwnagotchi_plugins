@@ -109,6 +109,7 @@ class Database:
     def __init__(self, path):
         self._path = path
         self._connection = None
+        self.db_lock = threading.RLock()   # Reentrant lock for thread safety
         self._connect()
 
     def _connect(self):
@@ -217,219 +218,233 @@ class Database:
         cursor.close()
 
     def disconnect(self):
-        if self._connection:
-            self._connection.close()
+        with self.db_lock:
+            if self._connection:
+                self._connection.close()
 
     def new_session(self):
-        cursor = self._connection.cursor()
-        cursor.execute('INSERT INTO sessions DEFAULT VALUES')
-        session_id = cursor.lastrowid
-        self._connection.commit()
-        cursor.close()
-        return session_id
+        with self.db_lock:
+            cursor = self._connection.cursor()
+            cursor.execute('INSERT INTO sessions DEFAULT VALUES')
+            session_id = cursor.lastrowid
+            self._connection.commit()
+            cursor.close()
+            return session_id
 
     def add_detection_batch(self, detections):
         """Detections: list of tuples (mac, type, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies,
            encryption, signal_strength, latitude, longitude, channel, auth_mode, altitude, session_id)"""
         if not detections:
             return
-        with self._connection:
-            cursor = self._connection.cursor()
-            # Upsert networks
-            net_map = {}
-            for det in detections:
-                mac, type_, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies = det[:10]
-                key = (mac, device_type)
-                if key not in net_map:
-                    cursor.execute('SELECT id FROM networks WHERE mac = ? AND device_type = ?', key)
-                    row = cursor.fetchone()
-                    if row:
-                        net_id = row[0]
-                        cursor.execute('''
-                            UPDATE networks SET classification=?, is_rogue=?, is_mesh=?, vulnerabilities=?, anomalies=?
-                            WHERE id=?
-                        ''', (classification, is_rogue, is_mesh, vulns, anomalies, net_id))
-                    else:
-                        cursor.execute('''
-                            INSERT INTO networks (mac, type, name, device_type, vendor, classification, is_rogue, is_mesh, vulnerabilities, anomalies)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (mac, type_, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies))
-                        net_id = cursor.lastrowid
-                    net_map[key] = net_id
-            # Insert detections
-            for det in detections:
-                mac, type_, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies, encryption, signal_strength, latitude, longitude, channel, auth_mode, altitude, session_id = det
-                network_id = net_map[(mac, device_type)]
-                cursor.execute('''
-                    INSERT INTO detections (session_id, network_id, encryption, signal_strength, latitude, longitude, altitude, channel, auth_mode, filtered_signal_strength)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (session_id, network_id, encryption, signal_strength, latitude, longitude, altitude, channel, auth_mode, None))
-            self._connection.commit()
-            logging.debug(f'[SnoopR] Batch added {len(detections)} detections')
-            cursor.close()
+        with self.db_lock:
+            with self._connection:
+                cursor = self._connection.cursor()
+                # Upsert networks
+                net_map = {}
+                for det in detections:
+                    mac, type_, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies = det[:10]
+                    key = (mac, device_type)
+                    if key not in net_map:
+                        cursor.execute('SELECT id FROM networks WHERE mac = ? AND device_type = ?', key)
+                        rows = cursor.fetchall()
+                        if rows:
+                            net_id = rows[0][0]          # take first if multiple (shouldn't happen)
+                            if len(rows) > 1:
+                                logging.warning(f'[SnoopR] Duplicate networks for {key}, using first.')
+                            cursor.execute('''
+                                UPDATE networks SET classification=?, is_rogue=?, is_mesh=?, vulnerabilities=?, anomalies=?
+                                WHERE id=?
+                            ''', (classification, is_rogue, is_mesh, vulns, anomalies, net_id))
+                        else:
+                            cursor.execute('''
+                                INSERT INTO networks (mac, type, name, device_type, vendor, classification, is_rogue, is_mesh, vulnerabilities, anomalies)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ''', (mac, type_, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies))
+                            net_id = cursor.lastrowid
+                        net_map[key] = net_id
+                # Insert detections
+                for det in detections:
+                    mac, type_, name, device_type, vendor, classification, is_rogue, is_mesh, vulns, anomalies, encryption, signal_strength, latitude, longitude, channel, auth_mode, altitude, session_id = det
+                    network_id = net_map[(mac, device_type)]
+                    cursor.execute('''
+                        INSERT INTO detections (session_id, network_id, encryption, signal_strength, latitude, longitude, altitude, channel, auth_mode, filtered_signal_strength)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (session_id, network_id, encryption, signal_strength, latitude, longitude, altitude, channel, auth_mode, None))
+                self._connection.commit()
+                logging.debug(f'[SnoopR] Batch added {len(detections)} detections')
+                cursor.close()
 
     def update_filtered_rssi(self, detection_id, filtered_rssi):
-        with self._connection:
-            self._connection.execute('UPDATE detections SET filtered_signal_strength = ? WHERE id = ?', (filtered_rssi, detection_id))
+        with self.db_lock:
+            with self._connection:
+                self._connection.execute('UPDATE detections SET filtered_signal_strength = ? WHERE id = ?', (filtered_rssi, detection_id))
 
     def update_persistence(self, mac, device_type, score, windows_hit, cluster_count):
-        with self._connection:
-            self._connection.execute('''
-                UPDATE networks
-                SET persistence_score = ?, windows_hit = ?, cluster_count = ?
-                WHERE mac = ? AND device_type = ?
-            ''', (score, windows_hit, cluster_count, mac, device_type))
+        with self.db_lock:
+            with self._connection:
+                self._connection.execute('''
+                    UPDATE networks
+                    SET persistence_score = ?, windows_hit = ?, cluster_count = ?
+                    WHERE mac = ? AND device_type = ?
+                ''', (score, windows_hit, cluster_count, mac, device_type))
 
     def update_snooper_status(self, mac, device_type, is_snooper):
-        with self._connection:
-            self._connection.execute('UPDATE networks SET is_snooper = ? WHERE mac = ? AND device_type = ?', (is_snooper, mac, device_type))
+        with self.db_lock:
+            with self._connection:
+                self._connection.execute('UPDATE networks SET is_snooper = ? WHERE mac = ? AND device_type = ?', (is_snooper, mac, device_type))
 
     def update_max_velocity(self, mac, device_type, max_velocity):
-        with self._connection:
-            self._connection.execute('UPDATE networks SET max_velocity = ? WHERE mac = ? AND device_type = ?', (max_velocity, mac, device_type))
+        with self.db_lock:
+            with self._connection:
+                self._connection.execute('UPDATE networks SET max_velocity = ? WHERE mac = ? AND device_type = ?', (max_velocity, mac, device_type))
 
     def update_triangulated_position(self, mac, device_type, lat, lon, mse=None):
-        with self._connection:
-            self._connection.execute('UPDATE networks SET triangulated_lat = ?, triangulated_lon = ?, triangulated_mse = ? WHERE mac = ? AND device_type = ?',
-                                     (lat, lon, mse, mac, device_type))
+        with self.db_lock:
+            with self._connection:
+                self._connection.execute('UPDATE networks SET triangulated_lat = ?, triangulated_lon = ?, triangulated_mse = ? WHERE mac = ? AND device_type = ?',
+                                         (lat, lon, mse, mac, device_type))
 
     def get_network_counts(self):
         """Return dict with counts by device_type and snooper count."""
-        try:
-            with self._connection:
-                wifi = self._connection.execute('SELECT COUNT(*) FROM networks WHERE device_type="wifi"').fetchone()[0]
-                bt = self._connection.execute('SELECT COUNT(*) FROM networks WHERE device_type="bluetooth"').fetchone()[0]
-                aircraft = self._connection.execute('SELECT COUNT(*) FROM networks WHERE device_type="aircraft"').fetchone()[0]
-                snoopers = self._connection.execute('SELECT COUNT(*) FROM networks WHERE is_snooper=1').fetchone()[0]
-                high_pers = self._connection.execute('SELECT COUNT(*) FROM networks WHERE persistence_score >= 0.7').fetchone()[0]
-                return {'wifi': wifi, 'bluetooth': bt, 'aircraft': aircraft, 'snoopers': snoopers, 'high_persistence': high_pers}
-        except Exception as e:
-            logging.error(f'[SnoopR] get_network_counts error: {e}')
-            return {'wifi': 0, 'bluetooth': 0, 'aircraft': 0, 'snoopers': 0, 'high_persistence': 0}
+        with self.db_lock:
+            try:
+                with self._connection:
+                    wifi = self._connection.execute('SELECT COUNT(*) FROM networks WHERE device_type="wifi"').fetchone()[0]
+                    bt = self._connection.execute('SELECT COUNT(*) FROM networks WHERE device_type="bluetooth"').fetchone()[0]
+                    aircraft = self._connection.execute('SELECT COUNT(*) FROM networks WHERE device_type="aircraft"').fetchone()[0]
+                    snoopers = self._connection.execute('SELECT COUNT(*) FROM networks WHERE is_snooper=1').fetchone()[0]
+                    high_pers = self._connection.execute('SELECT COUNT(*) FROM networks WHERE persistence_score >= 0.7').fetchone()[0]
+                    return {'wifi': wifi, 'bluetooth': bt, 'aircraft': aircraft, 'snoopers': snoopers, 'high_persistence': high_pers}
+            except Exception as e:
+                logging.error(f'[SnoopR] get_network_counts error: {e}')
+                return {'wifi': 0, 'bluetooth': 0, 'aircraft': 0, 'snoopers': 0, 'high_persistence': 0}
 
     def get_all_networks(self, sort_by=None, filter_by=None, include_paths=False, limit=1000, offset=0):
         """Return list of network dicts with optional paths. Returns empty list on error."""
-        try:
-            query = '''
-                SELECT n.mac, n.type, n.name, n.device_type, n.vendor,
-                       MIN(datetime(d.timestamp, 'localtime')) as first_seen,
-                       MAX(datetime(d.timestamp, 'localtime')) as last_seen,
-                       COUNT(DISTINCT d.session_id) as sessions_count,
-                       (SELECT latitude FROM detections dd WHERE dd.network_id = n.id ORDER BY dd.timestamp DESC LIMIT 1) as last_latitude,
-                       (SELECT longitude FROM detections dd WHERE dd.network_id = n.id ORDER BY dd.timestamp DESC LIMIT 1) as last_longitude,
-                       n.is_snooper, n.triangulated_lat, n.triangulated_lon, n.triangulated_mse, n.max_velocity,
-                       n.persistence_score, n.windows_hit, n.cluster_count
-                FROM networks n
-                JOIN detections d ON n.id = d.network_id
-                WHERE 1=1
-            '''
-            params = []
-            if filter_by == 'snoopers':
-                query += ' AND n.is_snooper = 1'
-            elif filter_by == 'bluetooth':
-                query += ' AND n.device_type = "bluetooth"'
-            elif filter_by == 'aircraft':
-                query += ' AND n.device_type = "aircraft"'
-            elif filter_by == 'clients':
-                query += ' AND n.type = "wi-fi client"'
-            elif filter_by == 'high_persistence':
-                query += ' AND n.persistence_score >= 0.7'
+        with self.db_lock:
+            try:
+                query = '''
+                    SELECT n.mac, n.type, n.name, n.device_type, n.vendor,
+                           MIN(datetime(d.timestamp, 'localtime')) as first_seen,
+                           MAX(datetime(d.timestamp, 'localtime')) as last_seen,
+                           COUNT(DISTINCT d.session_id) as sessions_count,
+                           (SELECT latitude FROM detections dd WHERE dd.network_id = n.id ORDER BY dd.timestamp DESC LIMIT 1) as last_latitude,
+                           (SELECT longitude FROM detections dd WHERE dd.network_id = n.id ORDER BY dd.timestamp DESC LIMIT 1) as last_longitude,
+                           n.is_snooper, n.triangulated_lat, n.triangulated_lon, n.triangulated_mse, n.max_velocity,
+                           n.persistence_score, n.windows_hit, n.cluster_count
+                    FROM networks n
+                    JOIN detections d ON n.id = d.network_id
+                    WHERE 1=1
+                '''
+                params = []
+                if filter_by == 'snoopers':
+                    query += ' AND n.is_snooper = 1'
+                elif filter_by == 'bluetooth':
+                    query += ' AND n.device_type = "bluetooth"'
+                elif filter_by == 'aircraft':
+                    query += ' AND n.device_type = "aircraft"'
+                elif filter_by == 'clients':
+                    query += ' AND n.type = "wi-fi client"'
+                elif filter_by == 'high_persistence':
+                    query += ' AND n.persistence_score >= 0.7'
 
-            query += ' GROUP BY n.id'
+                query += ' GROUP BY n.id'
 
-            order_map = {
-                'device_type': 'n.device_type',
-                'is_snooper': 'n.is_snooper DESC',
-                'persistence': 'n.persistence_score DESC',
-                'velocity': 'n.max_velocity DESC',
-                'mac': 'n.mac',
-                'name': 'n.name',
-            }
-            if sort_by in order_map:
-                query += f' ORDER BY {order_map[sort_by]}'
-            else:
-                query += ' ORDER BY n.persistence_score DESC'
-
-            query += ' LIMIT ? OFFSET ?'
-            params.extend([limit, offset])
-
-            with self._connection:
-                rows = self._connection.execute(query, params).fetchall()
-
-            networks = []
-            for row in rows:
-                (mac, type_, name, device_type, vendor, first_seen, last_seen, sessions_count,
-                 last_latitude, last_longitude, is_snooper, triangulated_lat, triangulated_lon,
-                 triangulated_mse, max_velocity, persistence_score, windows_hit, cluster_count) = row
-                lat = float(triangulated_lat) if triangulated_lat else (float(last_latitude) if last_latitude and last_latitude != '-' else None)
-                lon = float(triangulated_lon) if triangulated_lon else (float(last_longitude) if last_longitude and last_longitude != '-' else None)
-                net = {
-                    'mac': mac,
-                    'type': type_,
-                    'name': name or 'Hidden',
-                    'device_type': device_type,
-                    'vendor': vendor,
-                    'first_seen': first_seen,
-                    'last_seen': last_seen,
-                    'sessions_count': sessions_count,
-                    'latitude': lat,
-                    'longitude': lon,
-                    'is_snooper': bool(is_snooper),
-                    'triangulated_mse': float(triangulated_mse) if triangulated_mse else None,
-                    'max_velocity': float(max_velocity) if max_velocity else None,
-                    'persistence_score': round(float(persistence_score or 0.0), 3),
-                    'windows_hit': windows_hit or 0,
-                    'cluster_count': cluster_count or 0
+                order_map = {
+                    'device_type': 'n.device_type',
+                    'is_snooper': 'n.is_snooper DESC',
+                    'persistence': 'n.persistence_score DESC',
+                    'velocity': 'n.max_velocity DESC',
+                    'mac': 'n.mac',
+                    'name': 'n.name',
                 }
-                if include_paths and lat and lon:
-                    path_rows = self._connection.execute('''
-                        SELECT latitude, longitude, datetime(timestamp, 'localtime'), signal_strength
-                        FROM detections WHERE network_id = (SELECT id FROM networks WHERE mac=? AND device_type=?)
-                        ORDER BY timestamp
-                    ''', (mac, device_type)).fetchall()
-                    path = []
-                    for pr in path_rows:
-                        if pr[0] != '-' and pr[1] != '-':
-                            path.append({
-                                'latitude': float(pr[0]),
-                                'longitude': float(pr[1]),
-                                'timestamp': pr[2],
-                                'signal_strength': pr[3]
-                            })
-                    if len(path) > 1:
-                        net['path'] = path
-                networks.append(net)
-            return networks
-        except Exception as e:
-            logging.error(f'[SnoopR] get_all_networks error: {e}')
-            return []  # Critical: return empty list instead of crashing
+                if sort_by in order_map:
+                    query += f' ORDER BY {order_map[sort_by]}'
+                else:
+                    query += ' ORDER BY n.persistence_score DESC'
+
+                query += ' LIMIT ? OFFSET ?'
+                params.extend([limit, offset])
+
+                with self._connection:
+                    rows = self._connection.execute(query, params).fetchall()
+
+                networks = []
+                for row in rows:
+                    (mac, type_, name, device_type, vendor, first_seen, last_seen, sessions_count,
+                     last_latitude, last_longitude, is_snooper, triangulated_lat, triangulated_lon,
+                     triangulated_mse, max_velocity, persistence_score, windows_hit, cluster_count) = row
+                    lat = float(triangulated_lat) if triangulated_lat else (float(last_latitude) if last_latitude and last_latitude != '-' else None)
+                    lon = float(triangulated_lon) if triangulated_lon else (float(last_longitude) if last_longitude and last_longitude != '-' else None)
+                    net = {
+                        'mac': mac,
+                        'type': type_,
+                        'name': name or 'Hidden',
+                        'device_type': device_type,
+                        'vendor': vendor,
+                        'first_seen': first_seen,
+                        'last_seen': last_seen,
+                        'sessions_count': sessions_count,
+                        'latitude': lat,
+                        'longitude': lon,
+                        'is_snooper': bool(is_snooper),
+                        'triangulated_mse': float(triangulated_mse) if triangulated_mse else None,
+                        'max_velocity': float(max_velocity) if max_velocity else None,
+                        'persistence_score': round(float(persistence_score or 0.0), 3),
+                        'windows_hit': windows_hit or 0,
+                        'cluster_count': cluster_count or 0
+                    }
+                    if include_paths and lat and lon:
+                        path_rows = self._connection.execute('''
+                            SELECT latitude, longitude, datetime(timestamp, 'localtime'), signal_strength
+                            FROM detections WHERE network_id = (SELECT id FROM networks WHERE mac=? AND device_type=?)
+                            ORDER BY timestamp
+                        ''', (mac, device_type)).fetchall()
+                        path = []
+                        for pr in path_rows:
+                            if pr[0] != '-' and pr[1] != '-':
+                                path.append({
+                                    'latitude': float(pr[0]),
+                                    'longitude': float(pr[1]),
+                                    'timestamp': pr[2],
+                                    'signal_strength': pr[3]
+                                })
+                        if len(path) > 1:
+                            net['path'] = path
+                    networks.append(net)
+                return networks
+            except Exception as e:
+                logging.error(f'[SnoopR] get_all_networks error: {e}')
+                return []  # Critical: return empty list instead of crashing
 
     def get_detections_for_network(self, mac, device_type, limit=100):
-        try:
-            with self._connection:
-                rows = self._connection.execute('''
-                    SELECT d.id, d.signal_strength, d.latitude, d.longitude, d.altitude, d.timestamp,
-                           d.filtered_signal_strength
-                    FROM detections d
-                    JOIN networks n ON n.id = d.network_id
-                    WHERE n.mac = ? AND n.device_type = ?
-                    ORDER BY d.timestamp DESC
-                    LIMIT ?
-                ''', (mac, device_type, limit)).fetchall()
-            return [{'id': r[0], 'rssi': r[1], 'lat': r[2], 'lon': r[3], 'alt': r[4],
-                     'timestamp': r[5], 'filtered_rssi': r[6]} for r in rows]
-        except Exception as e:
-            logging.error(f'[SnoopR] get_detections_for_network error: {e}')
-            return []
+        with self.db_lock:
+            try:
+                with self._connection:
+                    rows = self._connection.execute('''
+                        SELECT d.id, d.signal_strength, d.latitude, d.longitude, d.altitude, d.timestamp,
+                               d.filtered_signal_strength
+                        FROM detections d
+                        JOIN networks n ON n.id = d.network_id
+                        WHERE n.mac = ? AND n.device_type = ?
+                        ORDER BY d.timestamp DESC
+                        LIMIT ?
+                    ''', (mac, device_type, limit)).fetchall()
+                return [{'id': r[0], 'rssi': r[1], 'lat': r[2], 'lon': r[3], 'alt': r[4],
+                         'timestamp': r[5], 'filtered_rssi': r[6]} for r in rows]
+            except Exception as e:
+                logging.error(f'[SnoopR] get_detections_for_network error: {e}')
+                return []
 
     def prune_old_data(self, days):
-        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
-        with self._connection:
-            self._connection.execute('DELETE FROM detections WHERE timestamp < ?', (cutoff,))
-            self._connection.execute('DELETE FROM sessions WHERE id NOT IN (SELECT DISTINCT session_id FROM detections)')
-            self._connection.execute('DELETE FROM networks WHERE id NOT IN (SELECT DISTINCT network_id FROM detections)')
-            self._connection.execute('VACUUM')
-        logging.info(f'[SnoopR] Pruned data older than {days} days')
+        with self.db_lock:
+            cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d %H:%M:%S')
+            with self._connection:
+                self._connection.execute('DELETE FROM detections WHERE timestamp < ?', (cutoff,))
+                self._connection.execute('DELETE FROM sessions WHERE id NOT IN (SELECT DISTINCT session_id FROM detections)')
+                self._connection.execute('DELETE FROM networks WHERE id NOT IN (SELECT DISTINCT network_id FROM detections)')
+                self._connection.execute('VACUUM')
+            logging.info(f'[SnoopR] Pruned data older than {days} days')
 
 
 # ---------------------------------------------------------------------
@@ -610,7 +625,7 @@ class PersistenceAnalyzer(threading.Thread):
 
 class SnoopR(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '5.0.0'  
+    __version__ = '5.1.0'   # Transaction-safe version with correct BT URL
     __license__ = 'GPL3'
     __description__ = 'Enhanced SnoopR: surveillance detection with WiFi/BLE/Aircraft, web UI, mesh, persistence scoring.'
 
@@ -752,6 +767,7 @@ class SnoopR(plugins.Plugin):
 
     def _download_bt_company_db(self):
         try:
+            # Correct URL as of February 2026
             url = "https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/master/v1/company_ids.json"
             resp = requests.get(url, timeout=30)
             resp.raise_for_status()
@@ -1016,92 +1032,93 @@ class SnoopR(plugins.Plugin):
 
     def update_device_status(self, mac, device_type):
         """Compute persistence, velocity, triangulation and update database."""
-        try:
-            # Fetch all detections for this device
-            cursor = self.db._connection.cursor()
-            cursor.execute('''
-                SELECT latitude, longitude, timestamp, signal_strength, altitude
-                FROM detections d JOIN networks n ON d.network_id = n.id
-                WHERE n.mac = ? AND n.device_type = ?
-                ORDER BY timestamp
-            ''', (mac, device_type))
-            rows = cursor.fetchall()
-            if len(rows) < 3:
-                return
+        # Use the database lock to protect direct cursor usage
+        with self.db.db_lock:
+            try:
+                # Fetch all detections for this device
+                cursor = self.db._connection.cursor()
+                cursor.execute('''
+                    SELECT latitude, longitude, timestamp, signal_strength, altitude
+                    FROM detections d JOIN networks n ON d.network_id = n.id
+                    WHERE n.mac = ? AND n.device_type = ?
+                    ORDER BY timestamp
+                ''', (mac, device_type))
+                rows = cursor.fetchall()
+                cursor.close()
+                if len(rows) < 3:
+                    return
 
-            # Velocity and snooper detection based on movement
-            is_snooper_velocity = False
-            max_velocity = 0.0
-            prev_valid = None
-            for row in rows:
-                lat, lon, ts = row[0], row[1], row[2]
-                if lat == '-' or lon == '-':
-                    continue
-                if prev_valid:
-                    dist = self.__calculate_distance(prev_valid[0], prev_valid[1], float(lat), float(lon))
-                    t1 = prev_valid[2]
-                    t2 = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
-                    minutes = (t2 - t1).total_seconds() / 60.0
-                    if minutes <= self.time_threshold_minutes and minutes > 0:
-                        velocity = (dist * 1609.34) / (minutes * 60)  # m/s
-                        max_velocity = max(max_velocity, velocity)
-                        if dist > self.movement_threshold or velocity > 1.5:
-                            is_snooper_velocity = True
-                prev_valid = (float(lat), float(lon), datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
+                # Velocity and snooper detection based on movement
+                is_snooper_velocity = False
+                max_velocity = 0.0
+                prev_valid = None
+                for row in rows:
+                    lat, lon, ts = row[0], row[1], row[2]
+                    if lat == '-' or lon == '-':
+                        continue
+                    if prev_valid:
+                        dist = self.__calculate_distance(prev_valid[0], prev_valid[1], float(lat), float(lon))
+                        t1 = prev_valid[2]
+                        t2 = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+                        minutes = (t2 - t1).total_seconds() / 60.0
+                        if minutes <= self.time_threshold_minutes and minutes > 0:
+                            velocity = (dist * 1609.34) / (minutes * 60)  # m/s
+                            max_velocity = max(max_velocity, velocity)
+                            if dist > self.movement_threshold or velocity > 1.5:
+                                is_snooper_velocity = True
+                    prev_valid = (float(lat), float(lon), datetime.strptime(ts, '%Y-%m-%d %H:%M:%S'))
 
-            # Persistence scoring
-            gps_detections = [(r[0], r[1], r[2]) for r in rows if r[0] != '-' and r[1] != '-']
-            timestamps = [datetime.strptime(ts, '%Y-%m-%d %H:%M:%S') for _, _, ts in gps_detections]
-            now = datetime.now()
-            cluster_count = self.get_cluster_count([(lat, lon) for lat, lon, _ in gps_detections])
-            weights = [0.4, 0.3, 0.2, 0.1]
-            score = 0.0
-            windows_hit = 0
-            for i in range(4):
-                end_min = (i + 1) * 5
-                start_min = i * 5
-                start_time = now - timedelta(minutes=end_min)
-                end_time = now - timedelta(minutes=start_min)
-                if any(start_time <= ts < end_time for ts in timestamps):
-                    score += weights[i]
-                    windows_hit += 1
-            score += 0.2 * max(0, windows_hit - 1)
-            score += 0.1 * max(0, cluster_count - 1)
-            score = min(1.0, score)
-
-            is_snooper = 1 if (score >= self.persistence_threshold or is_snooper_velocity) else 0
-
-            # Update database
-            self.db.update_persistence(mac, device_type, score, windows_hit, cluster_count)
-            self.db.update_snooper_status(mac, device_type, is_snooper)
-            self.db.update_max_velocity(mac, device_type, max_velocity)
-
-            # Triangulation (WiFi/Bluetooth only)
-            if device_type in ['wifi', 'bluetooth']:
-                valid_dets = []
-                kf = KalmanFilter()
+                # Persistence scoring
+                gps_detections = [(r[0], r[1], r[2]) for r in rows if r[0] != '-' and r[1] != '-']
+                timestamps = [datetime.strptime(ts, '%Y-%m-%d %H:%M:%S') for _, _, ts in gps_detections]
                 now = datetime.now()
-                for r in rows:
-                    lat, lon, ts, rssi, alt = r
-                    if lat != '-' and lon != '-' and rssi and -100 <= rssi <= -30:
-                        filtered = kf.filter(rssi)
-                        tx = self.options.get('tx_power_' + device_type, -20)
-                        n = self.options.get('path_loss_n_' + device_type, 2.7)
-                        dist = 10 ** ((tx - filtered) / (10 * n))
-                        age = (now - datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')).total_seconds() / 3600
-                        valid_dets.append((float(lat), float(lon), float(alt or 0), dist, age))
-                if len(valid_dets) >= self.triangulation_min_points:
-                    wts = [exp(-a) / max(d, 1) for _,_,_,d,a in valid_dets]
-                    total = sum(wts) or 1
-                    init_lat = sum(w * lat for w, (lat,_,_,_,_) in zip(wts, valid_dets)) / total
-                    init_lon = sum(w * lon for w, (_,lon,_,_,_) in zip(wts, valid_dets)) / total
-                    pos, mse = self.trilaterate(valid_dets, initial_guess=(init_lat, init_lon))
-                    if pos:
-                        self.db.update_triangulated_position(mac, device_type, str(pos[0]), str(pos[1]), mse)
-        except Exception as e:
-            logging.error(f'[SnoopR] update_device_status error for {mac} ({device_type}): {e}')
-        finally:
-            cursor.close()
+                cluster_count = self.get_cluster_count([(lat, lon) for lat, lon, _ in gps_detections])
+                weights = [0.4, 0.3, 0.2, 0.1]
+                score = 0.0
+                windows_hit = 0
+                for i in range(4):
+                    end_min = (i + 1) * 5
+                    start_min = i * 5
+                    start_time = now - timedelta(minutes=end_min)
+                    end_time = now - timedelta(minutes=start_min)
+                    if any(start_time <= ts < end_time for ts in timestamps):
+                        score += weights[i]
+                        windows_hit += 1
+                score += 0.2 * max(0, windows_hit - 1)
+                score += 0.1 * max(0, cluster_count - 1)
+                score = min(1.0, score)
+
+                is_snooper = 1 if (score >= self.persistence_threshold or is_snooper_velocity) else 0
+
+                # Update database
+                self.db.update_persistence(mac, device_type, score, windows_hit, cluster_count)
+                self.db.update_snooper_status(mac, device_type, is_snooper)
+                self.db.update_max_velocity(mac, device_type, max_velocity)
+
+                # Triangulation (WiFi/Bluetooth only)
+                if device_type in ['wifi', 'bluetooth']:
+                    valid_dets = []
+                    kf = KalmanFilter()
+                    now = datetime.now()
+                    for r in rows:
+                        lat, lon, ts, rssi, alt = r
+                        if lat != '-' and lon != '-' and rssi and -100 <= rssi <= -30:
+                            filtered = kf.filter(rssi)
+                            tx = self.options.get('tx_power_' + device_type, -20)
+                            n = self.options.get('path_loss_n_' + device_type, 2.7)
+                            dist = 10 ** ((tx - filtered) / (10 * n))
+                            age = (now - datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')).total_seconds() / 3600
+                            valid_dets.append((float(lat), float(lon), float(alt or 0), dist, age))
+                    if len(valid_dets) >= self.triangulation_min_points:
+                        wts = [exp(-a) / max(d, 1) for _,_,_,d,a in valid_dets]
+                        total = sum(wts) or 1
+                        init_lat = sum(w * lat for w, (lat,_,_,_,_) in zip(wts, valid_dets)) / total
+                        init_lon = sum(w * lon for w, (_,lon,_,_,_) in zip(wts, valid_dets)) / total
+                        pos, mse = self.trilaterate(valid_dets, initial_guess=(init_lat, init_lon))
+                        if pos:
+                            self.db.update_triangulated_position(mac, device_type, str(pos[0]), str(pos[1]), mse)
+            except Exception as e:
+                logging.error(f'[SnoopR] update_device_status error for {mac} ({device_type}): {e}')
 
     # -----------------------------------------------------------------
     # Scanning Methods
