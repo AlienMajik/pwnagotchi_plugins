@@ -738,7 +738,7 @@ sudo apt update && sudo apt install wireshark-common
 - **Bluetooth Company Identifiers** (manually download to the configured path, default `/root/snoopr/company_identifiers.json`):
   ```bash
   sudo mkdir -p /root/snoopr
-  sudo wget -O /root/snoopr/company_identifiers.json https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/refs/heads/master/company_identifiers/company_identifiers.json
+  sudo wget -O /root/snoopr/company_identifiers.json https://github.com/NordicSemiconductor/bluetooth-numbers-database/blob/master/v1/company_ids.json
   ```
 
 - **Wireshark OUI Database** (manually download if wireshark-common not installed):
