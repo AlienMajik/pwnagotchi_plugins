@@ -700,7 +700,7 @@ Key enhancements and fixes over previous versions (and why they’re better):
 - **RSSI triangulation**: Estimated position + MSE for Wi-Fi/BLE.
 - **Spatial clustering**: ~100m zone counting to detect repeated locations.
 - **Vendor & classification**: OUI + Bluetooth company IDs + heuristics.
-- **Aircraft tracking**: Smart caching, movement-aware logging.
+- **Aircraft tracking**: Smart caching, movement-aware logging. You need SkyHigh Plugin in order for it to work!
 - **Modern BLE scanning**: Configurable async Bleak scanner.
 - **Encrypted mesh**: Optional real-time sharing.
 - **WiGLE fallback**: SSID geolocation.
@@ -725,11 +725,27 @@ sudo pip3 install bleak cryptography
 - `bleak`: Modern BLE scanning.
 - `cryptography`: Mesh encryption.
 
-### System Dependencies
-- **Wireshark OUI database** (Wi-Fi vendors):
+### Vendor Databases
+SnoopR automatically downloads the Bluetooth company identifiers database on first run if missing. For Wi-Fi vendor lookup, the Wireshark OUI database is preferred.
+
+**Recommended (automatic OUI via package):**
+```bash
+sudo apt update && sudo apt install wireshark-common
+```
+
+**Manual Download Options** (use if `apt` is unavailable or for offline setup):
+
+- **Bluetooth Company Identifiers** (manually download to the configured path, default `/root/snoopr/company_identifiers.json`):
   ```bash
-  sudo apt update && sudo apt install wireshark-common
+  sudo mkdir -p /root/snoopr
+  sudo wget -O /root/snoopr/company_identifiers.json https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/refs/heads/master/company_identifiers/company_identifiers.json
   ```
+
+- **Wireshark OUI Database** (manually download if wireshark-common not installed):
+  ```bash
+  sudo wget -O /usr/share/wireshark/manuf https://www.wireshark.org/download/automated/data/manuf
+  ```
+
 - **ADS-B feed** (optional): Tool outputting valid `aircraft.json`.
 - **WiGLE API keys** (optional): For fallback geolocation.
 
@@ -754,7 +770,6 @@ Install dependencies:
 
 ```bash
 sudo pip3 install bleak cryptography
-sudo apt install wireshark-common
 ```
 
 Restart:
@@ -844,9 +859,9 @@ Runs automatically on boot.
 - Database: `<base_dir>/snoopr.db`.
 - Triangulated positions prioritized on map.
 - High Persistence uses `persistence_threshold`.
-- Bluetooth company DB auto-downloaded if missing.
+- Bluetooth company DB auto-downloaded if missing (or manually as above).
+- OUI database loaded from Wireshark path if available (or manually downloaded).
 - SSE live updates visible in browser console (expandable later).
-- SkyHigh plugin needed to track aircrafts if not used no aircrafts will not be detected
 
 ## Community and Contributions
 
@@ -855,7 +870,6 @@ Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 ## Disclaimer
 
 For educational and security testing only. Respect privacy and local laws. Use responsibly!
-
 # SkyHigh Plugin
 
 ## Overview
