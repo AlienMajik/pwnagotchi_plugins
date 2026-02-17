@@ -870,211 +870,184 @@ Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 ## Disclaimer
 
 For educational and security testing only. Respect privacy and local laws. Use responsibly!
+
 # SkyHigh Plugin
-
 ## Overview
+SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the OpenSky Network API. It displays the number of detected aircraft on your Pwnagotchi's screen and provides an interactive map view via a webhook, featuring detailed aircraft types (helicopters, commercial jets, small planes, drones, gliders, military) with distinct icons. A pruning feature keeps the data clean by removing outdated aircraft, and the web interface now offers powerful filtering and export options.
 
-SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the OpenSky Network API. It displays the number of detected aircraft on your Pwnagotchi's screen and provides an interactive map view via a webhook, featuring detailed aircraft types (helicopters, commercial jets, small planes, drones, gliders, military), DB flags, and flight path visualization. Distinct icons enhance the map, and a pruning feature keeps the log clean by removing outdated aircraft data.
+## What’s New in Version 2.0.0
+The updated SkyHigh plugin (version 2.0.0) brings significant refinements focused on stability, usability, performance, and configurability. This release incorporates community enhancements and addresses real-world usage feedback. Below is a detailed breakdown of what’s new and how it improves on previous versions:
 
-## What’s New in Version 1.1.1
-
-- **The updated SkyHigh plugin (version 1.1.1) introduces a range of new features and improvements that enhance its functionality, usability, and performance. Below is a detailed breakdown of what’s new and how it makes the plugin better compared to its previous version:**
-
-- **Filtering Options in the Web Interface:** Users can now filter aircraft displayed in the web interface by callsign, model, and altitude range (minimum and maximum) using a new filter form in the HTML template.
-
-- **Export Capabilities (CSV and KML):** Users can download data for offline analysis or integration with tools like Google Earth (KML) or spreadsheet software (CSV), adding flexibility for processing or visualizing data outside the plugin.
-
-- **Metadata Caching:** Aircraft metadata (e.g., model, registration) is now cached in a JSON file (skyhigh_metadata.json), loaded at startup, and saved when the plugin unloads. Caching reduces repeated API calls for previously seen aircraft, improving performance and reducing network load—especially beneficial for frequent users tracking recurring aircraft. 
-
-- **Type-Specific Icons** New map icons for commercial jets (blue), small planes (yellow), drones (purple), gliders (orange), and military aircraft (green), alongside helicopters (red).
-
-- **Background Data Fetching** Aircraft data is now fetched in a background thread using the _fetch_loop method, rather than in the main thread. This keeps the user interface responsive during data updates, preventing freezes or delays and enhancing the overall user experience.
-
-- **Blocklist and Allowlist Support:** New configuration options let users specify a blocklist (aircraft to exclude) and an allowlist (aircraft to include) based on ICAO24 codes.
-
-- **Improved Type Detection:** The get_aircraft_metadata method now uses enhanced logic to categorize aircraft types (e.g., helicopters, commercial jets, small planes, drones, gliders, military) based on manufacturer names, model prefixes (like "737" or "A320"), and typecodes.
-
--  **Enhanced Error Handling and Feedback** The plugin now handles more API error cases (e.g., missing data, authentication failures, rate limiting) and displays error messages and the last update time in the UI.
-
--  **Historical Position Tracking** The plugin stores up to 10 historical positions per aircraft in the historical_positions dictionary. While not yet fully utilized in the web interface, this sets the stage for future features like flight path visualization, offering potential for richer data analysis.
-
+- **Type-Based Filtering in the Web Interface:** A new dropdown filter lets users instantly show only specific aircraft types (Military, Helicopter, Commercial Jet, Small Plane/GA, Drone, Glider, or Other) alongside existing callsign, model, and altitude filters.
+- **Synchronized Map and Table Filtering:** When filters are applied, matching aircraft are now hidden from **both** the table **and** the map markers, keeping the view clean and focused.
+- **Configurable Map Tiles:** Added `map_tile_url` option (default: OpenStreetMap) allowing users to switch to alternative tile providers (e.g., satellite, dark mode) directly from config.
+- **Metadata Cache Expiry:** Cache entries now automatically expire after a configurable period (`metadata_cache_expiry_days`, default 7 days), ensuring stale model/registration data is refreshed over time.
+- **Option to Disable Metadata Fetching:** New `disable_metadata` config flag completely skips metadata API calls when enabled—ideal for anonymous use or when rate limits are a concern.
+- **Improved Type Detection:** Centralized pattern matching using a maintainable `TYPE_PATTERNS` dictionary that checks manufacturer, model, and typecode for more accurate and extensible categorization.
+- **More Reliable Pruning:** Pruning now uses precise OpenSky `last_contact` timestamps instead of local strings, ensuring accurate removal of stale aircraft.
+- **Enhanced Thread Safety and Code Structure:** Switched to reentrant locks (`RLock`) and added better separation of concerns for metadata and data handling, reducing risk of race conditions.
+- **Robust Metadata Fallbacks:** If fresh metadata fails, the plugin falls back to any cached entry (even expired) before using defaults, minimizing "Unknown" entries during network issues.
+- **Export Improvements:** CSV and KML exports now skip aircraft with invalid coordinates for cleaner output.
 
 ## How It’s Better Overall
-
-- **User-Friendly Interface:** The simplified table, filtering options, and export links make the web interface cleaner and more intuitive, focusing on essential data and user interaction.
-
-- **Performance Improvements:** Background fetching and metadata caching reduce resource usage and improve responsiveness, making the plugin more efficient.
-  
-- **Flexibility and Control:** Features like blocklist/allowlist, filtering, and export options empower users to customize their experience and use data in diverse ways.
-
-- **Reliability:** Enhanced error handling and embedded icons ensure consistent operation, even under suboptimal conditions.
-
-- **Future-Ready:** Historical position tracking and improved type detection pave the way for additional features, such as flight path mapping or advanced analytics.
+- **Superior Web Interface:** Synchronized type filtering and map marker hiding make it far easier to focus on specific traffic (e.g., "show only military" or "hide low-altitude GA"). The UI is now genuinely interactive and practical for real-time monitoring.
+- **Increased Reliability and Performance:** Expiring cache, disable-metadata option, and smarter fallbacks reduce API strain and errors, while improved pruning and threading keep everything smooth even under heavy load.
+- **Greater Configurability:** New options for map tiles and metadata behavior give users fine-grained control without touching code.
+- **More Maintainable and Community-Friendly:** Cleaner architecture, centralized patterns, and modular design make it easier for others to contribute or customize.
+- **Future-Ready:** Historical position tracking remains in place (up to 10 points per aircraft) as groundwork for upcoming flight path visualization.
 
 ## How It Works
-
 - **Data Fetching:** Queries the OpenSky API every 60 seconds (configurable) to retrieve aircraft data within the specified radius, supporting both anonymous and authenticated requests.
-
-- **Metadata Enrichment:** Fetches detailed metadata (model, registration, DB flags, type categorization) for each aircraft using its ICAO24 code, with robust handling for missing data.
-
-- **Flight Path Fetching:** Retrieves recent flight paths (up to 4 hours) for aircraft, falling back to locally stored historical positions if flight track access is unavailable.
-
-- **Pruning:** Aircraft not seen within the prune_minutes interval are removed from the log to maintain efficiency.
-
-- **UI Display:** The Pwnagotchi screen shows the number of detected aircraft, refreshed periodically.
-
-- **Webhook Map:** The webhook (/plugins/skyhigh/) renders a table with extended aircraft details (velocity, track, squawk, etc.) and an interactive map with type-specific icons and clickable flight path visualization.
+- **Metadata Enrichment:** Optionally fetches detailed metadata (model, registration, DB flags, type categorization) for each aircraft using its ICAO24 code, with caching, expiry, and robust fallbacks.
+- **Historical Position Tracking:** Stores up to 10 recent positions per aircraft locally—foundation for future flight path features.
+- **Pruning:** Aircraft not seen within the `prune_minutes` interval are removed using accurate OpenSky timestamps.
+- **UI Display:** The Pwnagotchi screen shows the current aircraft count, last update time, and any error messages.
+- **Webhook Map:** The webhook (`/plugins/skyhigh/`) renders a responsive table and interactive Leaflet map with type-specific icons. Filters instantly hide/show matching entries on both the table and map.
 
 ## Installation and Usage
-
 ### Prerequisites
-
 - A Pwnagotchi device with internet access.
-- GPS Adapter: For dynamic tracking, simply connect a GPS adapter to your Pwnagotchi and configure it with BetterCAP. The plugin will use real-time coordinates if available, falling back to static ones otherwise.
-- (Optional) A GPS module for dynamic coordinate tracking.
+- GPS Adapter (Optional): For dynamic tracking, connect a GPS adapter and enable the built-in gps plugin. The plugin will use real-time coordinates if available, falling back to static ones.
 
 ### Step-by-Step Installation
-
-You can install SkyHigh in two ways: the easy way (recommended) or the manual way. Here's how:
+You can install SkyHigh in two ways: the easy way (recommended) or the manual way.
 
 #### Easy Way (Recommended)
-
-1. **Update Your Config File**
-   
-   Edit `/etc/pwnagotchi/config.toml` and add the following lines to enable custom plugin repositories:
+1. **Update Your Config File**  
+   Edit `/etc/pwnagotchi/config.toml` and ensure custom plugin repositories are enabled (include the AlienMajik repo if not already present):
    ```toml
    main.confd = "/etc/pwnagotchi/conf.d/"
    main.custom_plugin_repos = [
-   "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
-   "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
-   "https://github.com/NeonLightning/pwny/archive/master.zip",
-   "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
-   "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
-   "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
-   "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
+     "https://github.com/jayofelony/pwnagotchi-torch-plugins/archive/master.zip",
+     "https://github.com/Sniffleupagus/pwnagotchi_plugins/archive/master.zip",
+     "https://github.com/NeonLightning/pwny/archive/master.zip",
+     "https://github.com/marbasec/UPSLite_Plugin_1_3/archive/master.zip",
+     "https://github.com/wpa-2/Pwnagotchi-Plugins/archive/master.zip",
+     "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
+     "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
    ]
    main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
    ```
 
 2. **Install the Plugin**
-   
-   Run these commands to update the plugin list and install SkyHigh:
    ```bash
    sudo pwnagotchi update plugins
    sudo pwnagotchi plugins install skyhigh
    ```
 
 #### Manual Way (Alternative)
-
-If you prefer a hands-on approach:
-
-1. **Clone the SkyHigh plugin repo from GitHub:**
+1. **Clone the Repository**
    ```bash
    sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
    cd pwnagotchi_plugins
    ```
-
 2. **Copy the Plugin File**
-   
-   Move skyhigh.py to your Pwnagotchi's custom plugins directory:
    ```bash
    sudo cp skyhigh.py /usr/local/share/pwnagotchi/custom-plugins/
    ```
-
-   Alternatively, if you're working from a computer, use SCP:
+   Or via SCP from another machine:
    ```bash
-   sudo scp skyhigh.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+   scp skyhigh.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
    ```
 
 ### Configure the Plugin
-
-Edit your config.toml file (typically located at `/etc/pwnagotchi/config.toml`) and add the following section:
-
+Edit `/etc/pwnagotchi/config.toml` and add/enable the SkyHigh section:
 ```toml
 main.plugins.skyhigh.enabled = true
-main.plugins.skyhigh.timer = 60  # Fetch data every 60 seconds
+main.plugins.skyhigh.timer = 60                  # Fetch interval in seconds
 main.plugins.skyhigh.aircraft_file = "/root/handshakes/skyhigh_aircraft.json"
-main.plugins.skyhigh.adsb_x_coord = 160  # Screen X position
-main.plugins.skyhigh.adsb_y_coord = 80   # Screen Y position
-main.plugins.skyhigh.latitude = -66.273334  # Default latitude
-main.plugins.skyhigh.longitude = 100.984166  # Default longitude
-main.plugins.skyhigh.radius = 50  # Radius in miles
-main.plugins.skyhigh.prune_minutes = 5  # Prune data older than 5 minutes
-main.plugins.skyhigh.blocklist = []
-main.plugins.skyhigh.allowlist = []
-main.plugins.skyhigh.opensky_username = "your_username"  # Optional OpenSky username
-main.plugins.skyhigh.opensky_password = "your_password"  # Optional OpenSky password
+main.plugins.skyhigh.adsb_x_coord = 160          # Screen position X
+main.plugins.skyhigh.adsb_y_coord = 80           # Screen position Y
+main.plugins.skyhigh.latitude = -66.273334       # Default latitude
+main.plugins.skyhigh.longitude = 100.984166      # Default longitude
+main.plugins.skyhigh.radius = 50                 # Search radius in miles
+main.plugins.skyhigh.prune_minutes = 5           # Prune after X minutes (0 to disable)
+main.plugins.skyhigh.blocklist = []              # ICAO24 codes to exclude
+main.plugins.skyhigh.allowlist = []              # ICAO24 codes to include only
+main.plugins.skyhigh.opensky_username = "your_username"   # Optional
+main.plugins.skyhigh.opensky_password = "your_password"   # Optional
+main.plugins.skyhigh.metadata_cache_expiry_days = 7        # New
+main.plugins.skyhigh.disable_metadata = false             # New
+main.plugins.skyhigh.map_tile_url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"  # New
 ```
-
-### Enable GPS (Optional)
-
-If you have a GPS adapter, connect it to your Pwnagotchi with the gps plugin and configure it in config.toml with BetterCAP:
+For newer Pwnagotchi images (such as jayofelony 2.9.5.4 and later), use the modern bracketed TOML table format:
 
 ```toml
+[main.plugins.skyhigh]
+enabled = true
+timer = 60                  # Fetch interval in seconds
+aircraft_file = "/root/handshakes/skyhigh_aircraft.json"
+adsb_x_coord = 120          # Screen position X
+adsb_y_coord = 50           # Screen position Y
+latitude = 37.717683        # Default latitude (fallback if no GPS)
+longitude = -122.439393     # Default longitude (fallback if no GPS)
+radius = 150                # Search radius in miles
+prune_minutes = 10          # Prune after X minutes (0 to disable)
+blocklist = []              # ICAO24 codes to exclude
+allowlist = []              # ICAO24 codes to include only
+opensky_username = ""       # Optional
+opensky_password = ""       # Optional
+metadata_cache_expiry_days = 7
+disable_metadata = false
+map_tile_url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+```
+
+Older images still support the legacy flat format, but the bracketed style is recommended for compatibility with current and future versions.
+
+### Enable GPS (Optional)
+```toml
 main.plugins.gps.enabled = true
-main.plugins.gps.device = "/dev/ttyUSB0"  # Adjust to your GPS device path
+main.plugins.gps.device = "/dev/ttyUSB0"   # Adjust as needed
 ```
 
 ### Restart Pwnagotchi
-
-Restart with:
 ```bash
 pwnkill
 ```
-Or:
+or
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
 ## Usage
-
 ### On-Screen Display
-The Pwnagotchi screen will show the number of detected aircraft, updating every minute (or as configured).
+The Pwnagotchi screen shows the current aircraft count, last update time, and any error messages.
 
 ### Webhook Access
-1. Open a browser and go to `http://<pwnagotchi-ip>/plugins/skyhigh/` to view a detailed map and table of aircraft data.
-2. From the pwnagotchi plugins page, you can just click on the skyhigh plugin to open it as well.
+1. Browse to `http://<pwnagotchi-ip>/plugins/skyhigh/`  
+2. Or click the plugin link from the main Pwnagotchi plugins page.
 
-The map uses distinct icons for helicopters (red), commercial jets (blue), small planes (yellow), drones (purple), gliders (orange), and military aircraft (green). Popups show callsign, model, registration, altitude, velocity, track, squawk, and DB flags. Clicking a marker toggles the aircraft’s flight path visualization, showing its recent trajectory.
+The map uses distinct icons: helicopters (red), commercial jets (blue), small planes (yellow), drones (purple), gliders (orange), military (green). Use the filter form to narrow by callsign, model, altitude, or type—matching markers automatically hide/show on the map.
 
 ## Configuration Options
-
-- **timer:** Interval in seconds for fetching data (default: 60).
-- **aircraft_file:** Path to store aircraft data (default: `/root/handshakes/skyhigh_aircraft.json`).
-- **adsb_x_coord and adsb_y_coord:** Screen coordinates for the aircraft count display.
-- **latitude and longitude:** Default coordinates if GPS is unavailable.
-- **radius:** Search radius in miles for aircraft data.
-- **prune_minutes:** Time in minutes after which old data is pruned (default: 10). Set to 0 to disable pruning.
-- **opensky_username:** OpenSky username for authenticated API access (optional)
-- **opensky_password:** OpenSky password for authenticated API access (optional).
+- **timer:** Fetch interval in seconds (default: 60)
+- **aircraft_file:** Path for persistent aircraft data
+- **adsb_x_coord / adsb_y_coord:** On-screen position
+- **latitude / longitude:** Static fallback coordinates
+- **radius:** Search radius in miles
+- **prune_minutes:** Remove aircraft unseen for X minutes (default: 5, 0 disables)
+- **blocklist / allowlist:** Filter by ICAO24 codes
+- **opensky_username / opensky_password:** For authenticated API access
+- **metadata_cache_expiry_days:** Refresh cache after X days (default: 7)
+- **disable_metadata:** Skip metadata fetches entirely
+- **map_tile_url:** Custom Leaflet tile provider
 
 ## Known Issues and Solutions
-
 ### Transient Network Errors
-The SkyHigh plugin may encounter a temporary error that causes it to stop working for 1–2 minutes before resuming automatically. This issue appears to be related to a network connectivity problem when fetching data from the OpenSky Network API.
-
-- **Description:** The plugin logs an error like `[SkyHigh] Error fetching data from API: <error details>` but recovers on the next fetch cycle.
-- **Solution:** No action is needed; the plugin is designed to handle these transient errors gracefully and resumes operation automatically. If persistent, check your internet connection.
+Temporary API or connectivity issues may cause brief errors, but the background thread recovers automatically on the next cycle. Persistent issues usually indicate network problems.
 
 ## Why You'll Love It
-
-- **Real-Time Awareness:** Track aircraft with detailed data (velocity, track, squawk, etc.) as it happens.
-- **Flexible Configuration:** Customize radius, update interval, pruning, and API credentials to suit your needs.
-- **Interactive Map:** Explore aircraft details with type-specific icons and toggle flight paths for a dynamic experience.
-- **Enhanced Data:** Rich metadata and categorization provide deeper insights into nearby aircraft.
-- **Real-time aircraft tracking with a responsive, customizable interface**
-- **Flexible filtering, export options, and blocklist/allowlist support.**
-- **Future-ready with historical tracking for enhanced features.**
+- **Real-Time Situational Awareness:** Track nearby aircraft with accurate type categorization and a clean, filterable interface.
+- **Highly Customizable:** Fine-tune everything from map appearance to metadata behavior.
+- **Robust and Efficient:** Smarter caching, fallbacks, and pruning mean fewer errors and lower resource use.
+- **Community-Enhanced:** Cleaner code and extensible patterns make it ready for future contributions.
+- **Powerful Web UI:** Synchronized filtering turns the map into a practical monitoring tool.
 
 Take your Pwnagotchi to the skies with SkyHigh! ✈️
 
-This plugin fetches nearby aircraft data using the OpenSky Network API.
-
-**Acknowledgment:** Aircraft data is provided by the OpenSky Network.
-
+This plugin fetches nearby aircraft data using the OpenSky Network API.  
+**Acknowledgment:** Aircraft data provided by the OpenSky Network.  
 **Disclaimer:** This plugin is not affiliated with OpenSky Network. Data is used in accordance with their API terms.
-
----
 
 # MadHatter Plugin
 **Version:** 1.3.4  
