@@ -1357,6 +1357,8 @@ sudo pwnagotchi plugins install theylive
 Enable and customize in `/etc/pwnagotchi/config.toml`:
 
 ```toml
+# Config Example 2.9.5.3 image config.toml format:
+
 main.plugins.theylive.enabled = true
 
 # Core settings
@@ -1365,25 +1367,6 @@ main.plugins.theylive.device = "/dev/ttyACM0"  # Serial device (server mode)
 main.plugins.theylive.baud = 9600              # Baud rate
 main.plugins.theylive.auto = true              # Auto-install/configure gpsd
 
-### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
-```toml
-[main.plugins.theylive]
-enabled = true
-device = "/dev/ttyACM0"
-baud = 115200
-fields = ["gpsstat", "fix", "sat", "hdop", "lat", "lon", "alt", "spd", "trk"]
-speedUnit = "mph"
-distanceUnit = "m"
-bettercap = true
-auto = true
-mode = "server"
-topleft_x = 130
-topleft_y = 47
-track_log = true
-track_interval = 10
-track_file = "/root/pwnagotchi_gps_track.ndjson"
-
-# Config Example 2.9.5.3 image config.toml format:
 main.plugins.theylive.fields = [
     "gpsstat",  # Smart fix status – safe, no core conflict
     "fix",
@@ -1413,6 +1396,24 @@ main.plugins.theylive.pwndroid_port = 8080
 main.plugins.theylive.track_log = true
 main.plugins.theylive.track_interval = 10      # seconds
 main.plugins.theylive.track_file = "/root/pwnagotchi_gps_track.ndjson"
+
+### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
+
+[main.plugins.theylive]
+enabled = true
+device = "/dev/ttyACM0"
+baud = 115200
+fields = ["gpsstat", "fix", "sat", "hdop", "lat", "lon", "alt", "spd", "trk"]
+speedUnit = "mph"
+distanceUnit = "m"
+bettercap = true
+auto = true
+mode = "server"
+topleft_x = 130
+topleft_y = 47
+track_log = true
+track_interval = 10
+track_file = "/root/pwnagotchi_gps_track.ndjson"
 ```
 
 Restart after changes:
