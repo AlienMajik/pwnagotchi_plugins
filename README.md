@@ -686,7 +686,7 @@ Key enhancements and fixes over previous versions (and why they’re better):
 - **Modern BLE scanning with Bleak** – Async, reliable scanning replaces deprecated `hcitool`. Fewer errors, better device/name detection on modern kernels.
 - **Encrypted mesh networking** – AES-GCM UDP sharing between units. Enables real-time collaborative detection (new capability).
 - **Server-Sent Events (SSE)** – Live count updates in web UI without reloads (smoother experience).
-- **Enhanced web UI** – Trails/polylines, persistence-weighted heatmap, KML export with colored trails, dark mode, search, advanced filters (High Persistence, Aircraft, Clients).
+- **Enhanced web UI** KML Export with Colored Trails – Download your entire dataset as a KML file with persistence-colored markers (green/yellow/red) and full movement trails. Load directly into Google Earth or Google My Maps for offline analysis — massively better for post-session review than the old static map view.
 - **Vendor lookup & classification** – Auto-downloads Bluetooth company IDs, uses OUI db, classifies devices (Apple, wearables, etc.).
 - **WiGLE fallback** – Optional SSID-based geolocation when GPS unavailable.
 - **Performance & stability** – Batch upserts, proper indexing, graceful dependency handling, robust background analysis thread.
