@@ -719,6 +719,10 @@ Key enhancements and fixes over previous versions (and why they’re better):
 ### Python Dependencies (Recommended for Full Features)
 ```bash
 sudo pip3 install bleak cryptography
+
+or use if not working:
+
+sudo apt install python3-bleak python3-cryptography
 ```
 - `bleak`: Modern BLE scanning.
 - `cryptography`: Mesh encryption.
