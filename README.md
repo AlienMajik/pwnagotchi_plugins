@@ -15,8 +15,6 @@ Feel free to open issues or pull requests to improve this plugin or suggest new 
 7. [MadHatter Plugin](#madhatter-plugin)
 8. [TheyLive Plugin](#theylive-plugin)
 
-Here is the rewritten GitHub README-style post for the **Age Plugin**, updated to reflect **version 4.0.0** (based on the code you provided). It keeps the same structure, tone, and formatting as the original v3.1.0 post, while incorporating all new features, enhancements, fixes, and explanations of why they improve the experience.
-
 ---
 
 # Age Plugin
