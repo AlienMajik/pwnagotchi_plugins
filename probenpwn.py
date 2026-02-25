@@ -1,6 +1,6 @@
 """
 ProbeNpwn v2.0.0 – Ultra‑aggressive handshake/PMKID capture
-Author: AlienMajik (enhanced by Rex)
+Author: AlienMajik
 License: GPL3
 
 Features:
