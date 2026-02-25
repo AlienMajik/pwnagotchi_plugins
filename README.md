@@ -15,122 +15,154 @@ Feel free to open issues or pull requests to improve this plugin or suggest new 
 7. [MadHatter Plugin](#madhatter-plugin)
 8. [TheyLive Plugin](#theylive-plugin)
 
+Here is the rewritten GitHub README-style post for the **Age Plugin**, updated to reflect **version 4.0.0** (based on the code you provided). It keeps the same structure, tone, and formatting as the original v3.1.0 post, while incorporating all new features, enhancements, fixes, and explanations of why they improve the experience.
+
 ---
 
 # Age Plugin
-
-**Version:** 3.1.0
+**Version:** 4.0.0
 
 ## Description
-
-An enhanced plugin with frequent titles, dynamic quotes, progress bars, random events, handshake streaks, personality evolution, and secret achievements. The UI is optimized to avoid clutter, ensuring a clean and engaging experience.
+A deeply immersive, narrative-driven plugin that transforms your Pwnagotchi into a living cyber-legend. Features prestige rebirth cycles, rich lore messages, cheeky themed quotes (Evil Dead + Monty Python vibes), animated progress, expanded random events with real risk/reward, smarter personality evolution, handshake milestones, and a dedicated status display — all while keeping the UI clean and engaging.
 
 ## Key Stats
-
-The plugin tracks four primary statistics that reflect your Pwnagotchi's journey:
+The plugin tracks core statistics that reflect your Pwnagotchi's epic journey:
 
 ### Age (♥ Age)
-- Tracks the number of epochs your Pwnagotchi has lived.  
-- Earns frequent titles like "Baby Steps" (100 epochs), "Getting the Hang of It" (500 epochs), "Neon Spawn" (1,000 epochs), and more.
+- Tracks the number of epochs your Pwnagotchi has lived through.
+- Earns flavorful titles like "Baby Steps" (100 epochs), "Neon Spawn" (1,000 epochs), "Data Raider" (10,000 epochs), up to "Intergalactic" (111,111 epochs), and more.
+- Titles gain "Reborn" prefix after prestige cycles.
 
 ### Strength (Str)
-- Reflects training progress, increasing by 1 every 10 epochs.  
-- Titles include "Sparring Novice" (100 train epochs), "Gear Tickler" (300 train epochs), "Fleshbag" (500 train epochs), and beyond.
+- Reflects training progress (now properly accelerated by Time Warp events).
+- Titles include "Sparring Novice" (100 train epochs), "Deauth King" (2,000 epochs), "Rev-9" (55,555 epochs), "Kuato" (111,111 epochs), and beyond.
+- Also prefixed with "Reborn" after prestige.
 
 ### Network Points (★ Pts)
-- Earn points by capturing handshakes, with values based on encryption strength:  
-  - WPA3: +10 points  
-  - WPA2: +5 points  
-  - WEP/WPA: +2 points  
-  - Open/Unknown: +1 point
-- Points decay if the Pwnagotchi is inactive for too long.
+- Earn points by capturing handshakes, scaled by encryption strength and prestige multiplier:
+  - WPA3: +10 base
+  - WPA2: +5 base
+  - WEP/WPA: +2 base
+  - Open/Unknown: +1 base
+- Points decay during long inactivity periods to encourage regular use.
+- Lifetime total handshakes tracked separately (survives rebirth).
 
 ### Personality
-- Develops based on actions:
-  - Aggro: Increases with each handshake.  
-  - Scholar: Increases every 10 epochs.  
-  - Stealth: Reserved for future use.
-- Displayed on the UI if enabled.
+- Evolves dynamically based on playstyle:
+  - **Aggro**: +1 per handshake captured.
+  - **Scholar**: +1 every 10 epochs.
+  - **Stealth**: +1 every epoch with **no** handshake (rewards patient, low-visibility sessions).
+- Dominant trait displayed on UI if enabled.
 
-## New Enhancements in v3.1.0
+## New Enhancements in v4.0.0
+- **Prestige / Rebirth System** — Reach max age **and** max strength titles → trigger rebirth: reset core stats, gain permanent +10% point multiplier per prestige level (1.1×, 1.2×, …). **Why better**: Adds true end-game progression, replayability, and power fantasy — late-game feels exponentially more rewarding instead of plateauing.
+- **Rich Narrative Lore Messages** — Poetic, atmospheric blurbs for nearly every age/strength title and event (cyberpunk + mythic tone). **Why better**: Turns dry stat gains into memorable story beats — your Pwnagotchi feels alive.
+- **Themed Quote Library** — Categorized quotes (Ash one-liners for wins, Monty Python absurdity for warnings, insults for failures, ready lines for rebirth). Randomly combined with lore/status. **Why better**: Injects huge personality, humor, and immersion — status messages are now fun and quotable.
+- **Dedicated AgeStatus UI Element** — New separate line (~y=140) for longer lore/quote/event messages. **Why better**: Prevents clutter and overwriting of main bettercap status; allows richer storytelling without sacrificing readability.
+- **Expanded & Balanced Random Events** (every ~100 epochs, configurable chance):
+  - New: Overclock (3× points, 3 handshakes), Hacker's Block (0 points, 3 handshakes), Windfall (+50 instant points), Time Warp (+10% train speed for 100 epochs), Ghost (swap aggro ↔ stealth).
+  - Existing Lucky Break & Signal Noise kept.
+  - Events now pull lore + quotes.
+  - **Why better**: Much more variety, introduces meaningful risk/reward tension, supports different playstyles (aggressive vs patient), and helps toward rebirth.
+- **Animated Progress Bar Polish** — Switches to `>` + `~` symbols when >80% to next title (visual "almost there" cue). **Why better**: Subtle but satisfying feedback that progression is nearing a milestone.
+- **Smarter Personality Evolution** — Stealth now grows on quiet epochs (no handshake). **Why better**: Rewards stealthy / low-activity sessions instead of being dead weight; personality feels truly responsive.
+- **Handshake Milestone Achievements** — Unlock bonuses at 1, 10, 100, 1,000 handshakes (+50 pts each). **Why better**: Extra dopamine hits and rewards for consistent capturing.
+- **Time Warp Persistence & Expiry** — Saved/loaded correctly; expires cleanly. **Why better**: No lost progress on reboots; feels reliable.
+- **Total Lifetime Handshakes** — Survives rebirth (separate from current-cycle count). **Why better**: Preserves your overall legacy.
+- **Prestige-Aware Titles & Points Display** — Multiplier applied to UI points; "Reborn" prefix. **Why better**: Instantly shows your ascended status.
+- **Improved Event & Achievement Messaging** — Uses new AgeStatus + quotes/lore. **Why better**: More immersive announcements.
 
-- **More Frequent Titles:** Age and strength titles are awarded more often, making progression feel rewarding at every stage. 
-- **Context-Aware Dynamic Quotes:** Motivational messages respond to your actions, like capturing handshakes or recovering from decay. 
-- **Progress Bars:** A visual bar shows how close you are to the next age title (e.g., [===  ] for 60% progress).  
-- **Random Events:** Every 100 epochs, there's a 5% chance of events like "Lucky Break" (double points) or "Signal Noise" (half points).  
-- **Handshake Streaks:** Capture 5+ consecutive handshakes for a 20% point bonus per handshake.  
-- **Personality Evolution:** Your Pwnagotchi's dominant trait (Aggro, Scholar, Stealth) evolves based on its actions.  
-- **Secret Achievements:** Unlock hidden goals like "Night Owl" (10 handshakes between 2-4 AM) or "Crypto King" (capture all encryption types) for bonus points. 
-- **UI Optimization:** Streamlined to avoid clutter; personality display is optional.  
-- **Enhanced Data Persistence:** Saves streak, personality, and achievement progress.  
-- **Thread Safety:** Ensures reliable data saving.  
-- **Improved Logging:** Detailed logs for better tracking and debugging.
+(Kept & refined from v3.1.0: frequent titles, context-aware dynamic messages, progress bar, streaks (20% bonus at 5+), secret achievements (Night Owl, Crypto King), decay, logging, thread-safe persistence, UI optimization.)
 
 ## Features
-
-- **Persistent Stats:** Age, Strength, Points, and Personality survive reboots.  
-- **UI Integration:** Stats, progress bars, and messages are displayed on the screen.  
-- **Points Logging:** Handshake events are logged in `/root/network_points.log`.  
-- **Decay Mechanism:** Points decay after inactivity to encourage regular use.  
-- **Dynamic Status Messages:** Context-aware quotes and inactivity alerts.  
-- **Personality Evolution:** Develops based on actions; display optional.  
-- **Secret Achievements:** Hidden goals for bonus points.  
-- **Random Events:** Periodic events that spice up gameplay. 
-- **Handshake Streaks:** Bonus points for consecutive captures.
+- **Persistent Stats** — Age, Strength, Points, Personality, Prestige, Achievements, Events survive reboots.
+- **UI Integration** — Clean stats, animated progress, personality (optional), dedicated AgeStatus line.
+- **Points Logging** — `/root/network_points.log` (timestamp, ESSID, encryption, points).
+- **Decay Mechanism** — Encourages daily/regular use with inactivity penalties.
+- **Dynamic & Themed Messages** — Lore, quotes, face reactions for titles, events, decay, rebirth.
+- **Prestige Cycles** — Reset + permanent multiplier for endless progression.
+- **Random Events** — Spice up gameplay with buffs, debuffs, instant rewards, time acceleration, personality swaps.
+- **Handshake Streaks & Milestones** — Consecutive & total-count bonuses.
+- **Personality Evolution** — Action-based growth; dominant trait shown optionally.
+- **Secret & Milestone Achievements** — Hidden goals + visible count-based unlocks for bonus points.
 
 ## Installation Instructions
-
-### Copy the Plugin File  
-Place `age.py` in `/usr/local/share/pwnagotchi/custom-plugins/`. 
-
-Or use SCP:  
+### Copy the Plugin File
+Place `age.py` in `/usr/local/share/pwnagotchi/custom-plugins/`.
+Or use SCP:
 ```bash
 sudo scp age.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
 ```
 
-### Update config.toml  
-Add to `/etc/pwnagotchi/config.toml`: 
+### Update config.toml
+Add to `/etc/pwnagotchi/config.toml`:
 ```toml
 main.plugins.age.enabled = true
-main.plugins.age.age_x = 10
-main.plugins.age.age_y = 40
-main.plugins.age.strength_x = 80
-main.plugins.age.strength_y = 40
-main.plugins.age.points_x = 10
-main.plugins.age.points_y = 60
-main.plugins.age.progress_x = 10
-main.plugins.age.progress_y = 80
-main.plugins.age.personality_x = 10
-main.plugins.age.personality_y = 100
+main.plugins.age.age_x_coord = 10
+main.plugins.age.age_y_coord = 40
+main.plugins.age.strength_x_coord = 80
+main.plugins.age.strength_y_coord = 40
+main.plugins.age.points_x_coord = 10
+main.plugins.age.points_y_coord = 60
+main.plugins.age.progress_x_coord = 10
+main.plugins.age.progress_y_coord = 80
+main.plugins.age.personality_x_coord = 10
+main.plugins.age.personality_y_coord = 100
+main.plugins.age.age_status_x_coord = 10
+main.plugins.age.age_status_y_coord = 140          # new
 main.plugins.age.show_personality = true
 main.plugins.age.decay_interval = 50
 main.plugins.age.decay_amount = 10
+main.plugins.age.random_event_chance = 0.05        # new, adjustable
 ```
 
-### Restart Pwnagotchi  
-Apply changes with:  
+### Confi.toml bracketed format for Jayofelony image 2.9.5.4:
+Add to `/etc/pwnagotchi/config.toml`:
+```toml
+[main.plugins.age]
+age_x_coord = 101
+age_y_coord = 80
+strength_x_coord = 160
+strength_y_coord = 80
+points_x_coord = 10
+points_y_coord = 60
+progress_x_coord = 10
+progress_y_coord = 100
+personality_x_coord = 10
+personality_y_coord = 120
+age_status_x_coord = 10
+age_status_y_coord = 140
+decay_interval = 50
+decay_amount = 5
+show_personality = false
+enabled = true
+```
+
+### Restart Pwnagotchi
+Apply changes with:
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
 ## Usage
-
-- **Monitor Stats:** Watch Age, Strength, and Points increase on the screen. 
-- **Capture Handshakes:** Earn points and build streaks for bonuses.  
-- **Track Progress:** See how close you are to the next age title with the progress bar. 
-- **Experience Events:** Encounter random events that affect point earnings. 
-- **Develop Personality:** Your Pwnagotchi's actions shape its dominant trait. 
-- **Unlock Achievements:** Discover secret goals for extra points.  
-- **Avoid Decay:** Stay active to prevent point loss from inactivity.
+- **Monitor Stats** — Watch Age, Strength, Points (with prestige multiplier), and progress evolve.
+- **Capture Handshakes** — Build streaks, unlock milestones, earn bonus points.
+- **Track Progress** — Animated bar shows closeness to next title.
+- **Experience Events** — Enjoy (or suffer) random windfalls, overclocks, blocks, time warps, ghosts.
+- **Develop Personality** — Play aggressive or stealthy — trait shifts accordingly.
+- **Unlock Achievements** — Discover secrets and hit count milestones.
+- **Trigger Rebirth** — Max out → transcend, gain permanent power boost.
+- **Avoid Decay** — Stay active to keep points safe.
+- **Enjoy the Lore** — Read narrative blurbs and cheeky quotes on every milestone.
 
 ## Logs and Data
-
 - **Stats Data:** `/root/age_strength.json`  
-  Stores epochs, train_epochs, points, handshakes, personality, and more.
+  Stores epochs, train_epochs, points, handshakes (current + lifetime), prestige, personality, achievements, active events, etc.
 - **Points Log:** `/root/network_points.log`  
-  Records each handshake with timestamp, ESSID, encryption, and points.
+  Records each handshake with timestamp, ESSID, encryption, points earned.
 
 ---
+
 # ADSBsniffer Plugin
 
 A plugin that captures ADS-B data from aircraft using RTL-SDR and logs it.
