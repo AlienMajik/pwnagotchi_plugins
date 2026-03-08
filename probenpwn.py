@@ -1,5 +1,5 @@
 """
-ProbeNpwn v2.0.0 – Ultra‑aggressive handshake/PMKID capture
+ProbeNpwn v2.0.1 – Ultra‑aggressive handshake/PMKID capture
 Author: AlienMajik
 License: GPL3
 
@@ -175,13 +175,13 @@ class TokenBucket:
 # ----------------------------------------------------------------------
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '2.0.0'
+    __version__ = '2.0.1'
     __license__ = 'GPL3'
     __description__ = 'Ultra‑aggressive handshake/PMKID capture v2.0 – adaptive modes, UCB1, vendor targeting, PMF bypass, stealth, rate limiting, external tool fallback, per‑UI toggles.'
 
     def __init__(self):
         super().__init__()
-        logging.debug("ProbeNpwn v2.0.0 initializing")
+        logging.debug("ProbeNpwn v2.0.1 initializing")
 
         # -------------------- Configuration (will be overridden) --------------------
         self.config = {}
@@ -317,7 +317,7 @@ class ProbeNpwn(plugins.Plugin):
     # on_loaded – called when plugin is loaded
     # ------------------------------------------------------------------
     def on_loaded(self):
-        logging.info("ProbeNpwn v2.0.0 loaded")
+        logging.info("ProbeNpwn v2.0.1 loaded")
         # Create directories for blacklist/log
         os.makedirs(os.path.dirname(DEFAULT_BLACKLIST_PATH), exist_ok=True)
         os.makedirs(os.path.dirname(DEFAULT_LOG_PATH), exist_ok=True)
@@ -493,7 +493,27 @@ class ProbeNpwn(plugins.Plugin):
         if self.executor:
             self.executor.shutdown(wait=False)
         logging.info("ProbeNpwn unloaded")
-
+        #  try to remove any/all ui elements
+        with ui._lock:
+            try:
+                if self.show_attacks:
+                    ui.remove_element("attacks")
+                if self.show_success:
+                    ui.remove_element("success")
+                if self.show_handshakes:
+                    ui.remove_element("handshakes")
+                if self.show_mode:
+                    ui.remove_element("mode")
+                if self.show_top_channels:                   
+                    ui.remove_element("top_channels")
+                if self.show_pmf_status:        
+                    ui.remove_element("pmf_status")
+                if self.show_success_bar:
+                    ui.remove_element("success_bar")
+                if self.show_pnp_status:
+                    ui.remove_element("pnp_status")
+            except Exception as e:
+                pass
     # ------------------------------------------------------------------
     # UI setup – add custom elements (only if enabled)
     # ------------------------------------------------------------------
