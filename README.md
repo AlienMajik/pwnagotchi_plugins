@@ -753,67 +753,66 @@ https://papers.mathyvanhoef.com/wisec2022.pdf
 ## Disclaimer
 This software is provided for educational and research purposes only. Use of this plugin on networks or devices that you do not own or have explicit permission to test is strictly prohibited. The author(s) and contributors are not responsible for any misuse, damages, or legal consequences that may result from unauthorized or improper usage. By using this plugin, you agree to assume all risks and take full responsibility for ensuring that all applicable laws and regulations are followed.
 
+``` 
 # SnoopR Plugin
 
 Welcome to **SnoopR**, the most advanced surveillance-detection and wardriving plugin for **Pwnagotchi**! SnoopR turns your pocket-sized AI companion into a powerful multi-modal sensor that logs Wi-Fi, Bluetooth/BLE, and even overhead aircraft, while intelligently identifying potential tails or persistent trackers through movement, velocity, spatial clustering, and RSSI-based positioning.
 
-This release (**v5.1.0**) is a hotfix update on top of the major v5.0.0 overhaul, focusing on stability and reliability. It fixes concurrent database access issues, handles rare duplicate network entries, corrects the Bluetooth company ID download URL, and ensures thread-safety across operations. These changes make SnoopR more robust for long-running sessions and multi-threaded environments, reducing crashes and data inconsistencies that could occur in previous versions.
+This release (**v6.0.0**) is a complete architectural overhaul and major feature upgrade from v5.1.0. It adds full geofencing, advanced aircraft behavioral anomaly detection with OpenSky metadata integration, real-time threat alerts via SSE, SciPy-accelerated trilateration, efficient recent-device-only analysis, richer web UI with anomalies column and map overlays, and dozens of stability/performance improvements. These changes transform SnoopR from a smart logger into a true real-time surveillance detection platform.
 
 Key enhancements and fixes over previous versions (and why they’re better):
-- **Fully implemented persistence scoring + spatial clustering** – Now actively computes a 0.0–1.0 score based on recent 5-minute activity windows, repeated presence, and distinct ~100m clusters. Far superior to old crude movement checks — catches slow, lingering followers with dramatically fewer false positives/negatives.
-- **Hybrid snooper detection** – Combines high persistence, configurable movement threshold, and velocity >1.5 m/s. More accurate and tunable than earlier versions.
-- **RSSI-based multilateration (triangulation)** – Uses Kalman-smoothed RSSI with configurable TX power/path-loss to estimate positions. Huge improvement for indoor/urban or hidden devices where GPS alone fails.
-- **Aircraft (ADS-B) integration** – Polls `aircraft.json` for overhead traffic with smart caching. Adds aerial awareness missing from all prior versions.
-- **Modern BLE scanning with Bleak** – Async, reliable scanning replaces deprecated `hcitool`. Fewer errors, better device/name detection on modern kernels.
-- **Encrypted mesh networking** – AES-GCM UDP sharing between units. Enables real-time collaborative detection (new capability).
-- **Server-Sent Events (SSE)** – Live count updates in web UI without reloads (smoother experience).
-- **KML Export with Colored Trails** – Download your entire dataset as a KML file with persistence-colored markers (green/yellow/red) and full movement trails. Load directly into Google Earth or Google My Maps for offline analysis — massively better for post-session review than the old static map view.
-- **Enhanced web UI** – Trails/polylines, persistence-weighted heatmap, dark mode, search, advanced filters (High Persistence, Aircraft, Clients).
-- **Vendor lookup & classification** – Auto-downloads Bluetooth company IDs, uses OUI db, classifies devices (Apple, wearables, etc.).
-- **WiGLE fallback** – Optional SSID-based geolocation when GPS unavailable.
-- **Performance & stability** – Batch upserts, proper indexing, graceful dependency handling, robust background analysis thread.
-- **Thread-safe database operations** – All Database methods now protected by a reentrant lock to prevent concurrent access errors and nested transaction issues. Ensures reliability in multi-threaded environments like background analysis and scans.
-- **Duplicate network handling** – Safely manages rare cases of duplicate (mac, device_type) entries by using the first match and logging warnings. Prevents insertion failures.
-- **Corrected Bluetooth company URL** – Updated to the latest valid endpoint (v1/company_ids.json). Fixes download failures in v5.0.0.
-- **Protected analysis methods** – Wrapped direct cursor usage in locks to avoid conflicts. Improves overall stability during periodic updates.
-- **Config compatibility** – Supports both legacy flat keys and modern nested tables (especially for jayofelony custom images).
+- **Full geofencing system (new)** – Supports configurable circle and polygon zones. Aircraft are automatically checked against all zones; breaches appear as anomalies in logs, UI, and KML. Visualized directly on the Leaflet map. Turns SnoopR into a true geofenced alarm system — impossible in v5.1.0.
+- **Advanced aircraft anomaly detection (new)** – Real-time behavioral analysis including low altitude, circling/loitering (convex-hull diameter), rapid climb/descent, speed anomalies, emergency squawk codes (7500/7600/7700), and sharp turns. Uses per-aircraft track history. Far more powerful than the simple position logging in v5.1.0.
+- **OpenSky Network integration (new)** – Automatic async lookup of aircraft registration, typecode, and owner with 30-day SQLite cache. Rich metadata instead of just “UNKNOWN”.
+- **Real-time threat alerts via SSE (new)** – Dedicated `/alerts` endpoint with floating red alert box that auto-dismisses after 5 seconds. Live pop-up notifications for squawks, geofence breaches, circling, etc.
+- **SciPy-accelerated trilateration (new)** – Uses `scipy.optimize.minimize` (Nelder-Mead) when available, with pure-Python fallback. Faster and more robust position estimates.
+- **Efficient recent-device analysis** – PersistenceAnalyzer now only processes devices seen in the last `analysis_days` (default 7). Combined with new `last_seen` column and index, dramatically reduces CPU and DB load on long runs.
+- **Enhanced web UI** – New “Anomalies” column, purple markers for anomalous aircraft, geofence overlays on map, improved KML export that includes anomalies.
+- **Improved geometry engine** – Added `haversine_miles`, `convex_hull`, `polygon_diameter`, and `point_in_polygon` helpers for accurate circling and clustering.
+- **Better KalmanFilter** – Explicit `initialize()` on first measurement for more accurate early RSSI smoothing.
+- **MeshNetwork improvements** – Cleaner constructor, better crypto warnings, and more robust error handling.
+- **Database enhancements** – New `aircraft_info` table, `last_seen` column + index, `update_anomalies()` method, CTE-based `get_all_networks` for faster latest-position queries.
+- **Config warnings** – Automatic logging when plaintext mesh keys or WiGLE credentials are used (security nudge).
+- **Robustness everywhere** – More specific exception handling, OUI fallback path, aircraft file existence warning, and protected cursor usage in all analysis paths.
+- **Config compatibility** – Still supports both legacy flat keys and modern nested tables (especially for jayofelony custom images).
 
 ## Features
-
 - **Multi-source detection**: Wi-Fi APs + clients, Bluetooth/BLE (with manufacturer data), ADS-B aircraft.
+- **Geofencing**: Circle and polygon zones with real-time breach detection and map visualization.
 - **Intelligent persistence scoring**: Recent activity windows, cluster bonuses, configurable threshold.
 - **Hybrid snooper flagging**: Persistence + movement + velocity.
-- **RSSI triangulation**: Estimated position + MSE for Wi-Fi/BLE.
+- **RSSI triangulation**: Estimated position + MSE for Wi-Fi/BLE (now SciPy-accelerated when available).
 - **Spatial clustering**: ~100m zone counting to detect repeated locations.
 - **Vendor & classification**: OUI + Bluetooth company IDs + heuristics.
-- **Aircraft tracking**: Smart caching, movement-aware logging.
+- **Advanced aircraft tracking**: OpenSky metadata, behavioral anomaly detection (circling, squawks, vertical speed, etc.), smart caching.
 - **Modern BLE scanning**: Configurable async Bleak scanner.
 - **Encrypted mesh**: Optional real-time sharing.
 - **WiGLE fallback**: SSID geolocation.
 - **Kalman-smoothed RSSI**: Cleaner distance estimates.
-- **Rich web interface**: Trails, heatmap, KML export, dark mode, live SSE, search, sorting, filters.
+- **Rich web interface**: Trails, heatmap, anomalies column, geofence overlays, KML export, dark mode, live SSE counts + threat alerts, search, sorting, filters.
 - **Pwnagotchi UI counters**: Wi-Fi, BT, Aircraft, Snoopers, High Persistence.
 - **Whitelisting**: SSID/MAC.
 - **Automatic pruning**: With VACUUM.
 - **Robust logging & error handling**.
 
 ## Requirements & Dependencies
-
 ### Core Requirements
 - **GPS** via Bettercap (gps plugin recommended).
 - **Bluetooth** enabled (`sudo hciconfig hci0 up` or your interface).
-- **Internet on viewing device** for map tiles/Leaflet.
+- **Internet on viewing device** for map tiles/Leaflet and OpenSky lookups.
+- **aircraft.json** file (for ADS-B feed — still required).
 
 ### Python Dependencies (Recommended for Full Features)
 ```bash
-sudo pip3 install bleak cryptography
-
-or use if not working:
-
-sudo apt install python3-bleak python3-cryptography
+sudo pip3 install bleak cryptography scipy
+```
+or use system packages if pip fails:
+```bash
+sudo apt install python3-bleak python3-cryptography python3-scipy
 ```
 - `bleak`: Modern BLE scanning.
 - `cryptography`: Mesh encryption.
+- `scipy`: Faster Nelder-Mead trilateration (optional — pure Python fallback included).
 
 ### Vendor Databases
 SnoopR automatically downloads the Bluetooth company identifiers database on first run if missing. For Wi-Fi vendor lookup, the Wireshark OUI database is preferred.
@@ -824,23 +823,20 @@ sudo apt update && sudo apt install wireshark-common
 ```
 
 **Manual Download Options** (use if `apt` is unavailable or for offline setup):
-
 - **Bluetooth Company Identifiers** (manually download to the configured path, default `/root/snoopr/company_identifiers.json`):
   ```bash
   sudo mkdir -p /root/snoopr
-  sudo wget -O /root/snoopr/company_identifiers.json https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/refs/heads/master/company_identifiers/company_identifiers.json
+  sudo wget -O /root/snoopr/company_identifiers.json https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/master/v1/company_ids.json
   ```
-
 - **Wireshark OUI Database** (manually download if wireshark-common not installed):
   ```bash
   sudo wget -O /usr/share/wireshark/manuf https://www.wireshark.org/download/automated/data/manuf
   ```
-
-- **ADS-B feed** (optional): Tool outputting valid `aircraft.json`.
+- **ADS-B feed** (required for aircraft): Tool outputting valid `aircraft.json`.
 - **WiGLE API keys** (optional): For fallback geolocation.
+- **OpenSky credentials** (optional but recommended for rich aircraft metadata): Free account at opensky-network.org.
 
 ## Installation Instructions
-
 Manual installation recommended (advanced dependencies):
 
 ```bash
@@ -859,7 +855,7 @@ sudo rm -rf /tmp/pwnplugins
 Install dependencies:
 
 ```bash
-sudo pip3 install bleak cryptography
+sudo pip3 install bleak cryptography scipy
 sudo apt install wireshark-common
 ```
 
@@ -870,7 +866,6 @@ sudo systemctl restart pwnagotchi
 ```
 
 ## Configuration
-
 SnoopR supports both legacy flat config keys (for standard Pwnagotchi) and modern nested tables (optimized for jayofelony custom images like 2.9.5.4).
 
 ### Legacy Flat Format (Standard Pwnagotchi Compatibility)
@@ -893,6 +888,17 @@ main.plugins.snoopr.persistence_threshold = 0.85
 main.plugins.snoopr.triangulation_min_points = 8
 main.plugins.snoopr.mse_threshold = 75
 main.plugins.snoopr.update_interval = 300
+main.plugins.snoopr.analysis_days = 7
+main.plugins.snoopr.aircraft_high_altitude_threshold = 300
+main.plugins.snoopr.aircraft_circling_radius = 500
+main.plugins.snoopr.aircraft_circling_time = 120
+main.plugins.snoopr.aircraft_rapid_descent_threshold = 3000
+main.plugins.snoopr.aircraft_rapid_climb_threshold = 3000
+main.plugins.snoopr.aircraft_max_speed_knots = 600
+main.plugins.snoopr.aircraft_min_speed_knots = 50
+main.plugins.snoopr.aircraft_enable_squawk_alerts = true
+main.plugins.snoopr.opensky_username = ""
+main.plugins.snoopr.opensky_password = ""
 ```
 
 ### Modern Nested Format (jayofelony 2.9.5.4 Image & Newer)
@@ -914,8 +920,6 @@ mesh_host = "0.0.0.0"
 mesh_port = 8888
 mesh_peers = []
 mesh_key = ""
-web_user = ""
-web_pass = ""
 ui_enabled = true
 tx_power_wifi = -20
 tx_power_bt = -20
@@ -927,57 +931,71 @@ persistence_threshold = 0.85
 movement_threshold = 0.8
 time_threshold_minutes = 20
 update_interval = 300
-auto_install_deps = true
+analysis_days = 7
+aircraft_high_altitude_threshold = 300
+aircraft_circling_radius = 500
+aircraft_circling_time = 120
+aircraft_rapid_descent_threshold = 3000
+aircraft_rapid_climb_threshold = 3000
+aircraft_max_speed_knots = 600
+aircraft_min_speed_knots = 50
+aircraft_enable_squawk_alerts = true
+opensky_username = ""
+opensky_password = ""
 
-[main.plugins.snoopr.wigle]
-enabled = true
-api_name = ""
-api_token = ""
+# Example geofences (list of tables)
+[[main.plugins.snoopr.geofences]]
+name = "Home Zone"
+type = "circle"
+lat = 37.7749
+lon = -122.4194
+radius = 500
+
+[[main.plugins.snoopr.geofences]]
+name = "Restricted Area"
+type = "polygon"
+points = [[37.77, -122.42], [37.78, -122.41], [37.79, -122.43], [37.77, -122.42]]
 ```
 
 Both formats work — use the one matching your image. Restart after changes.
 
 ## Database Schema Updates
-
-On startup, SnoopR checks and migrates the database schema automatically, adding any missing columns (e.g., channel, auth_mode, triangulated_lat) with ALTER TABLE. Indexes are created for faster queries on network_id, mac, and timestamp.
+On startup, SnoopR checks and migrates the database schema automatically, adding any missing columns (e.g., `channel`, `auth_mode`, `triangulated_lat`, `last_seen`, `anomalies`) with ALTER TABLE. New `aircraft_info` table is created for OpenSky metadata. Indexes are created for faster queries on `network_id`, `mac`, `timestamp`, and `last_seen`.
 
 ## Usage
-
 Runs automatically on boot.
-
-- Wi-Fi/BLE/aircraft logged with full details.
-- Background analysis updates persistence, velocity, clusters, triangulation, snooper flags.
-- Web UI: `http://<pwnagotchi_ip>:8080/plugins/snoopr/` — trails, heatmap, live updates, KML export.
+- Wi-Fi/BLE/aircraft logged with full details and anomalies.
+- Background analysis updates persistence, velocity, clusters, triangulation, snooper flags, and aircraft-specific behavior.
+- Web UI: `http://<pwnagotchi_ip>:8080/plugins/snoopr/` — trails, heatmap, anomalies column, geofence overlays, live counts + threat alerts, KML export.
 
 ## Notes
-
 - Database: `<base_dir>/snoopr.db`.
 - Triangulated positions prioritized on map.
 - High Persistence uses `persistence_threshold`.
 - Bluetooth company DB auto-downloaded if missing (or manually as above).
 - OUI database loaded from Wireshark path if available (or manually downloaded).
-- SSE live updates visible in browser console (expandable later).
+- SSE live updates and threat alerts visible in browser console.
+- Geofences and aircraft anomalies appear in real time.
 
 ## Community and Contributions
-
 Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 
 ## Disclaimer
-
 For educational and security testing only. Respect privacy and local laws. Use responsibly!
 
-✅ What’s Fixed in v5.1.0
-
-1. Thread‑safe database operations – All public Database methods now use a reentrant lock (db_lock) to prevent nested transactions and concurrent write errors.
-
-2. Duplicate network handling – In add_detection_batch, if multiple rows are returned for a (mac, device_type) pair, the first is used and a warning is logged.
-
-3. Correct Bluetooth company URL – Updated to https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/master/v1/company_ids.json (confirmed working).
-
-4. Protected update_device_status – Wrapped the direct cursor usage with the database lock to avoid conflicts with other threads.
-
-5. Version bumped to 5.1.0 to reflect these stability improvements.
----
+✅ What’s New in v6.0.0
+1. Complete geofencing engine with circle/polygon support, map visualization, and automatic anomaly logging.
+2. Advanced aircraft behavioral anomaly detection (circling via convex hull, squawk emergencies, rapid vertical maneuvers, speed/heading anomalies).
+3. OpenSky Network metadata integration with 30-day caching for registration, type, and owner.
+4. Real-time SSE threat alert system with floating red pop-up box.
+5. SciPy-accelerated trilateration with pure-Python fallback.
+6. Efficient recent-device-only analysis (last 7 days by default) + new `last_seen` indexing.
+7. New “Anomalies” column and purple aircraft markers in web UI.
+8. Geofence overlays rendered directly on the Leaflet map.
+9. KML export now includes anomaly descriptions.
+10. Improved KalmanFilter, geometry helpers, MeshNetwork constructor, and error handling throughout.
+11. Version bumped to 6.0.0 to reflect the major feature expansion and performance overhaul.
+```
 
 # SkyHigh Plugin
 ## Overview
