@@ -753,7 +753,8 @@ https://papers.mathyvanhoef.com/wisec2022.pdf
 ## Disclaimer
 This software is provided for educational and research purposes only. Use of this plugin on networks or devices that you do not own or have explicit permission to test is strictly prohibited. The author(s) and contributors are not responsible for any misuse, damages, or legal consequences that may result from unauthorized or improper usage. By using this plugin, you agree to assume all risks and take full responsibility for ensuring that all applicable laws and regulations are followed.
 
-``` 
+---
+ 
 # SnoopR Plugin
 
 Welcome to **SnoopR**, the most advanced surveillance-detection and wardriving plugin for **Pwnagotchi**! SnoopR turns your pocket-sized AI companion into a powerful multi-modal sensor that logs Wi-Fi, Bluetooth/BLE, and even overhead aircraft, while intelligently identifying potential tails or persistent trackers through movement, velocity, spatial clustering, and RSSI-based positioning.
@@ -805,11 +806,11 @@ Key enhancements and fixes over previous versions (and why they’re better):
 ### Python Dependencies (Recommended for Full Features)
 ```bash
 sudo pip3 install bleak cryptography scipy
-```
+
 or use system packages if pip fails:
 ```bash
 sudo apt install python3-bleak python3-cryptography python3-scipy
-```
+
 - `bleak`: Modern BLE scanning.
 - `cryptography`: Mesh encryption.
 - `scipy`: Faster Nelder-Mead trilateration (optional — pure Python fallback included).
