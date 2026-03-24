@@ -453,45 +453,55 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ---
 
 # ProbeNpwn Plugin
-**Version:** 2.0.0
-### Recent Update (v2.0.0)
-- **New Stealth Mode**
-  Added a dedicated "stealth" mode for lower detection risk with slower pacing and reduced packet rates—ideal for high-surveillance environments.
-- **Expanded PMF Bypass Techniques**
-  Now includes four methods: Bad Msg, Association Sleep, RSN IE corruption (malformed RSN elements in assoc requests), and Fragmentation (splitting EAPOL frames)—enhanced auto-detection and fallback logic.
-- **Persistent JSON Blacklist with Auto-Save**
-  Blacklist now saves to `/root/handshakes/probenpwn_blacklist.json` on every change, with TTL-aware loading/removal of expired entries.
-- **Per-AP Token-Bucket Rate Limiting**
-  Configurable tokens per AP (initial 5, refill 0.5/s, max 10) to prevent over-spamming—configurable via new params like `rate_limit_refill_rate`.
-- **Individual UI Element Toggles**
-  New config flags (e.g., `show_attacks = true`) to enable/disable each UI component separately—no more cluttered screens.
-- **Enhanced UI Elements**
-  Added mode indicator, top channels (by UCB score), PMF status, and success bar visualization—smarter updates with less flicker.
-- **External Tool Fallback for Attacks**
-  If Scapy unavailable, falls back to aireplay-ng, mdk4, or hcxdumptool for deauth/attacks—checks tools automatically.
-- **Bounded Data Structures & Decay Mechanisms**
-  All dicts replaced with TTL caches/OrderedDicts with hard limits (e.g., MAX_RECENTS=1000); added periodic decay (scores ×0.99, success ×0.995) for long-term stability.
-- **Hidden SSID Probing**
-  Sends directed probe requests for hidden networks (empty ESSID) to uncover handshakes.
-- **Deauth Storm in Maniac Mode**
-  High-value clients (score >300) get rapid 20-deauth bursts for urgent captures.
-- **Assoc Failure Pattern Detection**
-  Auto-blacklists APs with ≥3 assoc fails in a window—prevents stuck loops.
-- **Asynchronous Packet Injection**
-  Uses non-blocking sendp with count/inter for Scapy—reduces thread blocking.
-- **JSON Log Rotation**
-  Auto-rotates `/root/handshakes/probenpwn_captures.jsonl` at 10MB, keeping up to 3 backups.
-- **Fixed Dynamic Worker Resizing**
-  Now uses fixed conservative workers (2×CPU, min5/max20) instead of runtime adjustments—avoids instability on variable loads.
-- **Improved Scapy Install Logic**
-  Checks for apt first, then pip; added post-install import test for reliability.
+
+**Version:** 3.3.0
+
+### Recent Update (v3.3.0)
+
+- **Quiet Association Attacks (No Deauth Required)**
+  Added full suite of stealthy PMKID-focused attacks: PMKID association request, auth frame harvest (Open/Shared/FT), reassociation PMKID, RSN probe (with WPA3/SAE IE), and CSA probe — captures handshakes/PMKIDs without any deauth frames.
+- **WPS Attack Engine with PIN Capture**
+  Full integration of bully + reaver: real-time stdout parsing with regex extraction of 8-digit PINs, auto-saves captured PINs (with BSSID, tool, timestamp) to `/root/handshakespin/`.
+- **New Config Options**
+  `enable_pmkid_attack`, `enable_auth_harvest`, `enable_reassociation`, `enable_rsn_probe`, `pin_save_path`, plus toggles for every advanced attack (`enable_wpa3_downgrade`, `enable_ft_handshake`, `enable_tdls`, `enable_mesh`, `enable_wps`, `enable_eapol_start`, `enable_eapol_logoff`, `enable_disassociation`, `enable_null_data`, `enable_csa`, `enable_beacon_flood`, `enable_probe_response_flood`, `enable_auth_flood`, `enable_assoc_flood`, `enable_ps_poll`, `enable_cf_end`, `enable_mimo`), `mac_randomization`, `dry_run`, `low_battery_threshold`, `high_cpu_threshold`, `upload_url`, `upload_interval`, `auto_install_scapy`, and many more.
+- **Improved External Tool Process Handling**
+  Semaphore-limited concurrent processes (max 3), real-time output monitoring, proper PID tracking, graceful termination, and semaphore release on completion.
+- **Respects Pwnagotchi Personality Settings**
+  Now honors core `deauth` and `associate` flags from the agent’s personality config.
+- **Adaptive Token Bucket Rate Limiting**
+  Per-AP buckets that dynamically adjust refill rate based on real-time success ratio.
+- **Time-of-Day Channel Scoring Bonus**
+  Learns busiest channels per time period (night/morning/afternoon/evening) and adds bonus to UCB1 selection.
+- **Deep Capability Parsing**
+  Automatically detects and stores WPS, WPA3 (SAE), FT, Enterprise, PMF, TDLS, and Mesh capabilities from raw packets (with thread-safe locks).
+- **State Persistence**
+  Full JSON state save/restore (`/root/handshakes/probenpwn_state.json`) for handshake_db, blacklist, client scores, channel stats — atomic writes + automatic backup.
+- **MAC Randomization**
+  Generates and rotates a pool of locally-administered unicast MACs on every injected frame.
+- **Power & Resource Awareness**
+  Auto-pauses attacks on low battery (<15%) or high CPU (>80%) using psutil.
+- **Dry-Run Mode**
+  Configurable `dry_run = true` — logs what it *would* do without transmitting any packets.
+- **Enhanced UI with New Elements**
+  Attack rate (attacks/second), top targets (shortened MACs), GPS lock indicator, ETA estimate, current PMF method, external processes count, battery % + charging icon — all individually toggleable and position-configurable.
+- **Dedicated Background Sniffer Threads**
+  SAE auth frame sniffer (for future WPA3 capture) + client capability sniffer.
+- **Optional Background Handshake Uploader**
+  Queued upload of every captured handshake to a custom `upload_url` (requires `requests`).
+- **Massive Thread-Safety & Reliability Upgrades**
+  Locks on all shared structures, fixed retry queue with proper bounding, external process cleanup, state save interval, and comprehensive error handling.
+- **Expanded Attack Arsenal**
+  WPA3 downgrade, FT handshake, TDLS, Mesh, EAPOL-Start/Logoff, Disassociation, Null Data, PS-Poll, CF-End, MIMO, probe client, plus improved PMF variants and flood attacks (maniac mode only).
+
 ### Compatibility with jayofelony Image 2.9.5.4 (Debian Trixie)
-ProbeNpwn v2.0.0 is fully compatible with the latest jayofelony image (2.9.5.4), which is based on Debian Trixie.
+ProbeNpwn v3.3.0 is fully compatible with the latest jayofelony image (2.9.5.4), which is based on Debian Trixie.
 Benefits on this image:
 - Reliable Scapy installation (via `apt` — no PEP 668 issues)
-- Improved monitor mode/injection stability for PMF bypass attacks
+- Improved monitor mode/injection stability for all quiet attacks and PMF bypass
 - Faster Python 3.12 performance
-- Better concurrency with fixed thread pools
+- Better concurrency with fixed thread pools and background sniffers
+- Native support for bully/reaver and full external tool suite
+
 ### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
 ```toml
 [main.plugins.probenpwn]
@@ -513,6 +523,20 @@ pmf_status_x_coord = 110
 pmf_status_y_coord = 70
 success_bar_x_coord = 110
 success_bar_y_coord = 80
+attack_rate_x_coord = 120
+attack_rate_y_coord = 20
+top_targets_x_coord = 120
+top_targets_y_coord = 30
+gps_indicator_x_coord = 120
+gps_indicator_y_coord = 40
+eta_x_coord = 120
+eta_y_coord = 50
+pmf_method_x_coord = 120
+pmf_method_y_coord = 60
+ext_procs_x_coord = 120
+ext_procs_y_coord = 70
+battery_x_coord = 120
+battery_y_coord = 80
 show_attacks = true
 show_success = true
 show_handshakes = true
@@ -521,11 +545,17 @@ show_top_channels = true
 show_pmf_status = true
 show_success_bar = true
 show_pnp_status = true
+show_attack_rate = true
+show_top_targets = true
+show_gps_indicator = true
+show_eta = true
+show_pmf_method = false
+show_ext_procs = false
+show_battery = false
 verbose = true
 enable_5ghz = true
 enable_6ghz = true
 max_retries = 5
-gps_history_size = 10
 env_check_interval = 3
 min_recon_time = 2
 max_recon_time = 30
@@ -545,161 +575,148 @@ min_throttle_d = 0.1
 max_throttle_d = 0.2
 pmf_bypass_methods = ["bad_msg", "assoc_sleep", "rsn_corrupt", "frag"]
 use_external_tools = false
+enable_pmkid_attack = true
+enable_auth_harvest = true
+enable_reassociation = true
+enable_rsn_probe = true
+pin_save_path = "/root/handshakespin/"
+mac_randomization = true
+dry_run = false
+low_battery_threshold = 15
+high_cpu_threshold = 80
+upload_url = "https://your-upload-endpoint.com"
+upload_interval = 3600
+enable_wpa3_downgrade = true
+enable_ft_handshake = true
+enable_sae_capture = false
+enable_tdls = false
+enable_mesh = false
+enable_wps = true
+enable_eapol_start = true
+enable_eapol_logoff = true
+enable_disassociation = true
+enable_null_data = true
+enable_csa = false
+enable_beacon_flood = false
+enable_probe_response_flood = false
+enable_auth_flood = false
+enable_assoc_flood = false
+enable_ps_poll = true
+enable_cf_end = false
+enable_mimo = false
 rate_limit_refill_rate = 0.5
 rate_limit_max_tokens = 10
 blacklist_path = "/root/handshakes/probenpwn_blacklist.json"
 log_path = "/root/handshakes/probenpwn_captures.jsonl"
 log_max_bytes = 10485760
 log_backup_count = 3
+state_path = "/root/handshakes/probenpwn_state.json"
 ```
+
 **Educational and Research Tool Only**
 This plugin is provided strictly for **Educational purposes, Security research, and Authorized penetration testing**. It must only be used on networks and devices you own or have explicit written permission to test. Unauthorized use is illegal under laws such as the Computer Fraud and Abuse Act (CFAA) in the United States and equivalent legislation worldwide. The author and contributors are not responsible for any misuse or legal consequences.
 
 ## Overview
-ProbeNpwn is the ultimate aggressive handshake capture plugin for Pwnagotchi—an evolved powerhouse built on the legacy of Instattack, now supercharged with cutting-edge intelligence and PMF bypass capabilities! Version 2.0.0 delivers **Quad Modes** (Tactical, Maniac, Stealth, Adaptive), **UCB1 exploration/exploitation channel hopping**, **Full multi-band support** (2.4/5/6 GHz), **Expanded PMF bypass attacks** (Bad Msg, Association Sleep, RSN IE corruption, Fragmentation via Scapy), **Automatic Scapy installation**, **Persistent JSON failure blacklist**, **JSON capture logging with rotation**, **smarter UI updates with toggles**, **RSSI-based delay caching**, **hidden SSID probing**, **deauth storm**, **assoc failure blacklisting**, and refined mobility scaling for maximum performance in any environment. With continuous mobility detection (GPS + AP rate → 0-1 score), dynamic personality/autotune scaling, intelligent retries, concurrency safety, per-AP rate limiting, external tool fallback, and tweakview-compatible custom status line, ProbeNpwn captures handshakes faster, smarter, and more reliably than ever—especially on modern protected networks.
+ProbeNpwn is the **ultimate aggressive handshake/PMKID/WPS capture plugin** for Pwnagotchi — now completely rebuilt as v3.3.0 with stealthy quiet attacks, full WPS PIN extraction, state persistence, MAC randomization, power awareness, and an expanded arsenal that works on WPA3, FT, Enterprise, Mesh, TDLS, and every modern protected network. Built on the solid foundation of v2.0.0, this version adds **quiet association attacks (no deauth)**, **WPS PIN saving**, **adaptive token buckets**, **time-of-day scoring**, **capability-aware attacks**, **background sniffers**, **optional uploader**, and a much richer configurable UI. It remains the smartest, most stable, and most undetectable capture engine available.
 
 ## Key Features
-- **Quad Modes (Tactical, Maniac, Stealth, Adaptive):**
-  Tactical for smart efficiency, Maniac for unrestricted chaos, Stealth for low-detection operations, and **Adaptive** that auto-switches based on success rate/density.
-- **PMF Bypass Attacks (Bad Msg, Association Sleep, RSN IE Corruption, Fragmentation):**
-  Bypass 802.11w-protected networks with four advanced techniques—automatically preferred when PMF detected (requires Scapy, auto-installed).
-- **UCB1 Intelligent Channel Hopping:**
-  True exploration/exploitation balancing activity, success history, and bonuses for PMKID-potential channels.
-- **Multi-Band Support (2.4/5/6 GHz):**
-  Seamless hopping across bands (configurable), with unique channel lists for stability.
-- **Dynamic Mobility Scaling:**
-  Continuous 0-1 mobility score (GPS Haversine + AP discovery rate) scales recon_time, TTLs, probs, RSSI thresholds, and throttles—inverted for aggression when mobile.
-- **Aggressive Deauth + Association:**
-  Parallel attacks with conditional probabilities, forced assoc on client-less APs for PMKID focus, dynamic throttles, deauth storm for high-value targets, and hidden SSID probing.
-- **Concurrency & Stability:**
-  Fixed thread workers (2×CPU), executor locks, runtime error handling, persistent JSON blacklist for failing APs, TTL caches, decay mechanisms, and heap/LRU cleanup.
-- **Smart UI & Logging:**
-  Attacks/success/handshakes/mobility stats with change-threshold updates and individual toggles; configurable custom status line (tweakview-safe); JSON handshake logging with rotation.
-- **Reliable Scapy Installation**
-  Enhanced auto-install: prefers system package (apt install python3-scapy) then pip fallback; provides clear on-screen and log feedback; post-install test.
-- **Comprehensive Safety:**
-  Whitelist support, early RSSI filtering, retry queue, cooldowns, watchdog recovery, pycache clearing, per-AP rate limiting, and assoc failure blacklisting.
+- **Quiet Association Attacks (PMKID, Auth Harvest, Reassociation, RSN Probe, CSA)**
+  Stealthy handshakes without any deauth — perfect for PMF-protected and monitored networks.
+- **WPS Attack with PIN Capture**
+  bully/reaver integration with real-time PIN extraction and automatic saving to dedicated folder.
+- **Quad Modes (Tactical, Maniac, Stealth, Adaptive)**
+  Adaptive mode now uses success ratio + density for smarter switching.
+- **Advanced PMF Bypass + Expanded Attacks**
+  All previous methods plus WPA3 downgrade, FT handshake, TDLS, Mesh, EAPOL-Start/Logoff, Disassociation, Null Data, PS-Poll, CF-End, MIMO, floods, and more.
+- **UCB1 Intelligent Channel Hopping with Time-of-Day Bonus**
+  Learns busiest channels by hour and adds period-specific scoring.
+- **Multi-Band Support (2.4/5/6 GHz)**
+  Fully configurable with unique channel lists.
+- **Dynamic Mobility + Resource Scaling**
+  GPS + AP rate mobility score + battery/CPU awareness — auto-pauses when needed.
+- **Adaptive Token Bucket Rate Limiting**
+  Per-AP, success-aware dynamic throttling.
+- **MAC Randomization**
+  Rotating locally-administered MAC pool.
+- **State Persistence & Reliability**
+  JSON state save/restore, atomic writes, backup, retry queue, TTL caches, decay mechanisms.
+- **Full Capability Parsing**
+  WPS, WPA3, FT, Enterprise, PMF, TDLS, Mesh detection.
+- **Richer Custom UI**
+  13 individually toggleable elements including attack rate, ETA, top targets, battery, etc.
+- **Background Sniffers & Uploader**
+  SAE + client capability sniffers + queued upload support.
+- **Dry-Run Mode, External Tool Fallback, and Full Thread Safety**
+- 
+## What's New in ProbeNpwn v3.3.0?
+This release is a complete evolution — adding stealth, WPS support, persistence, intelligence, and usability upgrades that make it the most capable handshake plugin ever.
 
-## What's New in ProbeNpwn v2.0.0?
-This release pushes ProbeNpwn to new heights with **Stealth Mode**, **Expanded PMF bypass**, **Persistent Blacklist**, **Rate Limiting**, **UI Toggles**, and defensive enhancements—making it undetectable, stable, and unstoppable on modern Wi-Fi networks.
-
-### 1. Stealth Mode
-**What's New:**
-New mode "stealth" for reduced aggression and detection risk.
-**How It Works:**
-Slower base delays (0.5s) and lower probabilities; integrates with adaptive switching.
-**Why It's Better:**
-Enables operations in monitored areas without triggering WIDS—balances capture rate with stealth.
-
-### 2. Expanded PMF Bypass Attacks (RSN IE Corruption + Fragmentation)
-**What's New:**
-Added RSN corruption (malformed assoc requests) and fragmentation (split EAPOL frames) to existing Bad Msg + Association Sleep.
-**How It Works:**
-Configurable methods list; auto-selects based on PMF detection; asynchronous sends.
-**Why It's Better:**
-Higher success against patched 802.11w networks—exploits more vulnerabilities for enterprise/home Wi-Fi.
-
-### 3. Persistent Blacklist with JSON Auto-Save
-**What's New:**
-Blacklist now persistent via JSON file with auto-save on changes.
-**How It Works:**
-Loads on start, saves on add/remove; TTL cleanup.
-**Why It's Better:**
-Retains knowledge across reboots—avoids re-attacking failures in repeated environments.
-
-### 4. Per-AP Token-Bucket Rate Limiting
-**What's New:**
-Limits attacks per AP to prevent over-spamming.
-**How It Works:**
-Configurable refill rate/max tokens; consume before attacking.
-**Why It's Better:**
-Reduces RF noise/detection; improves stability in dense areas without DoS-ing targets.
-
-### 5. Individual UI Element Toggles
-**What's New:**
-Per-element enable/disable flags.
-**How It Works:**
-Config like `show_success_bar = true`; only adds enabled elements.
-**Why It's Better:**
-Customizable display—saves space on small screens, reduces visual clutter.
-
-### 6. Enhanced UI (Success Bar, Top Channels, PMF Status)
-**What's New:**
-New elements: mode, top channels, PMF on/off, success bar.
-**How It Works:**
-Throttled updates; top channels by UCB; bar visualizes rate.
-**Why It's Better:**
-Better at-a-glance info—monitors performance without reading logs.
-
-### 7. External Tool Fallback
-**What's New:**
-Uses aireplay-ng/mdk4/hcxdumptool if Scapy missing.
-**How It Works:**
-Auto-checks tools; falls back for deauth/attacks.
-**Why It's Better:**
-Ensures functionality on Scapy-fail setups—higher compatibility.
-
-### 8. Bounded Structures, Decay, Defensive Programming
-**What's New:**
-TTL caches, size limits, score/success decay.
-**How It Works:**
-Periodic cleanup/decay in on_epoch; error handling everywhere.
-**Why It's Better:**
-Prevents memory leaks/crashes—rock-solid for long runs.
-
-### 9. Hidden SSID Probing
-**What's New:**
-Directed probes for empty ESSID APs.
-**How It Works:**
-Sends Dot11ProbeReq if hostname blank.
-**Why It's Better:**
-Captures from hidden networks—common in secure setups.
-
-### 10. Deauth Storm
-**What's New:**
-Rapid bursts for high-score clients in maniac.
-**How It Works:**
-20 deauths if score >300.
-**Why It's Better:**
-Prioritizes valuable targets—faster handshakes on mobiles.
-
-### 11. Assoc Failure Blacklisting
-**What's New:**
-Bans APs with repeated assoc fails.
-**How It Works:**
-≥3 fails → 1h blacklist.
-**Why It's Better:**
-Avoids incompatible APs—saves time/resources.
-
-### 12. Asynchronous Injection
-**What's New:**
-Non-blocking sendp for Scapy.
-**How It Works:**
-Uses count/inter params.
-**Why It's Better:**
-Smoother concurrency—handles more targets without hangs.
-
-### 13. JSON Log Rotation
-**What's New:**
-Auto-rotates logs at size limit.
-**How It Works:**
-10MB → renames to .1–.3.
-**Why It's Better:**
-Prevents huge files—easier management/long-term logging.
+### 1. Quiet Association Attacks (No Deauth)
+**What's New:**  
+PMKID association, auth frame harvest, reassociation PMKID, RSN probe, CSA probe.  
+**How It Works:**  
+Uses random or rotated MACs and carefully crafted association/probe/auth frames.  
+**Why It's Better:**  
+Captures on PMF/WPA3 networks without triggering deauth alarms or client logs.
+### 2. WPS Attack with PIN Saving
+**What's New:**  
+Full bully/reaver support with PIN regex parsing and auto-save to `/root/handshakespin/`.  
+**How It Works:**  
+Semaphore-limited concurrent processes, real-time output monitoring, early termination on PIN found.  
+**Why It's Better:**  
+Many routers still expose WPS — instant crack path saved automatically.
+### 3. Adaptive Token Bucket + Time-of-Day Scoring
+**What's New:**  
+Success-ratio adaptive rate limiting and per-period channel bonuses.  
+**How It Works:**  
+Buckets adjust on-the-fly; UCB1 now includes night/morning/etc. patterns.  
+**Why It's Better:**  
+Smarter, more efficient targeting in real-world environments.
+### 4. State Persistence & MAC Randomization
+**What's New:**  
+JSON state file + rotating locally-administered MAC pool.  
+**How It Works:**  
+Atomic saves, backup on load, MAC pool refreshed per frame.  
+**Why It's Better:**  
+Survives reboots and defeats MAC-based defenses.
+### 5. Power/Resource Management + Dry-Run
+**What's New:**  
+Battery/CPU pause + dry_run flag.  
+**How It Works:**  
+psutil checks; logs actions without transmitting when dry_run=true.  
+**Why It's Better:**  
+Prevents draining devices and allows safe testing.
+### 6. Richer UI + Background Features
+**What's New:**  
+Attack rate, top targets, GPS, ETA, PMF method, ext procs, battery + background sniffers and uploader.  
+**How It Works:**  
+All elements toggleable/positionable; sniffers run in dedicated threads.  
+**Why It's Better:**  
+Real-time performance visibility and optional cloud upload.
+### 7. Expanded Attack Arsenal & Personality Respect
+**What's New:**  
+WPA3/FT/TDLS/Mesh/EAPOL/Null/PS-Poll/CF-End/MIMO + full respect for core personality flags.  
+**How It Works:**  
+Capability-aware + config toggles for every attack type.  
+**Why It's Better:**  
+Covers every modern Wi-Fi weakness with maximum control.
 ## Why You'll Love It
-ProbeNpwn v2.0.0 is the smartest, most aggressive handshake plugin yet:
-- **Adaptive Intelligence:** Auto-tunes aggression for any scenario.
-- **PMF Slayer:** Bypasses modern protections others can't touch.
-- **Future-Proof:** 6GHz, UCB1 hopping, vendor smarts.
-- **User-Friendly:** Auto-Scapy, JSON logs with rotation, tweakview-safe UI with toggles.
-- **Relentless & Stable:** Blacklists failures, dynamic everything, rock-solid concurrency with rate limiting.
-Big thanks to the Pwnagotchi community and original Instattack creators—this evolution wouldn't be possible without you! 
+ProbeNpwn v3.3.0 is now the **most complete, intelligent, and user-friendly** handshake/PMKID/WPS plugin:
+- **Stealth King:** Quiet attacks + MAC randomization = works where others fail.
+- **WPS Ready:** Automatic PIN capture and saving.
+- **Future-Proof:** WPA3, FT, Mesh, TDLS, 6 GHz, capability-aware.
+- **Rock-Solid:** State persistence, resource awareness, thread safety, adaptive everything.
+- **Customizable:** 13 UI elements, dry-run, uploader, per-attack toggles.
+
 
 ## How to Get Started
 ### Dependencies Needed
-- **Scapy**: Auto-installed by plugin (prefers `sudo apt install python3-scapy`, falls back to `pip3 install scapy`). Required for PMF bypass and advanced injections.
-- **psutil** (optional): For CPU/load monitoring in threading. Install via `sudo apt install python3-psutil` or `pip3 install psutil` if not present—falls back gracefully if missing.
-- **External Tools** (optional for fallback): aireplay-ng (from aircrack-ng), mdk4, hcxdumptool. Install via `sudo apt install aircrack-ng mdk4 hcxdumptool` on Debian-based images.
+- **Scapy**: Auto-installed by the plugin (prefers `sudo apt install python3-scapy`, falls back to `pip3 install --user scapy`). Required for all quiet attacks, PMF bypass, and advanced packet crafting.
+- **psutil** (optional but recommended): For battery/CPU monitoring and auto-pause. Install via `sudo apt install python3-psutil` or `pip3 install psutil`.
+- **requests** (optional): For background handshake upload feature. Install via `sudo apt install python3-requests` or `pip3 install requests`.
+- **External Tools** (optional):
+  - `aireplay-ng`, `mdk4`, `hcxdumptool` (for fallback deauth) → `sudo apt install aircrack-ng mdk4 hcxdumptool`
+  - `bully` and/or `reaver` (for WPS attacks) → `sudo apt install bully reaver`
 ### Easy Way (Recommended)
 1. **Add Repo to config.toml** (if not already):
    ```toml
@@ -718,73 +735,19 @@ Big thanks to the Pwnagotchi community and original Instattack creators—this e
    sudo pwnagotchi plugins update
    sudo pwnagotchi plugins install probenpwn
    ```
+   
 ### Manual Way
 ```bash
 git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
 sudo cp probenpwn.py /usr/local/share/pwnagotchi/custom-plugins/
 ```
+
 ### Config Example (`config.toml`)
-```toml
-main.plugins.probenpwn.enabled = true
-main.plugins.probenpwn.mode = "adaptive" # tactical/maniac/stealth/adaptive
-main.plugins.probenpwn.attacks_x_coord = 110
-main.plugins.probenpwn.attacks_y_coord = 20
-main.plugins.probenpwn.success_x_coord = 110
-main.plugins.probenpwn.success_y_coord = 30
-main.plugins.probenpwn.handshakes_x_coord = 110
-main.plugins.probenpwn.handshakes_y_coord = 40
-main.plugins.probenpwn.pnp_status_x_coord = 130 # Hotfix 1.7.1 changed from core status to its own
-main.plugins.probenpwn.pnp_status_y_coord = 47 # Hotfix 1.7.1 changed from core status to its own
-main.plugins.probenpwn.mode_x_coord = 110
-main.plugins.probenpwn.mode_y_coord = 50
-main.plugins.probenpwn.top_channels_x_coord = 110
-main.plugins.probenpwn.top_channels_y_coord = 60
-main.plugins.probenpwn.pmf_status_x_coord = 110
-main.plugins.probenpwn.pmf_status_y_coord = 70
-main.plugins.probenpwn.success_bar_x_coord = 110
-main.plugins.probenpwn.success_bar_y_coord = 80
-main.plugins.probenpwn.show_attacks = true
-main.plugins.probenpwn.show_success = true
-main.plugins.probenpwn.show_handshakes = true
-main.plugins.probenpwn.show_mode = true
-main.plugins.probenpwn.show_top_channels = true
-main.plugins.probenpwn.show_pmf_status = true
-main.plugins.probenpwn.show_success_bar = true
-main.plugins.probenpwn.show_pnp_status = true
-main.plugins.probenpwn.verbose = true
-main.plugins.probenpwn.enable_5ghz = true
-main.plugins.probenpwn.enable_6ghz = false # Only if Wi-Fi 6E hardware
-main.plugins.probenpwn.pmf_bypass_methods = ["bad_msg", "assoc_sleep", "rsn_corrupt", "frag"] # PMF bypass
-main.plugins.probenpwn.use_external_tools = false
-main.plugins.probenpwn.max_retries = 5
-main.plugins.probenpwn.gps_history_size = 10
-main.plugins.probenpwn.env_check_interval = 3
-main.plugins.probenpwn.min_recon_time = 2
-main.plugins.probenpwn.max_recon_time = 30
-main.plugins.probenpwn.min_ap_ttl = 30
-main.plugins.probenpwn.max_ap_ttl = 300
-main.plugins.probenpwn.min_sta_ttl = 30
-main.plugins.probenpwn.max_sta_ttl = 300
-main.plugins.probenpwn.min_deauth_prob = 0.9
-main.plugins.probenpwn.max_deauth_prob = 1.0
-main.plugins.probenpwn.min_assoc_prob = 0.9
-main.plugins.probenpwn.max_assoc_prob = 1.0
-main.plugins.probenpwn.min_min_rssi = -85
-main.plugins.probenpwn.max_min_rssi = -60
-main.plugins.probenpwn.min_throttle_a = 0.1
-main.plugins.probenpwn.max_throttle_a = 0.2
-main.plugins.probenpwn.min_throttle_d = 0.1
-main.plugins.probenpwn.max_throttle_d = 0.2
-main.plugins.probenpwn.rate_limit_refill_rate = 0.5
-main.plugins.probenpwn.rate_limit_max_tokens = 10
-main.plugins.probenpwn.blacklist_path = "/root/handshakes/probenpwn_blacklist.json"
-main.plugins.probenpwn.log_path = "/root/handshakes/probenpwn_captures.jsonl"
-main.plugins.probenpwn.log_max_bytes = 10485760
-main.plugins.probenpwn.log_backup_count = 3
-```
+(See the full example in the Recent Update section above — it includes every new option.)
 Restart: `sudo systemctl restart pwnagotchi`
-## Pro Tip 
-Start with **adaptive mode**—it handles everything automatically. Enable all PMF bypass methods to dominate modern 802.11w-protected networks—they're based on the brilliant research by Mathy Vanhoef in his WISEC 2022 paper (huge thanks for the groundbreaking techniques!). Keep 6GHz off unless you have compatible hardware(6E wifi adapters only!!). Watch the custom status line for Scapy install prompts! For stealth ops, set `mode = "stealth"` and tune rate limiting lower.
+
+## Pro Tip
+Start with **adaptive mode** — it now handles quiet attacks, WPS, and resource management automatically. Enable all quiet association methods and WPS for maximum coverage on modern networks. Use `dry_run = true` first to see what it will do. For stealth ops, set `mode = "stealth"`, enable MAC randomization, and keep rate limiting conservative. Watch the new UI elements for real-time stats! For WPS-heavy environments, make sure bully/reaver are installed and `enable_wps = true`.
 https://papers.mathyvanhoef.com/wisec2022.pdf
 
 ## Disclaimer
