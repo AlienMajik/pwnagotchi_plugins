@@ -948,14 +948,14 @@ opensky_password = ""
 [[main.plugins.snoopr.geofences]]
 name = "Home Zone"
 type = "circle"
-lat = 
-lon = 
+lat = 37.7749
+lon = -122.4194
 radius = 500
 
 [[main.plugins.snoopr.geofences]]
 name = "Restricted Area"
 type = "polygon"
-points = [[], [], [], []]
+points = [[37.77, -122.42], [37.78, -122.41], [37.79, -122.43], [37.77, -122.42]]
 ```
 
 Both formats work — use the one matching your image. Restart after changes.
