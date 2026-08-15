@@ -303,6 +303,16 @@ class Age(plugins.Plugin):
         self.points_map = self.options.get('points_map', self.points_map)
         self.show_personality = self.options.get('show_personality', False)
 
+        # /root/handshakes is not where every build keeps them: jayofelony images
+        # use /etc/pwnagotchi/handshakes. Follow bettercap's configured directory.
+        handshake_dir = self.options.get('handshake_dir')
+        if not handshake_dir:
+            try:
+                handshake_dir = pwnagotchi.config['bettercap']['handshakes']
+            except (AttributeError, KeyError, TypeError):
+                handshake_dir = self.handshake_dir
+        self.handshake_dir = handshake_dir
+
         self.load_data()
         self.initialize_handshakes()
 
@@ -321,7 +331,8 @@ class Age(plugins.Plugin):
         if self.handshake_count == 0 and os.path.isdir(self.handshake_dir):
             count = 0
             for root, dirs, files in os.walk(self.handshake_dir):
-                count += sum(1 for f in files if f.endswith('.pcap'))
+                # pwnagotchi writes .pcapng, so .pcap alone never matched anything.
+                count += sum(1 for f in files if f.endswith(('.pcap', '.pcapng')))
             self.handshake_count = count
             self.total_handshakes_lifetime = max(self.total_handshakes_lifetime, count)
             logging.info(f"[Age] Initialized with {self.handshake_count} handshakes")
@@ -794,6 +805,12 @@ class Age(plugins.Plugin):
     def abrev_number(self, num):
         for unit in ['', 'K', 'M', 'B']:
             if abs(num) < 1000:
-                return f"{num:.1f}{unit}".rstrip('.0')
+                # rstrip removes every trailing character in the set, not the
+                # suffix, so this used to turn 0 into '', 100 into '1' and 120
+                # into '12'.
+                text = f"{num:.1f}"
+                if text.endswith('.0'):
+                    text = text[:-2]
+                return f"{text}{unit}"
             num /= 1000.0
         return f"{num:.1f}T"
