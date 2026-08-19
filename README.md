@@ -759,41 +759,44 @@ This software is provided for educational and research purposes only. Use of thi
 
 Welcome to **SnoopR**, the most advanced surveillance-detection and wardriving plugin for **Pwnagotchi**! SnoopR turns your pocket-sized AI companion into a powerful multi-modal sensor that logs Wi-Fi, Bluetooth/BLE, and even overhead aircraft, while intelligently identifying potential tails or persistent trackers through movement, velocity, spatial clustering, and RSSI-based positioning.
 
-This release (**v6.0.0**) is a complete architectural overhaul and major feature upgrade from v5.1.0. It adds full geofencing, advanced aircraft behavioral anomaly detection with OpenSky metadata integration, real-time threat alerts via SSE, SciPy-accelerated trilateration, efficient recent-device-only analysis, richer web UI with anomalies column and map overlays, and dozens of stability/performance improvements. These changes transform SnoopR from a smart logger into a true real-time surveillance detection platform.
+This release (**v7.0.1**) is a correctness and performance overhaul of v6.0.0. Several headline v6 features were present in the code but never actually ran: persistence scoring was dead outside UTC, velocity was always zero, trilateration compared degrees against metres, the OUI parser loaded zero entries from the documented Wireshark database, threat alerts were never generated or reachable, mesh was send-only and unauthenticated, and circling detection was gated behind a condition that made it impossible to satisfy. All of those are fixed and verified. On top of that, the snooper rule was rebuilt so it stops flagging every access point you drive past, the web UI is no longer vulnerable to a hostile SSID, and the plugin no longer holds the database lock through its own analysis. v7.0.1 adds compatibility work for recent jayofelony images (Trixie/venv, relocated handshakes, real `bluetooth_device` support).
+
+**v7 is a drop-in replacement.** Same database file, same plugin name, same web path. The schema migrates itself on first start and existing data is preserved — stored timestamps were always UTC, so old rows begin scoring correctly immediately.
 
 Key enhancements and fixes over previous versions (and why they’re better):
-- **Full geofencing system (new)** – Supports configurable circle and polygon zones. Aircraft are automatically checked against all zones; breaches appear as anomalies in logs, UI, and KML. Visualized directly on the Leaflet map. Turns SnoopR into a true geofenced alarm system — impossible in v5.1.0.
-- **Advanced aircraft anomaly detection (new)** – Real-time behavioral analysis including low altitude, circling/loitering (convex-hull diameter), rapid climb/descent, speed anomalies, emergency squawk codes (7500/7600/7700), and sharp turns. Uses per-aircraft track history. Far more powerful than the simple position logging in v5.1.0.
-- **OpenSky Network integration (new)** – Automatic async lookup of aircraft registration, typecode, and owner with 30-day SQLite cache. Rich metadata instead of just “UNKNOWN”.
-- **Real-time threat alerts via SSE (new)** – Dedicated `/alerts` endpoint with floating red alert box that auto-dismisses after 5 seconds. Live pop-up notifications for squawks, geofence breaches, circling, etc.
-- **SciPy-accelerated trilateration (new)** – Uses `scipy.optimize.minimize` (Nelder-Mead) when available, with pure-Python fallback. Faster and more robust position estimates.
-- **Efficient recent-device analysis** – PersistenceAnalyzer now only processes devices seen in the last `analysis_days` (default 7). Combined with new `last_seen` column and index, dramatically reduces CPU and DB load on long runs.
-- **Enhanced web UI** – New “Anomalies” column, purple markers for anomalous aircraft, geofence overlays on map, improved KML export that includes anomalies.
-- **Improved geometry engine** – Added `haversine_miles`, `convex_hull`, `polygon_diameter`, and `point_in_polygon` helpers for accurate circling and clustering.
-- **Better KalmanFilter** – Explicit `initialize()` on first measurement for more accurate early RSSI smoothing.
-- **MeshNetwork improvements** – Cleaner constructor, better crypto warnings, and more robust error handling.
-- **Database enhancements** – New `aircraft_info` table, `last_seen` column + index, `update_anomalies()` method, CTE-based `get_all_networks` for faster latest-position queries.
-- **Config warnings** – Automatic logging when plaintext mesh keys or WiGLE credentials are used (security nudge).
-- **Robustness everywhere** – More specific exception handling, OUI fallback path, aircraft file existence warning, and protected cursor usage in all analysis paths.
-- **Config compatibility** – Still supports both legacy flat keys and modern nested tables (especially for jayofelony custom images).
+- **UTC end-to-end (fixed)** – SQLite's `CURRENT_TIMESTAMP` is UTC but v6 compared it against local time, so outside UTC the scoring windows never matched: `persistence_score` stayed 0, nothing was ever flagged, and pruning cut at the wrong instant. Everything now uses a single UTC clock and converts only for display.
+- **Velocity and movement analysis (fixed)** – Detection rows were returned newest-first while the loop assumed oldest-first, so every time delta was negative and `max_velocity` could never be anything but zero. Rows are now chronological; velocity is stored and reported in **mph**.
+- **Trilateration in a real coordinate system (fixed)** – v6 minimised an objective mixing degrees (positions) with metres (path-loss distances). Solving now happens in a local metre plane and unprojects, recovering a test transmitter within 10 m from six observations.
+- **OUI database that actually loads (fixed)** – The v6 parser only understood IEEE `oui.txt`, but the documented install (`wireshark-common`) provides the tab-separated `manuf` format, so it loaded **zero** entries. Every vendor came back `Unknown` — and because the rogue heuristic matched the literal string "unknown", every device on the air was flagged rogue. Both formats now parse, including `/28` and `/36` masks.
+- **Threat alerts that fire (fixed)** – `add_alert()` had no call site and the browser subscribed to absolute `/alerts` and `/stream`, which 404 under `/plugins/snoopr/`. Alerts are now raised for aircraft anomalies, geofence breaches and new snooper flags, over one relative `events` stream with keepalives.
+- **Authenticated mesh with a receive loop (fixed)** – v6 never called its own receive method, and that method inserted unauthenticated UDP JSON straight into the database. Frames are now HMAC-SHA256 authenticated, AES-GCM encrypted, replay-protected and schema-validated, with a dedicated receiver thread.
+- **Circling detection that can trigger (fixed)** – v6 only ran the detector after an aircraft moved **more than** 500 m, while circling requires a hull diameter **at most** 500 m: mutually exclusive. Every position now feeds the tracker; the dedupe test only gates the database write.
+- **Snooper rule rebuilt** – Persistence alone no longer flags a device. SnoopR now requires corroboration that it was **close** at **separated** places. See *Understanding snooper detection* below.
+- **Stored XSS fixed** – Map popups were built with template literals, so an SSID like `<img src=x onerror=…>` executed in the operator's browser. The dashboard now builds every cell and popup with `textContent`; KML is XML-escaped.
+- **OpenSky OAuth2** – Basic authentication was retired upstream on 2026-03-18; `opensky_username`/`password` no longer work at all. SnoopR implements the client-credentials flow with token caching, plus an offline CSV fallback and negative caching for unknown ICAOs.
+- **No lock held during analysis** – v6 held the database lock across the entire per-device analysis including the optimiser, blocking every scan write and web request. Locks are now per-operation.
+- **Paginated JSON API** – The old page embedded every device and trail into the HTML and ran an N+1 query per row. There is now a single windowed query plus a batched trail query behind `data.json`, with server-side search, sort, filter and pagination.
+- **Bounded memory** – Aircraft tracks, Kalman filters, the aircraft cache, WiGLE results and the rate-limiter table are all LRU/TTL-evicted. v6 leaked all of them on long runs.
+- **Image compatibility (v7.0.1)** – `bluetooth_device` is finally passed to bleak, `aircraft_file` is probed across the locations recent images actually use, `base_dir` falls back when `/root` isn't writable, and the missing-dependency warning names the interpreter pwnagotchi is running from.
 
 ## Features
 - **Multi-source detection**: Wi-Fi APs + clients, Bluetooth/BLE (with manufacturer data), ADS-B aircraft.
-- **Geofencing**: Circle and polygon zones with real-time breach detection and map visualization.
-- **Intelligent persistence scoring**: Recent activity windows, cluster bonuses, configurable threshold.
-- **Hybrid snooper flagging**: Persistence + movement + velocity.
-- **RSSI triangulation**: Estimated position + MSE for Wi-Fi/BLE (now SciPy-accelerated when available).
-- **Spatial clustering**: ~100m zone counting to detect repeated locations.
-- **Vendor & classification**: OUI + Bluetooth company IDs + heuristics.
-- **Advanced aircraft tracking**: OpenSky metadata, behavioral anomaly detection (circling, squawks, vertical speed, etc.), smart caching.
-- **Modern BLE scanning**: Configurable async Bleak scanner.
-- **Encrypted mesh**: Optional real-time sharing.
-- **WiGLE fallback**: SSID geolocation.
-- **Kalman-smoothed RSSI**: Cleaner distance estimates.
-- **Rich web interface**: Trails, heatmap, anomalies column, geofence overlays, KML export, dark mode, live SSE counts + threat alerts, search, sorting, filters.
-- **Pwnagotchi UI counters**: Wi-Fi, BT, Aircraft, Snoopers, High Persistence.
-- **Whitelisting**: SSID/MAC.
-- **Automatic pruning**: With VACUUM.
+- **Geofencing**: Circle and polygon zones with real-time breach detection, map overlays and KML output.
+- **Persistence scoring**: Recent-activity windows plus a bonus for close-range zones (distant GPS cells no longer inflate it).
+- **Evidence-based snooper flagging**: Close-range presence across separated locations, or persistence corroborated by multiple zones and sessions. Every flag records a human-readable reason.
+- **RSSI trilateration**: Position estimate plus a meaningful MSE in m², SciPy-accelerated when available.
+- **Spatial clustering**: O(n) ~100 m grid bucketing (v6 was O(n²) over every detection).
+- **Vendor & classification**: Wireshark `manuf` + IEEE `oui.txt` + Bluetooth company IDs + heuristics.
+- **Randomised MAC awareness**: Locally-administered addresses are detected, labelled and excluded from persistence-only flagging.
+- **Advanced aircraft tracking**: OpenSky metadata, behavioural anomaly detection (circling, squawks, vertical rate, speed, sharp turns), dump1090/readsb/tar1090 field support.
+- **Modern BLE scanning**: Async bleak scanner with real adapter selection.
+- **Authenticated mesh**: Encrypted, replay-protected, validated peer sharing.
+- **WiGLE fallback**: SSID geolocation with caching and rate-limit backoff.
+- **Kalman-smoothed RSSI**: Written to the database and used for distance estimates.
+- **Rich web interface**: Trails, heatmap, anomalies column, geofence overlays, KML export, dark mode, live counts + threat alerts, search, sorting, filters, pagination.
+- **Pwnagotchi UI counters**: Wi-Fi, BT, Aircraft, Snoopers, High Persistence — configurable position, updated off a background thread.
+- **Whitelisting**: SSID/MAC (case-insensitive, and now actually matching for Wi-Fi).
+- **Automatic pruning**: Background maintenance thread with periodic VACUUM.
 - **Robust logging & error handling**.
 
 ## Requirements & Dependencies
@@ -801,22 +804,33 @@ Key enhancements and fixes over previous versions (and why they’re better):
 - **GPS** via Bettercap (gps plugin recommended).
 - **Bluetooth** enabled (`sudo hciconfig hci0 up` or your interface).
 - **Internet on viewing device** for map tiles/Leaflet and OpenSky lookups.
-- **aircraft.json** file (for ADS-B feed — still required).
+- **aircraft.json** file (for ADS-B feed — optional; everything else works without it).
 
 ### Python Dependencies (Recommended for Full Features)
-```bash
-sudo pip3 install bleak cryptography scipy
 
-or use system packages if pip fails:
+**Install into the interpreter pwnagotchi actually uses.** Recent images (2.9.5.4+, Trixie base) run from a virtualenv under PEP 668, so a plain `sudo pip3 install` lands in the system Python and the plugin will still report the packages as missing. Find the right interpreter first:
+
 ```bash
-sudo apt install python3-bleak python3-cryptography python3-scipy
+systemctl cat pwnagotchi | grep -i exec        # or: head -1 $(command -v pwnagotchi)
+sudo /path/to/that/python -m pip install bleak cryptography scipy
+```
+
+On images with the venv at `/home/pi/.pwn`:
+
+```bash
+sudo bash
+source /home/pi/.pwn/bin/activate
+pip3 install bleak cryptography scipy
+```
+
+SnoopR logs the exact interpreter path next to the missing-package warning, so the log tells you where the install has to go.
 
 - `bleak`: Modern BLE scanning.
-- `cryptography`: Mesh encryption.
+- `cryptography`: Mesh encryption (required for mesh unless `mesh_allow_plaintext` is set).
 - `scipy`: Faster Nelder-Mead trilateration (optional — pure Python fallback included).
 
 ### Vendor Databases
-SnoopR automatically downloads the Bluetooth company identifiers database on first run if missing. For Wi-Fi vendor lookup, the Wireshark OUI database is preferred.
+SnoopR downloads the Bluetooth company identifiers database in the background on first run if missing (v6 blocked boot for up to 30 seconds doing this). For Wi-Fi vendor lookup, the Wireshark OUI database is preferred.
 
 **Recommended (automatic OUI via package):**
 ```bash
@@ -824,7 +838,7 @@ sudo apt update && sudo apt install wireshark-common
 ```
 
 **Manual Download Options** (use if `apt` is unavailable or for offline setup):
-- **Bluetooth Company Identifiers** (manually download to the configured path, default `/root/snoopr/company_identifiers.json`):
+- **Bluetooth Company Identifiers** (manually download to the configured path, default `<base_dir>/company_identifiers.json`):
   ```bash
   sudo mkdir -p /root/snoopr
   sudo wget -O /root/snoopr/company_identifiers.json https://raw.githubusercontent.com/NordicSemiconductor/bluetooth-numbers-database/master/v1/company_ids.json
@@ -833,9 +847,10 @@ sudo apt update && sudo apt install wireshark-common
   ```bash
   sudo wget -O /usr/share/wireshark/manuf https://www.wireshark.org/download/automated/data/manuf
   ```
-- **ADS-B feed** (required for aircraft): Tool outputting valid `aircraft.json`.
+- **ADS-B feed** (required for aircraft): Tool outputting valid `aircraft.json`. dump1090/readsb/tar1090 wrappers (`{"now":…,"aircraft":[…]}`) and legacy list/dict formats are all accepted.
 - **WiGLE API keys** (optional): For fallback geolocation.
-- **OpenSky credentials** (optional but recommended for rich aircraft metadata): Free account at opensky-network.org.
+- **OpenSky API client** (optional, for aircraft registration/type/owner): Create one on your account page at opensky-network.org and use `opensky_client_id` / `opensky_client_secret`. Username/password authentication was retired upstream on 2026-03-18 and no longer works.
+- **Local aircraft CSV** (optional, fully offline metadata): point `aircraft_db_csv` at a crowd-sourced aircraft database export. It takes priority over the network lookup.
 
 ## Installation Instructions
 Manual installation recommended (advanced dependencies):
@@ -853,96 +868,115 @@ sudo cp /tmp/pwnplugins/snoopr.py /usr/local/share/pwnagotchi/custom-plugins/
 sudo rm -rf /tmp/pwnplugins
 ```
 
-Install dependencies:
+Install dependencies (see the venv note above), then restart:
 
 ```bash
-sudo pip3 install bleak cryptography scipy
 sudo apt install wireshark-common
-```
-
-Restart:
-
-```bash
 sudo systemctl restart pwnagotchi
 ```
 
-## Configuration
-SnoopR supports both legacy flat config keys (for standard Pwnagotchi) and modern nested tables (optimized for jayofelony custom images like 2.9.5.4).
+Verify the start:
 
-### Legacy Flat Format (Standard Pwnagotchi Compatibility)
-```toml
-main.plugins.snoopr.enabled = true
-main.plugins.snoopr.base_dir = "/root/snoopr"
-main.plugins.snoopr.aircraft_file = "/root/aircraft.json"
-main.plugins.snoopr.scan_interval = 10
-main.plugins.snoopr.scan_duration = 5
-main.plugins.snoopr.bluetooth_enabled = true
-main.plugins.snoopr.log_without_gps = false
-main.plugins.snoopr.whitelist_ssids = ["MyHomeWiFi", "MyPhone"]
-main.plugins.snoopr.whitelist_macs = []
-main.plugins.snoopr.prune_days = 30
-main.plugins.snoopr.ui_enabled = true
-main.plugins.snoopr.mesh_enabled = false
-main.plugins.snoopr.movement_threshold = 0.8
-main.plugins.snoopr.time_threshold_minutes = 20
-main.plugins.snoopr.persistence_threshold = 0.85
-main.plugins.snoopr.triangulation_min_points = 8
-main.plugins.snoopr.mse_threshold = 75
-main.plugins.snoopr.update_interval = 300
-main.plugins.snoopr.analysis_days = 7
-main.plugins.snoopr.aircraft_high_altitude_threshold = 300
-main.plugins.snoopr.aircraft_circling_radius = 500
-main.plugins.snoopr.aircraft_circling_time = 120
-main.plugins.snoopr.aircraft_rapid_descent_threshold = 3000
-main.plugins.snoopr.aircraft_rapid_climb_threshold = 3000
-main.plugins.snoopr.aircraft_max_speed_knots = 600
-main.plugins.snoopr.aircraft_min_speed_knots = 50
-main.plugins.snoopr.aircraft_enable_squawk_alerts = true
-main.plugins.snoopr.opensky_username = ""
-main.plugins.snoopr.opensky_password = ""
+```bash
+sudo tail -f /etc/pwnagotchi/log/pwnagotchi.log | grep SnoopR
 ```
 
-### Modern Nested Format (jayofelony 2.9.5.4 Image & Newer)
+A healthy start logs a **non-zero OUI count** (this is the tell for the broken v6 parser), a Bluetooth company ID count, the aircraft feed path in use, the geofence count and a session ID.
+
+## Configuration
+`main.plugins.snoopr.key = value` and `[main.plugins.snoopr]` are the *same thing* in TOML — they parse to an identical table. Use whichever style you prefer; there is no image-specific requirement, and both have always worked. Restart after changes.
+
+Every v6 key is still accepted. Nothing below is mandatory.
+
+### Full Configuration Reference
 ```toml
 [main.plugins.snoopr]
 enabled = true
-base_dir = "/root/snoopr"
-aircraft_file = "/root/handshakes/skyhigh_aircraft.json"
+
+# --- storage & inputs ---
+base_dir = "/root/snoopr"                 # falls back to /home/pi/snoopr if unwritable
+aircraft_file = "/home/pi/handshakes/skyhigh_aircraft.json"  # auto-probed if unset/missing
+aircraft_db_csv = ""                      # optional offline aircraft metadata CSV
+oui_db_path = "/usr/share/wireshark/manuf"
+
+# --- scanning ---
 scan_interval = 10
 scan_duration = 5
 bluetooth_enabled = true
-bluetooth_device = "hci1"
+bluetooth_device = "hci0"                 # now actually passed to bleak
 log_without_gps = false
-whitelist_ssids = ["MyHomeWiFi", "MyPhone"]
-whitelist_macs = []
-prune_days = 7
-mesh_enabled = false
-mesh_host = "0.0.0.0"
-mesh_port = 8888
-mesh_peers = []
-mesh_key = ""
-ui_enabled = true
+gps_max_age = 60                          # seconds before a GPS fix is considered stale
+
+# --- retention ---
+prune_days = 30
+prune_interval_hours = 6                  # pruning runs in the background, not at shutdown
+
+# --- analysis ---
+persistence_threshold = 0.85
+persistence_window_minutes = 5
+persistence_windows = 4
+analysis_days = 7
+analysis_row_limit = 4000
+update_interval = 300
+movement_threshold = 0.8                  # miles of separation for "this followed me"
+time_threshold_minutes = 20
+min_rssi_for_movement = -70               # signal floor for "it was actually near me"
+max_plausible_velocity_mph = 200          # rejects GPS jumps
+require_movement_for_snooper = true       # false = v6 persistence-only behaviour
+flag_randomized_snoopers = false
+
+# --- trilateration ---
+triangulation_min_points = 8
+mse_threshold_m2 = 2500                   # real mean-square error in m^2 (50 m RMS)
 tx_power_wifi = -20
 tx_power_bt = -20
 path_loss_n_wifi = 2.7
 path_loss_n_bt = 2.7
-mse_threshold = 75
-triangulation_min_points = 8
-persistence_threshold = 0.85
-movement_threshold = 0.8
-time_threshold_minutes = 20
-update_interval = 300
-analysis_days = 7
-aircraft_high_altitude_threshold = 300
-aircraft_circling_radius = 500
+
+# --- aircraft ---
+aircraft_interval = 15                    # feed poll seconds
+aircraft_move_threshold = 300             # metres of movement before a new row is written
+aircraft_low_altitude_threshold = 3000    # renamed from aircraft_high_altitude_threshold
+aircraft_circling_radius = 1500
 aircraft_circling_time = 120
 aircraft_rapid_descent_threshold = 3000
 aircraft_rapid_climb_threshold = 3000
 aircraft_max_speed_knots = 600
 aircraft_min_speed_knots = 50
 aircraft_enable_squawk_alerts = true
-opensky_username = ""
-opensky_password = ""
+opensky_client_id = ""
+opensky_client_secret = ""
+
+# --- mesh (mesh_key is mandatory when enabled) ---
+mesh_enabled = false
+mesh_host = "0.0.0.0"
+mesh_port = 8888
+mesh_peers = []
+mesh_key = ""
+mesh_allow_plaintext = false              # only needed if cryptography is unavailable
+
+# --- WiGLE fallback ---
+wigle_enabled = false
+wigle_api_name = ""
+wigle_api_token = ""
+
+# --- filtering ---
+whitelist_ssids = ["MyHomeWiFi", "MyPhone"]
+whitelist_macs = []
+
+# --- alerts & web ---
+alert_on = ["squawk", "geofence", "circling", "rapid", "snooper"]
+sse_enabled = true                        # false = dashboard polls instead
+max_sse_clients = 2
+max_path_points = 300
+rate_limit_per_minute = 120
+
+# --- pwnagotchi display ---
+ui_enabled = true
+ui_x = 0
+ui_y = 90
+ui_line_height = 10
+ui_elements = ["wifi", "bt", "aircraft", "snoopers", "persistence"]
 
 # Example geofences (list of tables)
 [[main.plugins.snoopr.geofences]]
@@ -958,25 +992,61 @@ type = "polygon"
 points = [[37.77, -122.42], [37.78, -122.41], [37.79, -122.43], [37.77, -122.42]]
 ```
 
-Both formats work — use the one matching your image. Restart after changes.
+### Renamed Keys (old names still read)
+| Old | New | Why |
+|---|---|---|
+| `opensky_username` / `opensky_password` | `opensky_client_id` / `opensky_client_secret` | Basic auth retired upstream 2026-03-18 |
+| `mse_threshold` | `mse_threshold_m2` | Now a real error in m²; legacy values under 500 are ignored with a warning |
+| `aircraft_high_altitude_threshold` | `aircraft_low_altitude_threshold` | The test was always for *low* altitude |
+
+## Understanding snooper detection
+This is the biggest behavioural change from v6 and worth reading before you tune anything.
+
+The coordinates SnoopR logs are the **receiver's** position, not the device's. In v6 that meant driving made every stationary access point look fast (the velocity trigger was 1.5 m/s — walking pace), and sitting anywhere for twenty minutes maxed out the persistence score for everything in range. Everything was a snooper, so nothing was.
+
+v7 requires corroboration that a device was **close** at **separated** places:
+
+- **`followed`** — strong signal (≥ `min_rssi_for_movement`) at points at least `movement_threshold` miles apart, spanning at least five minutes; or
+- **persistence ≥ threshold** *and* at least two close-range zones *and* at least two sessions.
+
+Zone bonuses count only close-range fixes, so a slow drive-by no longer inflates the score. Aircraft are excluded from snooper analysis entirely. Randomised (locally-administered) MACs are not flagged on persistence alone, because modern phones rotate them roughly every fifteen minutes. Every flag stores a `snooper_reason` shown in the table and popups.
+
+**A stationary unit cannot distinguish a tail from a neighbour.** That is a limit of one receiver in one place, not a tuning problem. For fixed counter-surveillance installs, set `require_movement_for_snooper = false` to restore the v6 persistence-only trigger.
 
 ## Database Schema Updates
-On startup, SnoopR checks and migrates the database schema automatically, adding any missing columns (e.g., `channel`, `auth_mode`, `triangulated_lat`, `last_seen`, `anomalies`) with ALTER TABLE. New `aircraft_info` table is created for OpenSky metadata. Indexes are created for faster queries on `network_id`, `mac`, `timestamp`, and `last_seen`.
+On startup SnoopR migrates the schema automatically, adding missing columns (`channel`, `auth_mode`, `triangulated_lat`, `last_seen`, `anomalies`, plus new `is_randomized`, `snooper_reason`, `best_rssi`, `first_seen`) with ALTER TABLE. A `meta` table tracks the schema version, `first_seen`/`last_seen` are backfilled for pre-v7 rows, a unique index is enforced on `(mac, device_type)`, and inserts use `ON CONFLICT … DO UPDATE`. The `aircraft_info` table gains a `status` column for negative caching. Indexes cover `(network_id, timestamp)`, `session_id`, `mac`, `device_type` and `last_seen`.
 
 ## Usage
 Runs automatically on boot.
-- Wi-Fi/BLE/aircraft logged with full details and anomalies.
-- Background analysis updates persistence, velocity, clusters, triangulation, snooper flags, and aircraft-specific behavior.
-- Web UI: `http://<pwnagotchi_ip>:8080/plugins/snoopr/` — trails, heatmap, anomalies column, geofence overlays, live counts + threat alerts, KML export.
+- Wi-Fi/BLE/aircraft logged with full details, filtered RSSI and anomalies.
+- Background threads handle aircraft processing, periodic analysis, maintenance/pruning, UI counts and buffered writes — none of them block the scan path or the display.
+- Web UI: `http://<pwnagotchi_ip>:8080/plugins/snoopr/`
+
+| Route | Purpose |
+|---|---|
+| `/plugins/snoopr/` | Dashboard |
+| `/plugins/snoopr/data.json` | Paginated device data (`filter_by`, `sort_by`, `search`, `limit`, `offset`) |
+| `/plugins/snoopr/export.kml` | KML export, honours the active filter |
+| `/plugins/snoopr/events` | Live counts + threat alerts (`stream` and `alerts` are aliases) |
+
+Filters: all, snoopers, high persistence, anomalies, Wi-Fi, clients, Bluetooth, aircraft, randomised.
 
 ## Notes
 - Database: `<base_dir>/snoopr.db`.
-- Triangulated positions prioritized on map.
-- High Persistence uses `persistence_threshold`.
-- Bluetooth company DB auto-downloaded if missing (or manually as above).
-- OUI database loaded from Wireshark path if available (or manually downloaded).
-- SSE live updates and threat alerts visible in browser console.
-- Geofences and aircraft anomalies appear in real time.
+- Triangulated positions are prioritised on the map; popups say which kind of fix you're looking at, and `triangulated_mse` lets you judge it.
+- All timestamps are stored in UTC and displayed in local time.
+- Velocity is reported in mph.
+- High Persistence uses `persistence_threshold` everywhere (v6 hardcoded 0.7 in two places).
+- Bluetooth company DB is downloaded in the background if missing.
+- OUI database is read from the Wireshark path if available; both `manuf` and `oui.txt` formats are supported.
+- If live updates are disabled or the stream drops three times, the dashboard falls back to polling automatically.
+- Geofences and aircraft anomalies appear in real time as floating alerts.
+
+## Known limitations
+- Stationary detection is unsolvable with a single receiver (see *Understanding snooper detection*).
+- BLE MAC randomisation defeats per-MAC tracking for phones; such devices are labelled rather than tracked.
+- Path-loss trilateration assumes free space; indoors, expect tens of metres of error.
+- The OpenSky metadata endpoint is not formally part of their documented REST surface; if it disappears, use `aircraft_db_csv`.
 
 ## Community and Contributions
 Community-driven and evolving fast. Issues/PRs welcome on GitHub!
@@ -984,19 +1054,24 @@ Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 ## Disclaimer
 For educational and security testing only. Respect privacy and local laws. Use responsibly!
 
-✅ What’s New in v6.0.0
-1. Complete geofencing engine with circle/polygon support, map visualization, and automatic anomaly logging.
-2. Advanced aircraft behavioral anomaly detection (circling via convex hull, squawk emergencies, rapid vertical maneuvers, speed/heading anomalies).
-3. OpenSky Network metadata integration with 30-day caching for registration, type, and owner.
-4. Real-time SSE threat alert system with floating red pop-up box.
-5. SciPy-accelerated trilateration with pure-Python fallback.
-6. Efficient recent-device-only analysis (last 7 days by default) + new `last_seen` indexing.
-7. New “Anomalies” column and purple aircraft markers in web UI.
-8. Geofence overlays rendered directly on the Leaflet map.
-9. KML export now includes anomaly descriptions.
-10. Improved KalmanFilter, geometry helpers, MeshNetwork constructor, and error handling throughout.
-11. Version bumped to 6.0.0 to reflect the major feature expansion and performance overhaul.
-```
+✅ What’s New in v7.0.0 / v7.0.1
+1. UTC handling throughout — persistence scoring, recent-device selection and pruning work in every timezone.
+2. Chronological analysis rows — velocity and movement detection actually compute.
+3. Trilateration solved in a local metre plane instead of mixing degrees and metres.
+4. OUI parser that understands the Wireshark `manuf` format (v6 loaded zero entries, which made every device look rogue).
+5. Threat alerts generated and delivered over a working relative SSE endpoint.
+6. Mesh receive loop, with HMAC authentication, AES-GCM encryption, replay protection and schema validation.
+7. Circling detection freed from the mutually-exclusive gate that made it impossible.
+8. Snooper rule rebuilt around close-range evidence across separated locations, with recorded reasons.
+9. Stored XSS in map popups fixed; KML XML-escaped.
+10. OpenSky OAuth2 client-credentials flow, negative caching, and an offline CSV fallback.
+11. Filtered RSSI and aircraft metadata wired up instead of written and ignored.
+12. Database lock no longer held during analysis; O(n) clustering; no N+1 queries; paginated JSON API.
+13. Bounded memory for tracks, filters and caches; single flusher thread; background pruning.
+14. dump1090/readsb field names, `"ground"` altitudes and integer squawks handled.
+15. Aircraft excluded from snooper analysis; randomised MACs detected and labelled.
+16. Configurable UI element positions; counts pushed from a background thread.
+17. **7.0.1** — `bluetooth_device` passed to bleak (both modern and legacy kwargs), aircraft feed path auto-probed for relocated handshakes, `base_dir` fallback, venv-aware dependency warning, `sse_enabled` toggle with automatic polling fallback.
 
 # SkyHigh Plugin
 ## Overview
