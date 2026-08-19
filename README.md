@@ -1581,177 +1581,219 @@ sudo systemctl restart pwnagotchi
 - **Persistent Data:** Cycle count saved to `/root/.mad_hatter_cycle_count`; all other stats read live with in-memory caching.
 ---
 
-# TheyLive Plugin
+# TheyLive — advanced GPS plugin for Pwnagotchi
 
-Welcome to TheyLive, the most advanced and robust GPS plugin for Pwnagotchi! Originally created by rai68 and significantly enhanced by AlienMajik, TheyLive transforms your Pwnagotchi into a powerful wardriving tool with rich real-time GPS data on the display, precise per-handshake location logging, continuous track logging for full route mapping, and seamless Bettercap integration.
+**v2.2.1** — rich real-time GPS on the display, per-handshake location tagging, continuous track
+logging, GPX/GeoJSON export, and Bettercap integration. Originally based on `gpsd-easy` by
+discord@rai68, enhanced by AlienMajik.
 
-**Version 2.1.0** delivers major enhancements: a conflict-free smart GPS status line (`gpsstat` with text like "Good 3D" or "3D (1.4)"), HDOP accuracy reporting, used/visible satellite counts, heading/track display (only when moving), knots speed unit, continuous NDJSON track logging (enabled by default), E-ink-friendly updates (only refresh changed values), precise unit conversions, heading in handshake logs, and permanent resolution of the core status line conflict. It’s fully compatible with the latest jayofelony Pwnagotchi images, with robust auto-setup, PPS support, and excellent reliability across USB/serial GPS, remote sharing, and mobile modes.
+---
 
-## Features
+## Verified against Pwnagotchi 2.9.5.8
 
-TheyLive provides a comprehensive GPS integration suite. Here’s what it delivers:
+Checked line-by-line against the [v2.9.5.8](https://github.com/jayofelony/pwnagotchi/releases/tag/v2.9.5.8)
+source. Four things in the 2.1.0 plugin are wrong on this image and are fixed in 2.2.1:
 
-- **Rich Real-Time GPS Display**: Fully customizable fields including:
-  - `gpsstat` – Smart fix status ("Good 3D" if HDOP < 2.0, "3D (hdop)", "2D fix", "No fix", etc.) with short "stat:" label
-  - `fix` – Dimensional fix type (2D/3D)
-  - `sat` – Used/visible satellites (e.g., "8/12")
-  - `hdop` – Horizontal dilution of precision (accuracy indicator)
-  - `lat` / `lon` – Latitude and longitude
-  - `alt` – Altitude
-  - `spd` – Speed
-  - `trk` – Heading/track in degrees (shown only when speed > 1 m/s)
-- **Unit Support**: Speed in m/s, kph, mph, **or knots**; altitude in m or ft (with precise conversions).
-- **Per-Handshake Logging**: Saves `.gps.json` files alongside each `.pcap` with latitude, longitude, altitude, speed, **and heading/track**.
-- **Continuous Track Logging** (New & Enabled by Default): Logs full movement tracks every 10 seconds (configurable) to `/root/pwnagotchi_gps_track.ndjson` – NDJSON format with timestamp, lat, lon, alt, speed, track, and hdop. Ideal for wardriving and route mapping.
-- **E-Ink Optimizations**: Only updates changed values, reducing flicker and extending display lifespan.
-- **Bettercap Integration**: Enables GPS tagging in captures (server/peer modes; disabled in PwnDroid).
-- **Multi-Mode Support**:
-  - **Server**: Local USB/serial GPS hardware
-  - **Peer**: Remote gpsd sharing from another device
-  - **PwnDroid**: Android GPS via WebSocket over Bluetooth tether (with keep-alive pings)
-- **Robust Auto-Setup**: Installs/configures gpsd with multi-endpoint internet checks, baud rate, device, and PPS support.
-- **No Core UI Conflicts**: `gpsstat` field uses a unique element name – preserves Pwnagotchi’s bottom status line (e.g., "Ready.", AI messages).
-- **Enhanced Reliability**: Thread-safe data access, detailed error logging, graceful reconnects, and comprehensive fallbacks.
+| Issue on 2.9.5.8 | Fix |
+| --- | --- |
+| **Handshakes are `.pcapng`, not `.pcap`.** `filename.replace(".pcap", ".gps.json")` produced `foo.pcapng.gps.json`; `webgpsmap` strips `.pcapng` and looks for `foo.gps.json`, so **every tagged position was invisible on the map**. | Both `.pcapng` and `.pcap` suffixes are stripped correctly. |
+| **`on_loaded` runs on its own thread**, while every other callback is serialised on the plugin's `PluginEventQueue`. The old `while not self.loaded: sleep(0.1)` at the top of `on_ui_setup` therefore parked the plugin's *entire* event queue for the whole gpsd install — no `on_ready`, no `on_handshake` tagging, for up to 10 minutes. | Option parsing is idempotent and lock-guarded, called from `on_loaded`, `on_ui_setup` and `on_ready`; nothing waits on anything. |
+| **`View.add_element` flips non-zero colours when `ui.invert` is set**, and `BLACK` is `0xFF` on this image (the module global is rewritten to `0x00` on invert). Second-guessing that from `config['ui']['invert']` is fragile. | Colour is read live from `pwnagotchi.ui.view.BLACK` at element-creation time — exactly what the core widgets do. |
+| **`agent.session()` is an HTTP GET returning a fresh dict.** The PwnDroid backend wrote `agent.session()['gps'] = …` on every WebSocket message: a Bettercap round-trip per message, mutating a throwaway object. | Removed entirely. Position still reaches captures through `.gps.json` files. |
+
+Also matched to core: `LabeledValue.draw()` places the value at
+`x + label_spacing + 5 * len(label)` regardless of font metrics, so labels are shifted by that
+exact amount — every value now starts precisely on `topleft_x` (verified: all 10 fields land on
+x=130). `View.has_element()` is not used, because in 2.9.5.8 it is missing its `return` and
+always yields `None`.
+
+## What's new in 2.2.x
+
+### Bugs fixed
+
+| Fix | Why it mattered |
+| --- | --- |
+| **gpsd reader no longer busy-loops on EOF** | When gpsd died or the USB GPS was unplugged, `readline()` returned `''` forever and the old loop spun a core at 100%, draining the battery and starving the UI thread. |
+| **Automatic gpsd reconnection** | Previously, if gpsd wasn't up during the 5 initial attempts (very common right after `systemctl restart gpsd`), the plugin gave up permanently until a reboot. Now it reconnects with exponential backoff, forever. |
+| **Stale fixes are no longer served as live data** | The last TPV was cached indefinitely, so after signal loss the screen kept showing the old position — and worse, that ghost position was written into handshake `.gps.json` files and the track log. Fixes older than `max_fix_age` are now discarded. |
+| **`NameError` in PwnDroid reconnect path** | `asyncio` was imported inside `_start_fetch_loop`, so `await asyncio.sleep(5)` in the error handler of `_fetch_loop` raised `NameError` and killed the retry loop on the first disconnect. `asyncio` is now imported at module scope. |
+| **`websockets` is imported lazily** | A missing `websockets` package broke the whole plugin at import time, even in server/peer mode where it isn't used. |
+| **Old gpsd releases supported** | Altitude now falls back `altMSL` → `alt` → `altHAE`; gpsd < 3.20 only reports `alt`, so altitude silently read as 0. |
+| **Invalid systemd unit** | `/etc/default/gpsd` contained `/bin/stty ...` and `/bin/setserial ...` lines, which systemd rejects in an `EnvironmentFile` (it only accepts `KEY=VALUE`). Those calls moved to `ExecStartPre=-`. |
+| **No more event-queue stall on `apt-get install`** | `setup()` ran inline in `on_loaded()`, and `on_ui_setup`/`on_ready` blocked waiting for it — freezing this plugin's event queue (and handshake tagging) for the whole install. Setup now runs in a background thread. |
+| **`mode: 1` is "no fix", not a fix** | gpsd mode 1 means *no fix*; the old code displayed it as "Fix". |
+| **Handshake filename rewriting** | `filename.replace(".pcap", ...)` corrupted paths containing `.pcap` elsewhere; only the suffix is replaced now. |
+| **UI element name collisions** | Every element is namespaced `theylive_*`, so `lat`, `sat`, `fix`, `mode` etc. can never clash with core Pwnagotchi elements or another plugin's. |
+| **`agent.session()` hammering** | The PwnDroid backend wrote to `agent.session()` on *every* WebSocket message — each call is an HTTP round-trip to Bettercap. Now throttled to once per 30s. |
+| **gpsd no longer stopped on unload by default** | Stopping `gpsd.service` when the plugin unloaded broke every other GPS consumer. Opt back in with `stop_gpsd_on_unload`. |
+| **Config validation** | Bad `mode`, `speedUnit`, `distanceUnit`, `fields`, or non-numeric ports now log a warning and fall back instead of raising mid-loop. |
+| **Idempotent setup** | gpsd config files are only rewritten (and gpsd only restarted) when the contents actually change. |
+| **Pillow 10 compatibility** | Label width measurement uses `getlength()` with a `getsize()` fallback. |
+| **Track file rotation** | The NDJSON log grew without limit; it now rotates at `track_max_mb`. |
+
+### New features
+
+- **`dist` field** — session odometer (km or miles) computed from the track.
+- **`pdop` / `vdop` fields** in addition to `hdop`.
+- **Smarter status line** — `Starting`, `No gpsd` / `No link` when the backend is down, `Acq 4/9`
+  while acquiring, `Good 3D`, `3D (1.4)`, `3D ±8m` (PwnDroid accuracy), `2D fix`, `No fix`.
+- **Distance-based track logging** — points are only written when you've actually moved
+  `track_min_distance` metres, with a heartbeat every `track_max_gap` seconds. A parked
+  Pwnagotchi no longer writes 8,640 identical points a day.
+- **Handshakes in the track log** (`track_handshakes`) with SSID/BSSID/channel, so a single file
+  contains both your route and your captures.
+- **Web UI + exports** at `http://<pwnagotchi>:8080/plugins/theylive/`:
+  live status page, `…/gpx` (GPX 1.1) and `…/geojson` (route LineString + handshake points) —
+  drop straight into Google Earth, gpx.studio, QGIS or geojson.io.
+- **True value alignment** — labels are measured in pixels and right-aligned so all values line up.
+- **Richer handshake JSON** — adds `Accuracy`, `Fix`, `Satellites`, `Updated`
+  (webgpsmap/WiGLE-friendly).
+- **gpsd binds to localhost by default** — set `gpsd_listen_all = true` to expose 2947 on the LAN.
+
+---
 
 ## Requirements
 
-- GPS source: USB/serial GPS (optional PPS), remote gpsd server, or Android phone with GPS-sharing app (PwnDroid/ShareGPS).
-- Initial internet access recommended for gpsd auto-install.
-- Tested on latest jayofelony Pwnagotchi images.
+- A GPS source: USB/serial GPS (optional PPS), a remote gpsd, or an Android phone running
+  PwnDroid/ShareGPS.
+- Internet on first run if you want `auto = true` to install gpsd.
+- `websockets` (PwnDroid mode only): `sudo pip3 install websockets`.
 
-## Installation Instructions
+## Installation
 
-### Easy Way (Recommended)
-
-1. Add the repository to `/etc/pwnagotchi/config.toml` (if not present):
+**Plugin repo (recommended)**
 
 ```toml
 main.custom_plugin_repos = [
     "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
-    # ... your other repositories ...
 ]
 main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
 ```
-
-2. Install:
 
 ```bash
 sudo pwnagotchi plugins update
 sudo pwnagotchi plugins install theylive
 ```
 
-### Manual Way
+**Manual**
 
 ```bash
-sudo scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/available-plugins/theylive.py
-sudo pwnagotchi plugins install theylive
+scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/theylive.py
+sudo systemctl restart pwnagotchi
 ```
 
 ## Configuration
 
-Enable and customize in `/etc/pwnagotchi/config.toml`:
-
 ```toml
-# Config Example 2.9.5.3 image config.toml format:
-
-main.plugins.theylive.enabled = true
-
-# Core settings
-main.plugins.theylive.mode = "server"          # "server", "peer", or "pwndroid"
-main.plugins.theylive.device = "/dev/ttyACM0"  # Serial device (server mode)
-main.plugins.theylive.baud = 9600              # Baud rate
-main.plugins.theylive.auto = true              # Auto-install/configure gpsd
-
-main.plugins.theylive.fields = [
-    "gpsstat",  # Smart fix status – safe, no core conflict
-    "fix",
-    "sat",
-    "hdop",
-    "lat",
-    "lon",
-    "alt",
-    "spd",
-    "trk"
-]
-main.plugins.theylive.speedUnit = "kn"         # ms, kph, mph, kn
-main.plugins.theylive.distanceUnit = "m"       # m, ft
-main.plugins.theylive.topleft_x = 130
-main.plugins.theylive.topleft_y = 47
-
-# Bettercap
-main.plugins.theylive.bettercap = true         # false in pwndroid mode
-
-# Mode-specific
-main.plugins.theylive.host = "127.0.0.1"
-main.plugins.theylive.port = 2947
-main.plugins.theylive.pwndroid_host = "192.168.44.1"
-main.plugins.theylive.pwndroid_port = 8080
-
-# Continuous track logging
-main.plugins.theylive.track_log = true
-main.plugins.theylive.track_interval = 10      # seconds
-main.plugins.theylive.track_file = "/root/pwnagotchi_gps_track.ndjson"
-
-### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
-
 [main.plugins.theylive]
 enabled = true
-device = "/dev/ttyACM0"
-baud = 115200
+
+# --- core ---------------------------------------------------------------
+mode = "server"                # "server" | "peer" | "pwndroid"
+device = "/dev/ttyACM0"        # serial device (server mode)
+baud = 9600
+auto = true                    # install/configure gpsd automatically
+
+# --- display ------------------------------------------------------------
 fields = ["gpsstat", "fix", "sat", "hdop", "lat", "lon", "alt", "spd", "trk"]
-speedUnit = "mph"
-distanceUnit = "m"
-bettercap = true
-auto = true
-mode = "server"
+speedUnit = "kn"               # ms | kph | mph | kn
+distanceUnit = "m"             # m | ft
 topleft_x = 130
 topleft_y = 47
+spacing = 12
+precision = 5                  # decimals for lat/lon (3-8)
+align_values = true
+min_track_speed = 1.0          # m/s below which heading is hidden
+
+# --- bettercap ----------------------------------------------------------
+bettercap = true               # ignored (forced off) in pwndroid mode
+
+# --- gpsd / peer --------------------------------------------------------
+host = "127.0.0.1"
+port = 2947
+max_fix_age = 10.0             # seconds before a fix counts as stale
+gpsd_listen_all = false        # true = expose gpsd on 0.0.0.0:2947
+stop_gpsd_on_unload = false
+
+# --- pwndroid -----------------------------------------------------------
+pwndroid_host = "192.168.44.1"
+pwndroid_port = 8080
+
+# --- track logging ------------------------------------------------------
 track_log = true
-track_interval = 10
+track_interval = 10            # sampling interval, seconds
+track_min_distance = 3.0       # metres of movement required to log a point
+track_max_gap = 300            # log anyway after this many seconds
 track_file = "/root/pwnagotchi_gps_track.ndjson"
+track_max_mb = 32              # rotate to .1 above this size
+track_handshakes = true        # also record handshakes in the track
 ```
 
-Restart after changes:
+On 2.9.5.3-style configs the flat form works too
+(`main.plugins.theylive.mode = "server"`, …). Restart afterwards:
 
 ```bash
 sudo systemctl restart pwnagotchi
 ```
 
-### Mode-Specific Notes
+### Available fields
 
-- **Server**: Local hardware – set `device`, `baud`. Auto-setup runs if needed.
-- **Peer**: Remote gpsd – set `host` to server IP, `auto = false`.
-- **PwnDroid**: Android sharing – `mode = "pwndroid"`, `bettercap = false`, correct phone IP/port.
+| Field | Shows |
+| --- | --- |
+| `gpsstat` | smart fix status (`Good 3D`, `3D (1.4)`, `Acq 4/9`, `No gpsd`, …) |
+| `fix` | `-` / `NF` / `2D` / `3D` |
+| `sat` | used/visible satellites, e.g. `8/12` |
+| `hdop`, `pdop`, `vdop` | dilution of precision |
+| `lat`, `lon` | position |
+| `alt` | altitude (m or ft) |
+| `spd` | speed in the chosen unit |
+| `trk` | heading in degrees, only while moving |
+| `dist` | distance travelled this session |
+
+### Mode notes
+
+- **server** — local hardware. Set `device` and `baud`; auto-setup handles gpsd.
+- **peer** — remote gpsd: set `host` to that machine's IP and `auto = false`
+  (the remote host needs `gpsd_listen_all = true` or an equivalent gpsd config).
+- **pwndroid** — set `mode = "pwndroid"` and the phone's IP/port. Bettercap GPS is
+  disabled automatically; location still lands in `.gps.json` files and the track log.
 
 ## Usage
 
-- GPS data appears in the configured position once a fix is acquired.
-- Per-handshake `.gps.json` files are saved with captures.
-- Continuous track log (if enabled) accumulates in `/root/` as NDJSON – perfect for importing into mapping tools.
-- Detailed activity in `/var/log/pwnagotchi.log`.
+- GPS data appears at `topleft_x/topleft_y` once a fix is acquired.
+- Each capture gets a sibling `<handshake>.gps.json`.
+- The route accumulates as NDJSON at `track_file`.
+- Status page and downloads: `http://<pwnagotchi>:8080/plugins/theylive/`
+- Logs: `sudo tail -f /var/log/pwnagotchi.log | grep TheyLive`
 
-## Notes
-
-- First boot with `auto = true` in server mode may take 5–10 minutes to install gpsd (requires internet).
-- To find your GPS device port:
+Finding your GPS port:
 
 ```bash
-ls /dev/tty*   # unplug GPS, run this
-# plug GPS in
-ls /dev/tty*   # note the new device
+ls /dev/tty*    # with the GPS unplugged
+ls /dev/tty*    # plug it in, spot the new device
 ```
 
-- The previous `status` field conflict is fully resolved with `gpstat`.
+Quick sanity check of the GPS itself:
 
-## Community and Contributions
+```bash
+sudo systemctl status gpsd
+gpsmon              # or: cgps -s
+```
 
-Originally based on gpsd-easy by rai68. Major enhancements and maintenance by AlienMajik.
+## Upgrading from 2.1.x
 
-- Report issues, suggest features, or submit PRs on the GitHub repository.
-- Join the Pwnagotchi community for support and ideas.
+- UI element names changed to `theylive_*`. Nothing to do unless another plugin or a custom
+  layout referenced them by name.
+- `status` as a field name is still accepted and silently mapped to `gpsstat`.
+- gpsd is no longer stopped when the plugin unloads — set `stop_gpsd_on_unload = true` for the
+  old behaviour.
+- gpsd now listens on localhost only; set `gpsd_listen_all = true` if another device consumed
+  your Pwnagotchi's gpsd over the network.
 
-Enjoy precise, rich GPS wardriving with TheyLive!
+## Credits
 
+Original `gpsd-easy` by discord@rai68. Enhancements and maintenance by AlienMajik.
+Issues and PRs welcome on GitHub.
 ```
 
 
