@@ -1581,7 +1581,7 @@ sudo systemctl restart pwnagotchi
 - **Persistent Data:** Cycle count saved to `/root/.mad_hatter_cycle_count`; all other stats read live with in-memory caching.
 ---
 
-# TheyLive — advanced GPS plugin for Pwnagotchi
+# TheyLive Plugin
 
 **v2.2.1** — rich real-time GPS on the display, per-handshake location tagging, continuous track
 logging, GPX/GeoJSON export, and Bettercap integration. Originally based on `gpsd-easy` by
