@@ -823,7 +823,7 @@ ProbeNpwn v3.4.0 keeps everything that made 3.3.0 powerful and makes it **correc
      "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
      "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
    ]
-   main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+   main.custom_plugins = "/etc/pwnagotchi/custom-plugins/"
    ```
 2. **Install / Update**:
    ```bash
@@ -834,7 +834,7 @@ ProbeNpwn v3.4.0 keeps everything that made 3.3.0 powerful and makes it **correc
 ### Manual Way
 ```bash
 git clone https://github.com/AlienMajik/pwnagotchi_plugins.git
-sudo cp probenpwn.py /usr/local/share/pwnagotchi/custom-plugins/
+sudo cp probenpwn.py /etc/pwnagotchi/custom-plugins/
 ```
 
 ### Config Example (`config.toml`)
