@@ -1030,6 +1030,10 @@ bluetooth_enabled = true
 bluetooth_device = "hci0"                 # now actually passed to bleak
 log_without_gps = false
 gps_max_age = 60                          # seconds before a GPS fix is considered stale
+gps_min_satellites = 4                    # only enforced if your GPS reports it
+gps_require_fix = true
+gps_max_hdop = 5.0
+ap_max_age = 30                           # ignore bettercap cache entries older than this
 
 # --- retention ---
 prune_days = 30
@@ -1048,6 +1052,15 @@ min_rssi_for_movement = -70               # signal floor for "it was actually ne
 max_plausible_velocity_mph = 200          # rejects GPS jumps
 require_movement_for_snooper = true       # false = v6 persistence-only behaviour
 flag_randomized_snoopers = false
+min_close_fixes = 6                       # strong observations before movement counts
+min_zone_fixes = 3                        # observations needed to call a place a "zone"
+min_close_separation_m = 200              # zones closer than this are the same place
+max_contact_gap_minutes = 3               # longer silence breaks the contact chain
+encounter_gap_minutes = 30                # visits closer together are one encounter
+min_encounters = 2
+ignore_frozen_rssi = true                 # frozen RSSI = stale cache, not movement
+snooper_exempt_zones = []                 # geofence names that never produce flags
+snooper_debug = false                     # log the numbers behind every decision
 
 # --- trilateration ---
 triangulation_min_points = 8
@@ -1128,12 +1141,13 @@ This is the biggest behavioural change from v6 and worth reading before you tune
 
 The coordinates SnoopR logs are the **receiver's** position, not the device's. In v6 that meant driving made every stationary access point look fast (the velocity trigger was 1.5 m/s — walking pace), and sitting anywhere for twenty minutes maxed out the persistence score for everything in range. Everything was a snooper, so nothing was.
 
-v7 requires corroboration that a device was **close** at **separated** places:
+v7 requires corroboration that a device was **close** at **separated** places. A flag needs one of:
 
-- **`followed`** — strong signal (≥ `min_rssi_for_movement`) at points at least `movement_threshold` miles apart, spanning at least five minutes; or
-- **persistence ≥ threshold** *and* at least two close-range zones *and* at least two sessions.
+- **Dwell evidence** — strong signal (≥ `min_rssi_for_movement`) in two or more distinct zones at least `movement_threshold` miles apart, each holding ≥ `min_zone_fixes` observations; or
+- **Continuous-contact evidence** — an unbroken chain of strong fixes (no gap longer than `max_contact_gap_minutes`) covering that distance over at least five minutes, which catches a tail that never stops; or
+- **Persistence with corroboration** — score ≥ `persistence_threshold` across ≥2 zones and ≥ `min_encounters` separate visits.
 
-Zone bonuses count only close-range fixes, so a slow drive-by no longer inflates the score. Aircraft are excluded from snooper analysis entirely. Randomised (locally-administered) MACs are not flagged on persistence alone, because modern phones rotate them roughly every fifteen minutes. Every flag stores a `snooper_reason` shown in the table and popups.
+Zones are distance-clustered rather than grid-bucketed, so GPS jitter across a cell border is not "two places". Encounters replace session counts, so rebooting three times in an hour is not three visits. A track whose RSSI never changes at all is treated as a stale-cache artefact rather than movement. Zone bonuses count only close-range fixes, so a slow drive-by no longer inflates the score. Aircraft are excluded from snooper analysis entirely. Randomised (locally-administered) MACs are not flagged on persistence alone, because modern phones rotate them roughly every fifteen minutes. Every flag stores a `snooper_reason` shown in the table and popups.
 
 **A stationary unit cannot distinguish a tail from a neighbour.** That is a limit of one receiver in one place, not a tuning problem. For fixed counter-surveillance installs, set `require_movement_for_snooper = false` to restore the v6 persistence-only trigger.
 
@@ -1195,8 +1209,10 @@ For educational and security testing only. Respect privacy and local laws. Use r
 14. dump1090/readsb field names, `"ground"` altitudes and integer squawks handled.
 15. Aircraft excluded from snooper analysis; randomised MACs detected and labelled.
 16. Configurable UI element positions; counts pushed from a background thread.
-17. **7.0.1** — `bluetooth_device` passed to bleak (both modern and legacy kwargs), aircraft feed path auto-probed for relocated handshakes, `base_dir` fallback, venv-aware dependency warning, `sse_enabled` toggle with automatic polling fallback.
+17. **7.1.0** — false-positive elimination: stale bettercap AP cache entries are no longer re-logged at your current position, zones are distance-clustered instead of grid-bucketed, encounters replace session counts, GPS fixes are quality-gated and jump-checked, frozen-RSSI tracks are recognised as cache artefacts, and `snooper_exempt_zones` suppresses flags at home. See `FALSE-POSITIVES.md`.
+18. **7.0.1** — `bluetooth_device` passed to bleak (both modern and legacy kwargs), aircraft feed path auto-probed for relocated handshakes, `base_dir` fallback, venv-aware dependency warning, `sse_enabled` toggle with automatic polling fallback.
 
+    
 # SkyHigh Plugin
 ## Overview
 SkyHigh is a custom plugin for Pwnagotchi that tracks nearby aircraft using the OpenSky Network API. It displays the number of detected aircraft on your Pwnagotchi's screen and provides an interactive map view via a webhook, featuring detailed aircraft types (helicopters, commercial jets, small planes, drones, gliders, military) with distinct icons. A pruning feature keeps the data clean by removing outdated aircraft, and the web interface now offers powerful filtering and export options.
