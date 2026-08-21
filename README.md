@@ -893,7 +893,7 @@ Key enhancements and fixes over previous versions (and why they’re better):
 - **No lock held during analysis** – v6 held the database lock across the entire per-device analysis including the optimiser, blocking every scan write and web request. Locks are now per-operation.
 - **Paginated JSON API** – The old page embedded every device and trail into the HTML and ran an N+1 query per row. There is now a single windowed query plus a batched trail query behind `data.json`, with server-side search, sort, filter and pagination.
 - **Bounded memory** – Aircraft tracks, Kalman filters, the aircraft cache, WiGLE results and the rate-limiter table are all LRU/TTL-evicted. v6 leaked all of them on long runs.
-- **Image compatibility (v7.0.1)** – `bluetooth_device` is finally passed to bleak, `aircraft_file` is probed across the locations recent images actually use, `base_dir` falls back when `/root` isn't writable, and the missing-dependency warning names the interpreter pwnagotchi is running from.
+- **Image compatibility (v7.0.1)** – `bluetooth_device` is finally passed to bleak, `aircraft_file` is probed across the locations recent images actually use, `base_dir` falls back when `/root` isn't writable, and the missing-dependency warning names the interpreter pwnagotchi is running from (so a mis-targeted install is obvious from the log).
 
 ## Features
 - **Multi-source detection**: Wi-Fi APs + clients, Bluetooth/BLE (with manufacturer data), ADS-B aircraft.
@@ -924,14 +924,38 @@ Key enhancements and fixes over previous versions (and why they’re better):
 
 ### Python Dependencies (Recommended for Full Features)
 
-**Install into the interpreter pwnagotchi actually uses.** Recent images (2.9.5.4+, Trixie base) run from a virtualenv under PEP 668, so a plain `sudo pip3 install` lands in the system Python and the plugin will still report the packages as missing. Find the right interpreter first:
+**Use the system packages. This is the method that works on current images:**
 
 ```bash
-systemctl cat pwnagotchi | grep -i exec        # or: head -1 $(command -v pwnagotchi)
-sudo /path/to/that/python -m pip install bleak cryptography scipy
+sudo apt update
+sudo apt install python3-bleak python3-cryptography python3-scipy
 ```
 
-On images with the venv at `/home/pi/.pwn`:
+Recent images (2.9.5.4+) are built on the Trixie Raspberry Pi OS base, where Python is
+managed by the distribution (PEP 668). `apt` installs into `/usr/lib/python3/dist-packages`,
+which pwnagotchi can see, and it pulls in the right BlueZ/D-Bus and BLAS dependencies for
+you — `python3-scipy` in particular is a large source build if you go through pip.
+
+- `bleak`: Modern BLE scanning.
+- `cryptography`: Mesh encryption (required for mesh unless `mesh_allow_plaintext` is set).
+- `scipy`: Faster Nelder-Mead trilateration (optional — pure Python fallback included).
+
+The apt versions can lag PyPI by a release or two. That is fine: SnoopR detects which
+bleak generation is installed and passes the adapter argument accordingly, and it falls
+back to its own pure-Python solver when scipy is absent.
+
+**If SnoopR still logs the packages as missing after the apt install**, pwnagotchi is
+running from a virtualenv that was created without `--system-site-packages`, so it cannot
+see the distribution packages. Install into that interpreter instead — SnoopR prints its
+exact path next to the missing-package warning, so read it out of the log rather than
+guessing:
+
+```bash
+sudo tail -n 200 /etc/pwnagotchi/log/pwnagotchi.log | grep -A1 'missing optional packages'
+sudo /path/from/that/log/python -m pip install bleak cryptography scipy
+```
+
+On images with the venv at `/home/pi/.pwn` that is:
 
 ```bash
 sudo bash
@@ -939,11 +963,9 @@ source /home/pi/.pwn/bin/activate
 pip3 install bleak cryptography scipy
 ```
 
-SnoopR logs the exact interpreter path next to the missing-package warning, so the log tells you where the install has to go.
-
-- `bleak`: Modern BLE scanning.
-- `cryptography`: Mesh encryption (required for mesh unless `mesh_allow_plaintext` is set).
-- `scipy`: Faster Nelder-Mead trilateration (optional — pure Python fallback included).
+A plain `sudo pip3 install …` is the one thing to avoid: under PEP 668 it either refuses
+outright or lands in an interpreter pwnagotchi never loads, which looks exactly like the
+packages failing to install.
 
 ### Vendor Databases
 SnoopR downloads the Bluetooth company identifiers database in the background on first run if missing (v6 blocked boot for up to 30 seconds doing this). For Wi-Fi vendor lookup, the Wireshark OUI database is preferred.
@@ -972,7 +994,7 @@ sudo apt update && sudo apt install wireshark-common
 Manual installation recommended (advanced dependencies):
 
 ```bash
-cd /etc/pwnagotchi/custom-plugins/
+cd /usr/local/share/pwnagotchi/custom-plugins/
 sudo wget https://raw.githubusercontent.com/AlienMajik/pwnagotchi_plugins/main/snoopr.py
 ```
 
@@ -980,14 +1002,15 @@ Or clone:
 
 ```bash
 sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git /tmp/pwnplugins
-sudo cp /tmp/pwnplugins/snoopr.py /etc/pwnagotchi/custom-plugins/
+sudo cp /tmp/pwnplugins/snoopr.py /usr/local/share/pwnagotchi/custom-plugins/
 sudo rm -rf /tmp/pwnplugins
 ```
 
-Install dependencies (see the venv note above), then restart:
+Install dependencies and restart:
 
 ```bash
-sudo apt install wireshark-common
+sudo apt update
+sudo apt install python3-bleak python3-cryptography python3-scipy wireshark-common
 sudo systemctl restart pwnagotchi
 ```
 
@@ -1367,219 +1390,344 @@ This plugin fetches nearby aircraft data using the OpenSky Network API.
 **Acknowledgment:** Aircraft data provided by the OpenSky Network.  
 **Disclaimer:** This plugin is not affiliated with OpenSky Network. Data is used in accordance with their API terms.
 
-# MadHatter Plugin
-**Version:** 1.3.4  
-**Author:** AlienMajik (with community enhancements)
+# MadHatter v2.3.0
 
-## Description
-A fully universal and highly accurate UPS plugin for Pwnagotchi, delivering precise battery monitoring, real-time current-based estimates (where supported), dynamic runtime and charge-time prediction, persistent health tracking, robust error resilience, and graceful auto-shutdown.
+Tested against **pwnagotchi 2.9.5.8** (jayofelony).
 
-Supports a wide range of popular UPS HATs with reliable auto-detection:
-- Geekworm X1200 / UPS Lite (MAX170xx fuel gauge)
-- Waveshare UPS, Seengreat, SB Components, EP-0136, and all other INA219-based boards (addresses 0x40–0x43)
-- PiSugar series
-- Geekworm X750 (IP5310)
+Universal UPS / battery plugin for Pwnagotchi. Supports MAX17040/17048 fuel
+gauges (Geekworm X1200, UPS-Lite), all INA219-based HATs (Waveshare, Seengreat,
+SB Components, EP-0136) at 0x40–0x45, and PiSugar 2 / 2 Pro / 3.
 
-The plugin provides smoother SOC curves, current-based charging detection, dynamic time-to-full estimates, low-battery icons, persistent cycle counting across reboots, on-screen error alerts, and extensive bug fixes — all in a clean, customizable UI.
+## Install
 
-## Key Stats
-The plugin displays essential battery information directly on the Pwnagotchi screen:
+On jayofelony 2.9.5.x the custom plugin directory is **`/etc/pwnagotchi/custom-plugins/`**
+(`defaults.toml` line 27). The `/usr/local/share/pwnagotchi/custom-plugins/`
+path in the old README is not the default on this image:
 
-### Battery Capacity (🔋 % or 🪫 %)
-- Accurate state-of-charge from fuel gauge chips (MAX170xx, PiSugar) or advanced linear-interpolated voltage table (INA219).
-- Automatically switches to low-battery icon 🪫 when capacity drops below 20%.
-
-### Voltage (V)
-- Real-time battery voltage shown to two decimal places (e.g., 4.20V).
-- Optional via `show_voltage`.
-
-### Charging Status (+ / - / ⚡)
-- '+' with ⚡ icon when charging, '-' when discharging.
-- Detected via GPIO (MAX170xx boards), real current direction (INA219), or dedicated registers (PiSugar/X750).
-
-### Estimated Time
-- Dynamic runtime on battery: `~Xm` minutes remaining.
-- Dynamic time-to-full when charging (INA219 boards): `↑Xm` minutes to 100%.
-- Uses real measured current when available (INA219); falls back to configured `avg_current_ma` for other boards.
-
-### Battery Health & Diagnostics (debug mode)
-- Persistent charge cycle count saved to `/root/.mad_hatter_cycle_count` (survives reboots/shutdowns).
-- I2C read error counter.
-- Current draw in mA when significant.
-
-## New Enhancements in v1.3.4 
-Compared to v1.2.2, the 1.3.4 series introduces major accuracy, usability, and reliability improvements:
-
-## V1.3.4: Fixed by adding the exact same byte swap (struct.unpack("<H", struct.pack(">H", read))[0]) to:
-
-- INA219 bus voltage reading → now shows real ~4.xxV (matches your INA219.py script).
-- INA219 current reading → more accurate charging detection and dynamic time estimates.
-  
-- **Faster & More Reliable Detection:**
-  - Scans only known I2C addresses for quicker startup.
-  - Expanded INA219 support to addresses 0x40–0x43 (adds full compatibility with Seengreat and other variants).
-  - Unified "ina219_generic" type for all INA219 boards with current-based charging detection (no GPIO required).
-
-- **Superior INA219 SOC Estimation:**
-  - Upgraded from lookup table to linear interpolation between finer voltage points for smoother, more accurate percentage changes.
-
-- **Dynamic Time Estimation Using Real Current:**
-  - INA219 boards now use actual measured current for highly accurate `~Xm` (runtime) and new `↑Xm` (time-to-full when charging > ~30mA).
-  - Falls back gracefully to configured average for non-INA219 boards.
-
-- **Visual UI Improvements:**
-  - Low-battery icon 🪫 below 20%.
-  - Voltage displayed to two decimal places.
-  - On-screen "UPS ERR" alert after excessive read failures (>10).
-
-- **Persistent Cycle Counting:**
-  - Cycle count now saved to file on unload and loaded on startup — survives reboots and crashes (previously in-memory only).
-
-- **Enhanced Error Resilience & Bug Fixes:**
-  - Fixed quick-start initialization for MAX170xx boards.
-  - Resolved UnboundLocalError crashes during UI updates.
-  - Safer GPIO handling and cleanup.
-  - Improved retry logic and last-value caching.
-
-- **Cleaner Code & Default Behaviors:**
-  - Reduced duplication and better structure.
-  - Automatic default GPIO fallback for MAX170xx boards if not configured.
-  - Robust `charging_gpio = null` handling (required for INA219 boards).
-
-- **Retained & Refined Features from v1.2.2:**
-  - All previous enhancements (lookup table SOC, extended cycle counting, optimized shutdown, improved detection, etc.) are preserved and built upon.
-
-## Features
-- **Universal HAT Support:** Auto-detects and optimally configures MAX170xx, INA219 (all variants), PiSugar, and IP5310-based HATs.
-- **Accurate Monitoring:** Direct fuel-gauge reads where available, interpolated voltage SOC for INA219, real-time voltage.
-- **Smart Charging Detection:** Current-based (INA219), GPIO-based (MAX170xx), or register-based (PiSugar/X750).
-- **Dynamic Runtime Prediction:** Real current when possible, configurable fallback.
-- **UI Integration:** Clean display with icons (🔋/🪫/⚡), optional voltage, time estimates, and debug info.
-- **Auto-Shutdown Mechanism:** Immediate shutdown below 2%, grace-based below threshold, resets on charging/recovery.
-- **Warning System:** Logs low-battery and warning-threshold alerts.
-- **Health Tracking:** Persistent cycle counting, chip alerts (MAX170xx), error monitoring.
-- **Efficient Polling:** Configurable interval with retries and caching for reliability.
-- **Customizable Everything:** Thresholds, positions, icons, debug mode, and manual override.
-- **Debug Tools:** Verbose logging, on-screen errors/cycles/current.
-
-## Installation Instructions
-### Copy the Plugin File
-Place `mad_hatter.py` in `/etc/pwnagotchi/custom-plugins/`.
-Or use SCP:
 ```bash
 sudo scp mad_hatter.py root@<pwnagotchi_ip>:/etc/pwnagotchi/custom-plugins/
-```
-
-### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
-```toml
-[main.plugins.mad_hatter]
-enabled = true
-show_voltage = true # Shows voltage like "4.20V 95%⚡"
-shutdown_enabled = false
-shutdown_threshold = 5
-warning_threshold = 15
-shutdown_grace = 3
-shutdown_grace_period = 30
-poll_interval = 10
-ui_position_x = 150 # Adjust to your preference
-ui_position_y = 0
-show_icon = true
-battery_mah = 7000 # Good if you have a larger pack; adjust to your actual capacity
-avg_current_ma = 400 # Reasonable average draw for pwnagotchi + display
-debug_mode = false # Set to true temporarily if you want extra log info
-charging_gpio = null # ← IMPORTANT: null (no quotes) for INA219 boards
-alert_threshold = 10
-ups_type = "auto" # Will correctly detect your Seengreat board at 0x43
-```
-
-### Update config.toml
-Add (or update) in `/etc/pwnagotchi/config.toml` (flat style shown; nested sections also work):
-```toml
-main.plugins.mad_hatter.enabled = true
-main.plugins.mad_hatter.show_voltage = false
-main.plugins.mad_hatter.shutdown_enabled = false
-main.plugins.mad_hatter.shutdown_threshold = 5
-main.plugins.mad_hatter.warning_threshold = 15
-main.plugins.mad_hatter.shutdown_grace = 3
-main.plugins.mad_hatter.shutdown_grace_period = 30
-main.plugins.mad_hatter.poll_interval = 10
-main.plugins.mad_hatter.ui_position_x = null
-main.plugins.mad_hatter.ui_position_y = 0
-main.plugins.mad_hatter.show_icon = true
-main.plugins.mad_hatter.battery_mah = 2000
-main.plugins.mad_hatter.avg_current_ma = 200
-main.plugins.mad_hatter.debug_mode = false
-main.plugins.mad_hatter.charging_gpio = null
-main.plugins.mad_hatter.alert_threshold = 10
-main.plugins.mad_hatter.ups_type = "auto"
-```
-
-### MadHatter Plugin Configuration Options
-## main.plugins.mad_hatter.show_voltage = false
-Shows battery voltage to two decimals (e.g., "4.20V") in the UI. (Default: false)
-
-## main.plugins.mad_hatter.shutdown_enabled = false
-Enables safe auto-shutdown on low battery. (Default: false)
-
-## main.plugins.mad_hatter.shutdown_threshold = 5
-Critical capacity % for shutdown trigger (when discharging). (Default: 5)
-
-## main.plugins.mad_hatter.warning_threshold = 15
-Capacity % for logged low-battery warnings. (Default: 15)
-
-## main.plugins.mad_hatter.shutdown_grace = 3
-Consecutive low readings required before shutdown. (Default: 3)
-
-## main.plugins.mad_hatter.shutdown_grace_period = 30
-Minimum seconds low condition must persist after grace count. (Default: 30)
-
-## main.plugins.mad_hatter.poll_interval = 10
-Seconds between hardware polls (cached values used in between). (Default: 10)
-
-## main.plugins.mad_hatter.ui_position_x = null
-X position (null = auto right-aligned). (Default: null)
-
-## main.plugins.mad_hatter.ui_position_y = 0
-Y position (0 = top). (Default: 0)
-
-## main.plugins.mad_hatter.show_icon = true
-Shows 🔋/🪫 and ⚡ icons. (Default: true)
-
-## main.plugins.mad_hatter.battery_mah = 2000
-Battery capacity in mAh for time estimates. (Default: 2000)
-
-## main.plugins.mad_hatter.avg_current_ma = 200
-Fallback average draw in mA (used when real current unavailable). (Default: 200)
-
-## main.plugins.mad_hatter.debug_mode = false
-Appends error count, cycle count, and current (mA) to UI. (Default: false)
-
-## main.plugins.mad_hatter.charging_gpio = null
-GPIO pin for charging detection (null = auto/current-based for INA219). (Default: null)
-
-## main.plugins.mad_hatter.alert_threshold = 10
-Low-battery alert threshold for MAX170xx chips. (Default: 10)
-
-## main.plugins.mad_hatter.ups_type = "auto"
-HAT type ("auto" recommended). (Default: "auto")
-
-### Restart Pwnagotchi
-```bash
 sudo systemctl restart pwnagotchi
 ```
 
-## Usage
-- **Monitor Battery:** Watch capacity, voltage, charging, and dynamic time estimates on screen.
-- **Auto-Shutdown:** Enable for protection against deep discharge.
-- **Customize UI:** Tweak position, icons, voltage display, and debug info.
-- **Health Tracking:** Enable debug_mode to view persistent cycles and errors.
-- **Accurate Estimates:** Set correct `battery_mah`; INA219 users get real-current precision automatically.
-- **Troubleshooting:** Check logs for [MadHatter]/[MadHatterUPS] entries.
+Check your own path if you are unsure:
 
-## Logs and Data
-- **System Logs:** Detailed events, detection, polls, warnings, and errors prefixed [MadHatter] / [MadHatterUPS] (view via `journalctl -u pwnagotchi`).
-- **Persistent Data:** Cycle count saved to `/root/.mad_hatter_cycle_count`; all other stats read live with in-memory caching.
----
+```bash
+grep custom_plugins /etc/pwnagotchi/config.toml /usr/local/lib/python3*/dist-packages/pwnagotchi/defaults.toml
+```
+
+No extra packages needed on 2.9.5.8 — `smbus2` and `rpi-lgpio` (which provides
+the `RPi.GPIO` API on Bookworm and Pi 5) are both already declared in the
+image's `pyproject.toml`. On older or hand-built images:
+
+```bash
+sudo apt install -y python3-smbus2 || sudo pip3 install smbus2
+```
+
+## Compatibility with pwnagotchi 2.9.5.8
+
+Verified against the v2.9.5.8 source. Three things about this fork that plugins
+have to account for, and that this version handles:
+
+- **`__defaults__` is never merged.** `plugins.load()` does
+  `plugin.options = config['main']['plugins'][name]` — a straight assignment.
+  Any plugin indexing `self.options['foo']` directly raises `KeyError` for every
+  key absent from your `config.toml`. This version merges its own defaults in
+  `on_loaded()`, so a minimal config is safe.
+- **`ui.fps` defaults to `0.0`**, so there is no periodic refresh thread and
+  `on_ui_update` only fires when something else has already changed. The poll
+  thread writes into the view directly, so the reading is current whenever a
+  redraw happens. `State.set()` ignores no-op writes, so this adds no redraws.
+- **Plugin events run on a per-plugin work queue** (`PluginEventQueue`) backed
+  by an unbounded `queue.Queue`. A plugin that blocks in `on_ui_update` — as
+  v1.3.4 did, for up to ~1s of I2C with retries — makes that queue grow without
+  bound. All I/O here happens on a separate polling thread; the UI hook does no
+  I/O at all.
+
+## Configuration
+
+> **Important:** TOML has no `null` literal. The old README's
+> `charging_gpio = null` and `ui_position_x = null` are **syntax errors** and
+> will stop your entire `config.toml` from parsing. Use `-1` (or just omit the
+> key) to mean "not set". This version accepts `-1`, omission, `"none"` and
+> `"auto"` interchangeably.
+
+### INA219 boards (Waveshare, Seengreat, SB Components, EP-0136)
+
+```toml
+[main.plugins.mad_hatter]
+enabled = true
+ups_type = "auto"
+show_voltage = true
+battery_mah = 7000
+shunt_ohms = 0.1          # 0.01 on some boards — see "Tuning" below
+charging_gpio = -1        # not used by INA219; -1 means unset
+shutdown_enabled = true
+shutdown_threshold = 5
+poll_interval = 10
+ui_position_x = -85       # negative = pixels in from the right edge
+ui_position_y = 0
+```
+
+### MAX170xx boards (Geekworm X1200, UPS-Lite)
+
+```toml
+[main.plugins.mad_hatter]
+enabled = true
+ups_type = "x1200"        # or "ups_lite"
+charging_gpio = -1        # see the GPIO warning below before setting this
+charging_gpio_active_high = true
+battery_mah = 6000
+alert_threshold = 10
+```
+
+### PiSugar
+
+```toml
+ups_type = "pisugar3"     # or "pisugar2" / "pisugar2_pro"
+```
+
+## Web UI
+
+Browse to **`http://<pwnagotchi>/plugins/mad_hatter`** for live battery status
+and a **Run diagnostic** button. Endpoints:
+
+| Path | Purpose |
+|---|---|
+| `/plugins/mad_hatter` | status page + diagnostic button |
+| `/plugins/mad_hatter/status` | live reading as JSON |
+| `/plugins/mad_hatter/diagnose?watch=N` | start a diagnostic (returns instantly) |
+| `/plugins/mad_hatter/report` | progress + findings as JSON |
+
+The diagnostic runs in its own thread and reuses the plugin's existing I2C
+handle under a lock, so it never opens a second bus or interleaves with the
+poll thread. `on_webhook` is called directly on a Flask worker (not the plugin
+event queue), so every endpoint returns immediately and the browser polls
+`/report` for progress.
+
+**The button runs the real `mad_hatter_doctor.py`.** The plugin looks for the
+script next to `mad_hatter.py`, then in the usual custom-plugins directories
+(or wherever `doctor_path` points), launches it as a subprocess, and streams
+its output into the page — so you get all eight sections, not a cut-down
+second copy. While it runs, the plugin pauses its own polling so the two are
+never on the bus at once.
+
+If the script is missing the page says so and falls back to a smaller built-in
+check (chip identity, voltage, SOC, cell count, polarity). Copy
+`mad_hatter_doctor.py` alongside `mad_hatter.py` to get the full audit:
+
+**Do not put the doctor in the plugin directory.** pwnagotchi imports every
+`.py` in `custom-plugins/` as a plugin, so the script gets loaded as a bogus
+plugin entry and clutters the plugins page:
+
+```
+[DEBUG] loading /etc/pwnagotchi/custom-plugins/mad_hatter_doctor.py
+```
+
+Put it somewhere on PATH instead — the plugin looks in `/usr/local/bin`,
+`/usr/local/sbin`, `/root`, `/opt/mad_hatter`, then next to `mad_hatter.py`,
+and finally (with a warning) in the plugin directories:
+
+```bash
+sudo scp mad_hatter.py        root@<pwnagotchi_ip>:/etc/pwnagotchi/custom-plugins/
+sudo scp mad_hatter_doctor.py root@<pwnagotchi_ip>:/usr/local/bin/
+```
+
+Or set `doctor_path = "/path/to/mad_hatter_doctor.py"` explicitly.
+
+## Supported hardware
+
+| Chip | Addresses | Boards | Status |
+|---|---|---|---|
+| MAX17040/17048 | 0x36 | Geekworm X120x, UPS-Lite | supported |
+| INA219 | 0x40–0x45 | Waveshare, Seengreat, SB Components, EP-0136 | supported |
+| PiSugar 2 / 2 Pro | 0x75 | IP5209 / IP5312 | supported |
+| PiSugar 3 / 3 Plus | 0x57 | | supported |
+| INA226/230/234/238/260 | 0x40–0x4F | | **detected and refused** |
+| PiJuice | 0x14 | | **detected, not supported** |
+| LC709203F, BQ27441 | 0x0B, 0x55 | | **detected, not supported** |
+| Analog-only UPS boards | — | PowerBoost, plain buck HATs | **cannot be supported** |
+
+Not every battery HAT works. The INA22x/26x parts share addresses with the
+INA219 but scale their registers differently — an INA226 read as an INA219
+returns a wrong-but-plausible voltage, which is worse than no reading. The
+plugin now reads register `0xFE`; every INA22x/26x part answers `0x5449`
+("TI") and the INA219 has no such register, so they are told apart reliably
+and the mismatched ones are refused with an explanation rather than driven.
+Boards with no I2C gauge at all cannot be supported by any software.
+
+## Diagnostic (`mad_hatter_doctor.py`)
+
+Run this before editing config. It is standalone — it does **not** import
+pwnagotchi, so it still works when the daemon refuses to start.
+
+```bash
+sudo python3 mad_hatter_doctor.py                # quick scan, ~15s
+sudo python3 mad_hatter_doctor.py --watch 600    # on battery: polarity + IR
+sudo python3 mad_hatter_doctor.py --interactive  # prompts for charger plug/unplug
+```
+
+It measures what is measurable and says so when it can't:
+
+| Checked | How |
+|---|---|
+| chip, address, byte order | I2C scan; only one byte order yields 2.5–4.5 V |
+| cells in series | pack voltage bands (1S–4S don't overlap) |
+| chemistry | Li-ion vs LiFePO4 — **reports ambiguity rather than guessing** |
+| `shunt_ohms` | median shunt drop vs your Pi model's known draw |
+| `invert_current` | sign of dV/dt against sign of I |
+| `internal_resistance` | least-squares fit of V against I across load swings |
+| GPIO conflicts | **live `gpioinfo`** first, display table second |
+
+It prints a `config.toml` block annotated with `# measured` or `# DEFAULT`,
+so you can see which values are evidence and which are guesses. **It never
+writes your config.** Exit code is non-zero if anything blocking was found.
+
+### v1.1.0 — GPIO check corrected
+
+v1.0.0 parsed `config.toml` with a loose regex whose fallback matched any bare
+`type = "..."` line. A plugin option elsewhere in the file could shadow
+`ui.display.type`, and because the wrong value matched no known display, the
+tool declared every display pin **free** — the exact opposite of the truth.
+
+Now it parses real TOML (`tomllib`/`toml`/`tomlkit`), the regex fallback is
+section-aware and never accepts a bare `type =`, and the primary check is the
+kernel's own `gpioinfo` output, which does not depend on recognising the
+display at all. If the display is unknown *and* `gpioinfo` is unreadable, it
+refuses to list free pins rather than guessing.
+
+Install `gpiod` for the authoritative check:
+
+```bash
+sudo apt install -y gpiod
+```
+
+### What it deliberately does not do
+
+`battery_mah` is **not** auto-detected. Measuring capacity requires a full
+discharge with coulomb counting — days, not seconds. Everything downstream
+(`~2h14m`, time-to-full, cycle counting) scales linearly off this number, so a
+confidently-wrong guess would silently corrupt every estimate. Read it off the
+cell instead. Thresholds and `shutdown_enabled` are policy, not hardware, and
+are never auto-set either.
+
+Chemistry between roughly 3.0 and 3.65 V/cell is genuinely undecidable from one
+reading — that voltage is a half-charged LiFePO4 cell *and* a nearly-flat
+Li-ion cell. The tool says so and tells you to charge fully and re-run rather
+than picking one.
+
+## GPIO safety (read before setting `charging_gpio`)
+
+On Bookworm and Pi 5, `RPi.GPIO` is provided by **rpi-lgpio**, which goes
+through `/dev/gpiochip`. Unlike the old `RPi.GPIO`, a line can have exactly
+**one owner**. If this plugin claims a pin your display needs, the display
+fails to initialise — and since `Display()` is constructed in `cli.py` *before
+plugins load*, the whole daemon dies at startup with:
+
+```
+lgpio.error: 'GPIO not allocated'
+```
+
+Display HAT Mini owns **5, 6, 9, 13, 16, 17, 22, 24, 27**. Note that BCM 6 —
+the pin previously suggested here for the X1200 — is **button B** on that HAT.
+
+Since v2.0.2 the plugin refuses to claim any pin belonging to the configured
+display or to I2C/SPI/UART, logs which peripheral owns it, and falls back to
+voltage-trend charge detection. Override only if you are certain:
+
+```toml
+reserved_gpios = [20, 21]     # add your own
+allow_unsafe_gpio = false     # true disables the check entirely
+```
+
+Check what is actually claimed on your Pi:
+
+```bash
+pinctrl get 0-27          # or: sudo gpioinfo
+```
+
+## Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `ups_type` | `"auto"` | `auto`, `x1200`, `ups_lite`, `ina219`, `pisugar2`, `pisugar2_pro`, `pisugar3` |
+| `i2c_bus` / `i2c_address` | `1` / `-1` | Force bus or address; `-1` = autodetect |
+| `poll_interval` | `10` | Seconds between hardware reads (background thread) |
+| `show_voltage` | `false` | Prepend e.g. `3.87V` |
+| `show_time_estimate` | `true` | Append `~9h39m` / `^2h57m` |
+| `show_icon` / `use_emoji` | `true` / `false` | See "Emoji" below |
+| `label` | `"UPS"` | Set to `""` to reclaim screen width |
+| `ui_position_x` | `-80` | Negative = offset from right edge |
+| `ui_font` | `"medium"` | `small`, `medium`, `bold` |
+| `battery_mah` | `2000` | Pack capacity — set this, estimates depend on it |
+| `battery_cells` | `"auto"` | `1`–`4`; auto-detected from pack voltage |
+| `avg_current_ma` | `200` | Fallback draw when no current sensor |
+| `shunt_ohms` | `0.1` | INA219 shunt value |
+| `invert_current` | `false` | Flip if `+`/`-` are backwards |
+| `charging_threshold_ma` | `30` | Hysteresis deadband |
+| `internal_resistance` | `0.12` | Ω per cell, for IR-compensated SOC |
+| `soc_smoothing` | `0.25` | 1.0 = no smoothing |
+| `shutdown_enabled` | `false` | Enable auto-shutdown |
+| `shutdown_threshold` | `5` | % that starts the grace timer |
+| `critical_threshold` | `2` | % that shuts down immediately |
+| `shutdown_grace` / `shutdown_grace_period` | `3` / `30` | Polls **and** seconds both required |
+| `debug_mode` | `false` | Append cycles, mA, error count |
+
+## Self-calibrating runtime estimates
+
+Chips with a real SOC gauge but no current sensor (MAX170xx, PiSugar) can't be
+coulomb-counted. The relationship inverts though: if SOC falls P percent per
+hour on a pack of `battery_mah`, the average draw is `(P/100) * battery_mah`.
+
+The plugin fits that slope over a rolling window and uses the result in place
+of `avg_current_ma` once it has 15 minutes and a 1.5% drop of evidence. In
+testing it recovers a known draw to within 0.1%. It refuses to guess on flat
+or rising SOC, discards the window when charging starts or after a gap, and
+persists samples to `/root/.mad_hatter_state.json` so frequent restarts don't
+reset the measurement.
+
+So `avg_current_ma` is only a cold-start value. **`battery_mah` is the number
+that matters** — get it right and the draw calibrates itself. With
+`debug_mode = true` the measured figure shows on screen as `~900mA`
+(a leading `~` means derived from SOC decay; no `~` means a real current sensor).
+
+## Tuning
+
+**Current reads wrong by 10×** — your board uses a different shunt. Set
+`shunt_ohms = 0.01`. If the reading is 10× too *small*, you need `0.1`.
+
+**`+` and `-` are backwards** — set `invert_current = true`.
+
+**Percentage looks off on an INA219 board** — INA219 has no fuel gauge, so SOC
+is inferred from voltage. Set `battery_mah` correctly and tune
+`internal_resistance` (higher = more correction under load).
+
+## Emoji
+
+Off by default. The stock DejaVu fonts shipped with Pwnagotchi have no glyphs
+for 🔋 🪫 ⚡, so on most e-ink displays they render as empty boxes. Set
+`use_emoji = true` only if your display font actually has them.
+
+## Endpoints
+
+`http://<pwnagotchi>/plugins/mad_hatter/status` returns live JSON.
+
+## Logs
+
+```bash
+journalctl -u pwnagotchi -f | grep MadHatter
+```
+
+Persistent state (cycles, coulomb accumulator) lives in
+`/root/.mad_hatter_state.json`; a legacy `.mad_hatter_cycle_count` is migrated
+automatically on first run.
+
+## Note on the X750 / IP5310
+
+`ups_type = "x750"` is no longer accepted. v1.3.4 mapped IP5310 hardware onto
+PiSugar registers, which produced meaningless readings — and the branch was
+unreachable anyway, since PiSugar was matched first at the same 0x75 address.
+The plugin now falls back to auto-detection and logs a warning. If you have
+this board and a verified register map, that's the one backend still missing.
 
 # TheyLive — advanced GPS plugin for Pwnagotchi
 
