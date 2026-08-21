@@ -129,7 +129,7 @@ Copy `age.py` into the custom plugins directory:
 
 ```bash
 sudo scp age.py pi@<pwnagotchi_ip>:/tmp/
-sudo mv /tmp/age.py /usr/local/share/pwnagotchi/custom-plugins/
+sudo mv /tmp/age.py /etc/pwnagotchi/custom-plugins/
 ```
 
 Then add the config below to `/etc/pwnagotchi/config.toml` and restart:
@@ -972,7 +972,7 @@ sudo apt update && sudo apt install wireshark-common
 Manual installation recommended (advanced dependencies):
 
 ```bash
-cd /usr/local/share/pwnagotchi/custom-plugins/
+cd /etc/pwnagotchi/custom-plugins/
 sudo wget https://raw.githubusercontent.com/AlienMajik/pwnagotchi_plugins/main/snoopr.py
 ```
 
@@ -980,7 +980,7 @@ Or clone:
 
 ```bash
 sudo git clone https://github.com/AlienMajik/pwnagotchi_plugins.git /tmp/pwnplugins
-sudo cp /tmp/pwnplugins/snoopr.py /usr/local/share/pwnagotchi/custom-plugins/
+sudo cp /tmp/pwnplugins/snoopr.py /etc/pwnagotchi/custom-plugins/
 sudo rm -rf /tmp/pwnplugins
 ```
 
@@ -1244,7 +1244,7 @@ You can install SkyHigh in two ways: the easy way (recommended) or the manual wa
      "https://github.com/cyberartemio/wardriver-pwnagotchi-plugin/archive/main.zip",
      "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip"
    ]
-   main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+   main.custom_plugins = "/etc/pwnagotchi/custom-plugins/"
    ```
 
 2. **Install the Plugin**
@@ -1261,11 +1261,11 @@ You can install SkyHigh in two ways: the easy way (recommended) or the manual wa
    ```
 2. **Copy the Plugin File**
    ```bash
-   sudo cp skyhigh.py /usr/local/share/pwnagotchi/custom-plugins/
+   sudo cp skyhigh.py /etc/pwnagotchi/custom-plugins/
    ```
    Or via SCP from another machine:
    ```bash
-   scp skyhigh.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+   scp skyhigh.py root@<pwnagotchi_ip>:/etc/pwnagotchi/custom-plugins/
    ```
 
 ### Configure the Plugin
@@ -1464,10 +1464,10 @@ Compared to v1.2.2, the 1.3.4 series introduces major accuracy, usability, and r
 
 ## Installation Instructions
 ### Copy the Plugin File
-Place `mad_hatter.py` in `/usr/local/share/pwnagotchi/custom-plugins/`.
+Place `mad_hatter.py` in `/etc/pwnagotchi/custom-plugins/`.
 Or use SCP:
 ```bash
-sudo scp mad_hatter.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/
+sudo scp mad_hatter.py root@<pwnagotchi_ip>:/etc/pwnagotchi/custom-plugins/
 ```
 
 ### Config Example (`config.toml`) Use the **bracketed config.toml format** below (required on newer image 2.9.5.4):
@@ -1581,9 +1581,9 @@ sudo systemctl restart pwnagotchi
 - **Persistent Data:** Cycle count saved to `/root/.mad_hatter_cycle_count`; all other stats read live with in-memory caching.
 ---
 
-# TheyLive Plugin
+# TheyLive — advanced GPS plugin for Pwnagotchi
 
-**v2.2.1** — rich real-time GPS on the display, per-handshake location tagging, continuous track
+**v2.2.2** — rich real-time GPS on the display, per-handshake location tagging, continuous track
 logging, GPX/GeoJSON export, and Bettercap integration. Originally based on `gpsd-easy` by
 discord@rai68, enhanced by AlienMajik.
 
@@ -1607,7 +1607,33 @@ exact amount — every value now starts precisely on `topleft_x` (verified: all 
 x=130). `View.has_element()` is not used, because in 2.9.5.8 it is missing its `return` and
 always yields `None`.
 
-## What's new in 2.2.x
+## Troubleshooting: "gpsd installation failed"
+
+If the log shows `gpsd installation failed` followed by endless
+`connect to 127.0.0.1:2947 failed: [Errno 111] Connection refused`, 2.2.2 now tells you why
+instead of looping silently. Three causes, in order of likelihood:
+
+1. **gpsd is already installed but wasn't detected.** `shutil.which("gpsd")` misses it when
+   `/usr/sbin` isn't on the launcher's PATH. 2.2.2 also checks `/usr/sbin/gpsd`,
+   `/usr/local/sbin/gpsd`, `/usr/bin/gpsd` and `dpkg-query`, and logs the path it settles on
+   (`Using gpsd at /usr/sbin/gpsd`).
+2. **No usable internet for apt.** The unit can be tethered enough to pass a connectivity probe
+   while the Debian mirrors are unreachable. The real apt error is now logged, and the install is
+   retried automatically via `on_internet_available` once the unit is properly online.
+3. **apt/dpkg lock held** by the boot-time updater. Again, now visible in the log; just retry.
+
+To fix it by hand:
+
+```bash
+sudo apt-get update && sudo apt-get install -y gpsd gpsd-clients
+sudo systemctl restart pwnagotchi
+```
+
+After three failed connects the plugin logs a single actionable summary — whether gpsd is
+installed, whether the service is active, the last lines of its journal, and whether your
+configured `device` exists (listing the `/dev/tty*` candidates it can see if it doesn't).
+
+## What's new in 2.2.2
 
 ### Bugs fixed
 
@@ -1625,6 +1651,8 @@ always yields `None`.
 | **Handshake filename rewriting** | `filename.replace(".pcap", ...)` corrupted paths containing `.pcap` elsewhere; only the suffix is replaced now. |
 | **UI element name collisions** | Every element is namespaced `theylive_*`, so `lat`, `sat`, `fix`, `mode` etc. can never clash with core Pwnagotchi elements or another plugin's. |
 | **`agent.session()` hammering** | The PwnDroid backend wrote to `agent.session()` on *every* WebSocket message — each call is an HTTP round-trip to Bettercap. Now throttled to once per 30s. |
+| **bettercap GPS is retried, not attempted once** | `on_ready` fires before gpsd finishes starting, so `set gps.device` got `connection refused` and GPS tagging stayed off for the entire session. It is now retried from the worker until gpsd is genuinely reachable. |
+| **gpsd install failures are non-fatal and explained** | A failed `apt-get` aborted setup with no reason logged and no retry. The apt error is logged, configuration continues if the binary exists, and the install is retried when the unit comes online. |
 | **gpsd no longer stopped on unload by default** | Stopping `gpsd.service` when the plugin unloaded broke every other GPS consumer. Opt back in with `stop_gpsd_on_unload`. |
 | **Config validation** | Bad `mode`, `speedUnit`, `distanceUnit`, `fields`, or non-numeric ports now log a warning and fall back instead of raising mid-loop. |
 | **Idempotent setup** | gpsd config files are only rewritten (and gpsd only restarted) when the contents actually change. |
@@ -1667,7 +1695,7 @@ always yields `None`.
 main.custom_plugin_repos = [
     "https://github.com/AlienMajik/pwnagotchi_plugins/archive/refs/heads/main.zip",
 ]
-main.custom_plugins = "/usr/local/share/pwnagotchi/custom-plugins/"
+main.custom_plugins = "/etc/pwnagotchi/custom-plugins/"
 ```
 
 ```bash
@@ -1678,7 +1706,7 @@ sudo pwnagotchi plugins install theylive
 **Manual**
 
 ```bash
-scp theylive.py root@<pwnagotchi_ip>:/usr/local/share/pwnagotchi/custom-plugins/theylive.py
+scp theylive.py root@<pwnagotchi_ip>:/etc/pwnagotchi/custom-plugins/theylive.py
 sudo systemctl restart pwnagotchi
 ```
 
@@ -1794,7 +1822,6 @@ gpsmon              # or: cgps -s
 
 Original `gpsd-easy` by discord@rai68. Enhancements and maintenance by AlienMajik.
 Issues and PRs welcome on GitHub.
-```
 
 
 
