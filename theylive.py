@@ -135,12 +135,56 @@ def write_if_changed(path, content):
         return False
 
 
-def run_cmd(args, timeout=300):
+GPSD_CANDIDATES = ("/usr/sbin/gpsd", "/usr/local/sbin/gpsd", "/usr/bin/gpsd")
+
+
+def find_gpsd():
+    """Locate the gpsd binary.
+
+    shutil.which() alone is not enough: gpsd lives in /usr/sbin, which is not on
+    PATH for every launcher, so a perfectly good install looks missing and the
+    plugin tries to apt-get it on a device that has no internet.
+    """
+    found = shutil.which("gpsd")
+    if found:
+        return found
+    for candidate in GPSD_CANDIDATES:
+        if os.path.exists(candidate):
+            return candidate
+    res = run_cmd(["dpkg-query", "-W", "-f=${Status}", "gpsd"], timeout=30)
+    if res is not None and res.returncode == 0 and "install ok installed" in res.stdout:
+        return "/usr/sbin/gpsd"
+    return None
+
+
+def serial_candidates():
+    """Plausible GPS device nodes, to help the user fix a bad 'device' setting."""
+    found = []
     try:
-        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        for entry in sorted(os.listdir("/dev")):
+            if entry.startswith(("ttyUSB", "ttyACM", "ttyAMA", "ttyS")) or entry in ("serial0", "gps0"):
+                found.append("/dev/" + entry)
+    except Exception:
+        pass
+    return found
+
+
+def run_cmd(args, timeout=300):
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    env.setdefault("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+    try:
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=env)
     except Exception as e:
         logging.warning(f"{LOG} Command {' '.join(args)} failed: {e}")
         return None
+
+
+def tail(text, lines=4):
+    """Last few non-empty lines of command output, for one-line logging."""
+    if not text:
+        return ""
+    kept = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    return " | ".join(kept[-lines:])
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +222,7 @@ class GPSD(GPSBackend):
         self._sky = None
         self._sky_ts = 0.0
         self._lock = threading.Lock()
+        self._failures = 0
         self._thread = threading.Thread(target=self._run, daemon=True, name="theylive-gpsd")
         self._thread.start()
 
@@ -212,13 +257,20 @@ class GPSD(GPSBackend):
                     continue
                 if msg.get("class") == "VERSION":
                     self.connected = True
+                    self._failures = 0
                     logging.info(
                         f"{LOG} Connected to gpsd {msg.get('release', '?')} at {self.host}:{self.port}"
                     )
                     return True
             raise ConnectionError("no VERSION banner received from gpsd")
         except Exception as e:
+            self._failures += 1
             logging.warning(f"{LOG} gpsd connect to {self.host}:{self.port} failed: {e}")
+            if self._failures == 3 and self.plugin is not None:
+                try:
+                    self.plugin.explain_gpsd_failure()
+                except Exception:
+                    pass
             self._close()
             return False
 
@@ -383,7 +435,7 @@ class PwnDroidGPS(GPSBackend):
 # ---------------------------------------------------------------------------
 class TheyLive(plugins.Plugin):
     __author__ = "discord@rai68 (original) - enhanced by AlienMajik"
-    __version__ = "2.2.1"
+    __version__ = "2.2.2"
     __license__ = "LGPL"
     __description__ = (
         "Advanced GPS plugin for Pwnagotchi: rich on-screen GPS data, per-handshake and continuous "
@@ -431,6 +483,9 @@ class TheyLive(plugins.Plugin):
         self._cfg_lock = threading.Lock()
         self._configured = False
         self._overflow_warned = False
+        self._bettercap_ok = False
+        self._install_pending = False
+        self._diag_done = False
         self.loaded = False
         self.ui_setup = False
         self.running = False
@@ -479,18 +534,55 @@ class TheyLive(plugins.Plugin):
         return out or list(DEFAULT_FIELDS)
 
     # -- gpsd auto setup -----------------------------------------------------
+    def _install_gpsd(self):
+        """Try to apt-get gpsd, reporting the actual reason on failure."""
+        if not is_connected():
+            logging.error(
+                f"{LOG} gpsd is not installed and this unit has no internet connection. "
+                f"It will be installed automatically once the unit is online."
+            )
+            self._install_pending = True
+            return False
+        logging.info(f"{LOG} Installing gpsd (this can take several minutes)")
+        upd = run_cmd(["apt-get", "update"], timeout=600)
+        if upd is not None and upd.returncode != 0:
+            logging.warning(f"{LOG} apt-get update failed: {tail(upd.stderr or upd.stdout)}")
+        res = run_cmd(
+            ["apt-get", "install", "-y", "--no-install-recommends", "gpsd", "gpsd-clients"],
+            timeout=1800,
+        )
+        if res is None:
+            logging.error(f"{LOG} gpsd installation timed out")
+            return False
+        if res.returncode != 0:
+            # The old code hid this. Almost always: no route to the mirrors, DNS
+            # failure, or dpkg/apt lock held by the updater at boot.
+            logging.error(
+                f"{LOG} gpsd installation failed (exit {res.returncode}): "
+                f"{tail(res.stderr) or tail(res.stdout)}"
+            )
+            return False
+        logging.info(f"{LOG} gpsd installed")
+        return True
+
     def setup(self):
-        """Install and configure gpsd. Only touches the system when needed."""
-        if shutil.which("gpsd") is None:
-            if not is_connected():
-                logging.error(f"{LOG} gpsd is not installed and there is no internet connection")
-                return False
-            logging.info(f"{LOG} Installing gpsd (this can take several minutes)")
-            run_cmd(["apt-get", "update"], timeout=600)
-            res = run_cmd(["apt-get", "install", "-y", "gpsd", "gpsd-clients"], timeout=1800)
-            if res is None or res.returncode != 0:
-                logging.error(f"{LOG} gpsd installation failed")
-                return False
+        """Install (if needed) and configure gpsd. Only touches what must change."""
+        binary = find_gpsd()
+        if binary is None:
+            self._install_gpsd()
+            binary = find_gpsd()
+        if binary is None:
+            # Configuring a gpsd that isn't there is pointless, but this is not
+            # fatal: the backend keeps retrying and on_internet_available will
+            # try the install again later.
+            self._install_pending = True
+            logging.error(
+                f"{LOG} gpsd is not installed. Connect the unit to the internet, or install it "
+                f"manually with: sudo apt-get install -y gpsd gpsd-clients"
+            )
+            return False
+        self._install_pending = False
+        logging.info(f"{LOG} Using gpsd at {binary}")
 
         if self.device and not os.path.exists(self.device):
             logging.warning(
@@ -498,6 +590,7 @@ class TheyLive(plugins.Plugin):
             )
 
         listen = "0.0.0.0" if self.gpsd_listen_all else "127.0.0.1"
+        exec_start = binary
         devices = " ".join(d for d in (self.device, self.pps_device) if d)
         changed = False
 
@@ -528,7 +621,7 @@ class TheyLive(plugins.Plugin):
             "EnvironmentFile=-/etc/default/gpsd\n"
             "ExecStartPre=-/bin/stty -F ${MAIN_GPS} ${BAUDRATE}\n"
             "ExecStartPre=-/bin/setserial ${MAIN_GPS} low_latency\n"
-            "ExecStart=/usr/sbin/gpsd $GPSD_OPTIONS $MAIN_GPS $PPS_DEVICES\n"
+            f"ExecStart={exec_start} $GPSD_OPTIONS $MAIN_GPS $PPS_DEVICES\n"
             "Restart=on-failure\n"
             "RestartSec=5\n"
             "\n"
@@ -565,6 +658,38 @@ class TheyLive(plugins.Plugin):
                 run_cmd(["systemctl", "start", "gpsd.socket"], timeout=60)
                 run_cmd(["systemctl", "start", "gpsd.service"], timeout=60)
         return True
+
+    def explain_gpsd_failure(self):
+        """Log one actionable summary instead of an endless wall of retries."""
+        if self._diag_done:
+            return
+        self._diag_done = True
+        notes = [f"cannot reach gpsd at {self.host}:{self.port}"]
+        binary = find_gpsd()
+        if binary is None:
+            notes.append("gpsd is NOT installed -> sudo apt-get install -y gpsd gpsd-clients")
+        else:
+            res = run_cmd(["systemctl", "is-active", "gpsd.service"], timeout=30)
+            state = res.stdout.strip() if res is not None else "unknown"
+            notes.append(f"binary={binary} service={state}")
+            if state != "active":
+                journal = run_cmd(
+                    ["journalctl", "-u", "gpsd.service", "-n", "10", "--no-pager"], timeout=30
+                )
+                if journal is not None:
+                    notes.append("gpsd log: " + tail(journal.stdout, 3))
+        if self.mode == "server":
+            if self.device and os.path.exists(self.device):
+                notes.append(f"device {self.device} present")
+            else:
+                candidates = serial_candidates()
+                notes.append(
+                    f"device {self.device or '(unset)'} MISSING - candidates: "
+                    f"{', '.join(candidates) if candidates else 'none found'}"
+                )
+        elif self.mode == "peer":
+            notes.append(f"peer mode: is gpsd on {self.host} listening on all interfaces?")
+        logging.error(f"{LOG} " + " || ".join(notes))
 
     # -- lifecycle -----------------------------------------------------------
     def on_loaded(self):
@@ -655,7 +780,13 @@ class TheyLive(plugins.Plugin):
         self._ensure_config()
         self.agent = agent
         self.running = True
-        self._configure_bettercap(agent)
+        try:
+            agent.run("gps off")
+        except Exception:
+            pass
+        if not self.bettercap or self.mode == "pwndroid":
+            logging.info(f"{LOG} bettercap GPS integration disabled")
+            self._bettercap_ok = True  # nothing left to do
         if self._worker is None or not self._worker.is_alive():
             self._worker = threading.Thread(
                 target=self._gps_worker, daemon=True, name="theylive-worker"
@@ -664,21 +795,47 @@ class TheyLive(plugins.Plugin):
         if self.track_log:
             logging.info(f"{LOG} Continuous track logging -> {self.track_file}")
 
-    def _configure_bettercap(self, agent):
+    def _ensure_bettercap(self):
+        """Point bettercap at gpsd, but only once gpsd is actually reachable.
+
+        Doing this in on_ready raced the gpsd startup: bettercap answered
+        "connection refused", the plugin gave up, and GPS tagging stayed off for
+        the whole session. Now it is retried from the worker until it sticks.
+        """
+        if self._bettercap_ok or self.agent is None:
+            return
+        if not self.bettercap or self.mode == "pwndroid":
+            self._bettercap_ok = True
+            return
+        backend = self.gps_backend
+        if backend is None or not getattr(backend, "connected", False):
+            return  # gpsd not up yet - try again next tick
         try:
-            agent.run("gps off")
+            self.agent.run("gps off")
         except Exception:
             pass
-        if not self.bettercap or self.mode == "pwndroid":
-            logging.info(f"{LOG} bettercap GPS integration disabled")
-            return
         try:
-            logging.info(f"{LOG} Enabling bettercap GPS via {self.host}:{self.port}")
-            agent.run(f"set gps.device {self.host}:{self.port}")
-            agent.run(f"set gps.baudrate {self.baud}")
-            agent.run("gps on")
+            self.agent.run(f"set gps.device {self.host}:{self.port}")
+            self.agent.run(f"set gps.baudrate {self.baud}")
+            self.agent.run("gps on")
+            self._bettercap_ok = True
+            logging.info(f"{LOG} bettercap GPS enabled via {self.host}:{self.port}")
         except Exception as e:
-            logging.warning(f"{LOG} Could not enable bettercap GPS: {e}")
+            logging.warning(f"{LOG} bettercap GPS not enabled yet ({e}) - will retry")
+
+    def on_internet_available(self, agent):
+        """Finish the gpsd install once the unit finally has a connection."""
+        if not self._install_pending or self.mode != "server" or self.disableAuto:
+            return
+        self._install_pending = False
+        logging.info(f"{LOG} Internet is available - retrying gpsd setup")
+        try:
+            if self.setup() and (self.gps_backend is None or not self.gps_backend.connected):
+                if self.gps_backend is not None:
+                    self.gps_backend.stop()
+                self.gps_backend = GPSD(self.host, self.port, self, max_age=self.max_fix_age)
+        except Exception as e:
+            logging.error(f"{LOG} Deferred gpsd setup failed: {e}")
 
     def on_unload(self, ui):
         self.running = False
@@ -759,6 +916,7 @@ class TheyLive(plugins.Plugin):
     def _gps_worker(self):
         while self.running:
             try:
+                self._ensure_bettercap()
                 fix = self._snapshot()
                 if fix["valid"]:
                     now = time.time()
