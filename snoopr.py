@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-SnoopR v7.0.1 - Surveillance detection for Pwnagotchi.
+SnoopR v7.1.0 - Surveillance detection for Pwnagotchi.
 
 Major correctness overhaul of 6.0.0. See CHANGELOG-v7.md for the full list.
 Highlights:
@@ -26,6 +26,7 @@ import html
 import json
 import logging
 import os
+import re
 import socket
 import sqlite3
 import struct
@@ -100,6 +101,10 @@ def parse_ts(value):
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=UTC)
     text = str(value).strip()
+    # Go (bettercap) emits nanosecond fractions; fromisoformat only accepts 3 or 6 digits.
+    match = re.match(r'^(.*\.\d{6})\d+(.*)$', text)
+    if match:
+        text = match.group(1) + match.group(2)
     dt = None
     try:
         dt = datetime.fromisoformat(text.replace('Z', '+00:00'))
@@ -1331,6 +1336,38 @@ def grid_cluster_count(points, cell_meters=100.0):
     return len(cells), centres
 
 
+def greedy_clusters(points, radius_m, min_points=1):
+    """Distance-based clustering. Grid bucketing splits a stationary device across a cell
+    border, which used to read as "seen in two different zones"; this merges anything
+    within radius_m and drops zones that only a stray fix or two landed in."""
+    clusters = []
+    for lat, lon in points:
+        placed = False
+        for cluster in clusters:
+            if haversine(cluster['lat'], cluster['lon'], lat, lon) <= radius_m:
+                cluster['n'] += 1
+                cluster['lat'] += (lat - cluster['lat']) / cluster['n']
+                cluster['lon'] += (lon - cluster['lon']) / cluster['n']
+                placed = True
+                break
+        if not placed:
+            clusters.append({'lat': lat, 'lon': lon, 'n': 1})
+    return [c for c in clusters if c['n'] >= min_points]
+
+
+def count_encounters(timestamps, gap_minutes):
+    """Separate visits, not separate plugin restarts. Rebooting three times in an hour
+    used to look like three sessions."""
+    if not timestamps:
+        return 0
+    ordered = sorted(timestamps)
+    encounters = 1
+    for previous, current in zip(ordered, ordered[1:]):
+        if (current - previous).total_seconds() > gap_minutes * 60:
+            encounters += 1
+    return encounters
+
+
 def euclidean(x1, y1, x2, y2):
     return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
@@ -2234,7 +2271,7 @@ class WebHandler:
 
 class SnoopR(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '7.0.1'
+    __version__ = '7.1.0'
     __license__ = 'GPL3'
     __description__ = ('SnoopR: Wi-Fi/BLE/ADS-B surveillance detection with geofencing, '
                        'aircraft anomaly detection, trilateration, mesh sharing and a '
@@ -2269,6 +2306,10 @@ class SnoopR(plugins.Plugin):
 
         self.last_gps = {'latitude': '-', 'longitude': '-', 'altitude': '-'}
         self.last_gps_at = 0.0
+        self._last_fix = None
+        self._gps_rejects = 0
+        self._stale_aps = 0
+        self._warned_no_ap_timestamps = False
         self.oui_db = {24: {}, 28: {}, 36: {}}
         self.bluetooth_company_db = {}
         self.kalman_filters = LRUDict(maxsize=8192)
@@ -2324,6 +2365,11 @@ class SnoopR(plugins.Plugin):
         self.bluetooth_device = self._opt('bluetooth_device', 'hci0')
         self.log_without_gps = bool(self._opt('log_without_gps', False))
         self.gps_max_age = float(self._opt('gps_max_age', 60))
+        self.gps_min_satellites = int(self._opt('gps_min_satellites', 4))
+        self.gps_require_fix = bool(self._opt('gps_require_fix', True))
+        self.gps_max_hdop = float(self._opt('gps_max_hdop', 5.0))
+        # Seconds since bettercap last heard an AP before SnoopR stops logging it.
+        self.ap_max_age = float(self._opt('ap_max_age', 30))
         self.prune_days = int(self._opt('prune_days', 30))
         self.prune_interval_hours = float(self._opt('prune_interval_hours', 6))
 
@@ -2354,6 +2400,18 @@ class SnoopR(plugins.Plugin):
         self.min_rssi_for_movement = int(self._opt('min_rssi_for_movement', -70))
         self.max_plausible_velocity_mph = float(self._opt('max_plausible_velocity_mph', 200))
         self.flag_randomized_snoopers = bool(self._opt('flag_randomized_snoopers', False))
+        # Evidence quality controls. These exist because two data points are not a
+        # pattern: one stale AP entry plus one GPS glitch could previously "prove" that a
+        # stationary access point had followed you for a mile.
+        self.min_close_fixes = int(self._opt('min_close_fixes', 6))
+        self.min_zone_fixes = int(self._opt('min_zone_fixes', 3))
+        self.min_close_separation_m = float(self._opt('min_close_separation_m', 200))
+        self.encounter_gap_minutes = float(self._opt('encounter_gap_minutes', 30))
+        self.min_encounters = int(self._opt('min_encounters', 2))
+        self.max_contact_gap_minutes = float(self._opt('max_contact_gap_minutes', 3))
+        self.ignore_frozen_rssi = bool(self._opt('ignore_frozen_rssi', True))
+        self.snooper_exempt_zones = list(self._opt('snooper_exempt_zones', []) or [])
+        self.snooper_debug = bool(self._opt('snooper_debug', False))
         # A stationary unit cannot separate "a tail" from "the neighbours", so movement
         # corroboration is required by default. Set false for fixed counter-surveillance
         # installs, where persistence alone becomes the trigger (6.x behaviour).
@@ -2682,6 +2740,9 @@ class SnoopR(plugins.Plugin):
     # GPS + buffering
     # -----------------------------------------------------------------
     def _update_gps(self, agent):
+        """Accept a fix only if it is fresh, of usable quality, and physically reachable
+        from the previous one. A single GPS glitch used to relocate every device in range
+        by however far the jump was, which is enough to flag all of them at once."""
         try:
             session = agent.session() or {}
             gps = session.get('gps') or {}
@@ -2690,10 +2751,50 @@ class SnoopR(plugins.Plugin):
         coords = valid_coords(gps.get('Latitude'), gps.get('Longitude'))
         if not coords:
             return False
+
+        # Quality fields are only present on some GPS sources; ignore them when absent.
+        satellites = safe_float(gps.get('NumSatellites'))
+        if satellites is not None and satellites < self.gps_min_satellites:
+            self._gps_reject('only %d satellites' % satellites)
+            return False
+        fix_quality = safe_float(gps.get('FixQuality'))
+        if self.gps_require_fix and fix_quality is not None and fix_quality < 1:
+            self._gps_reject('fix quality %s' % fix_quality)
+            return False
+        hdop = safe_float(gps.get('HDOP'))
+        if hdop is not None and self.gps_max_hdop > 0 and hdop > self.gps_max_hdop:
+            self._gps_reject('HDOP %.1f' % hdop)
+            return False
+
+        now = time.time()
+        updated = parse_ts(gps.get('Updated'))
+        if updated and (utcnow() - updated).total_seconds() > self.gps_max_age:
+            self._gps_reject('receiver timestamp is stale')
+            return False
+
+        if self._last_fix:
+            elapsed = now - self._last_fix[2]
+            if elapsed > 0:
+                jumped = haversine(self._last_fix[0], self._last_fix[1],
+                                   coords[0], coords[1])
+                implied_mph = (jumped / elapsed) * MPS_TO_MPH
+                if implied_mph > self.max_plausible_velocity_mph and jumped > 100:
+                    self._gps_reject('implausible jump of %.0f m in %.1f s (%.0f mph)'
+                                     % (jumped, elapsed, implied_mph))
+                    self._last_fix = None  # resync on the next fix rather than latching
+                    return False
+
+        self._last_fix = (coords[0], coords[1], now)
         self.last_gps = {'latitude': str(coords[0]), 'longitude': str(coords[1]),
                          'altitude': str(gps.get('Altitude', '-'))}
-        self.last_gps_at = time.time()
+        self.last_gps_at = now
         return True
+
+    def _gps_reject(self, reason):
+        self._gps_rejects += 1
+        if self._gps_rejects % 20 == 1:
+            LOG.warning('[SnoopR] rejected GPS fix: %s (%d rejected so far)',
+                        reason, self._gps_rejects)
 
     def gps_fresh(self):
         return (self.last_gps['latitude'] != '-'
@@ -2850,16 +2951,38 @@ class SnoopR(plugins.Plugin):
                             max_velocity = max(max_velocity, velocity)
                 previous = fix
 
-            # A device is "following" only if it was seen CLOSE (strong RSSI) at points
-            # far apart in space and time. Driving past a stationary AP produces distance
-            # but only at weak signal, which used to flag every AP as a snooper.
-            separation_miles = 0.0
+            # A device is "following" only if it was seen CLOSE (strong RSSI) in more
+            # than one well-populated place. Two extreme fixes are not evidence: one bad
+            # GPS sample or one stale cache entry can produce them, and that is what
+            # turned an ordinary drive into dozens of "snoopers".
+            zones = greedy_clusters([(f['lat'], f['lon']) for f in close_fixes],
+                                    self.min_close_separation_m, self.min_zone_fixes)
+            separation_miles = (polygon_diameter([(z['lat'], z['lon']) for z in zones])
+                                / METERS_PER_MILE)
             followed = False
-            if len(close_fixes) >= 2:
-                separation = polygon_diameter([(f['lat'], f['lon']) for f in close_fixes])
-                separation_miles = separation / METERS_PER_MILE
+            follow_kind = ''
+
+            # A cache artefact re-logs one frozen RSSI value at every new GPS position.
+            # A real radio never returns byte-identical signal over a mile of travel, so
+            # identical readings across separated zones are evidence of the bug, not a tail.
+            cached_rssi = self._looks_like_cached_rssi(close_fixes)
+
+            # (a) Dwell evidence: strong contact in two or more distinct places.
+            if not cached_rssi and len(zones) >= 2 and len(close_fixes) >= self.min_close_fixes:
                 span = (close_fixes[-1]['ts'] - close_fixes[0]['ts']).total_seconds()
-                followed = (separation_miles >= self.movement_threshold and span >= 300)
+                if separation_miles >= self.movement_threshold and span >= 300:
+                    followed, follow_kind = True, '%d zones' % len(zones)
+
+            # (b) Continuous-contact evidence: an unbroken chain of strong fixes covering
+            # the distance. A tail on the road never dwells, so (a) alone would miss it --
+            # but an unbroken chain is exactly what a stale cache entry cannot fake.
+            if not followed and not cached_rssi:
+                run_miles, run_len, run_span = self._longest_contact_run(close_fixes)
+                if (run_len >= self.min_close_fixes and run_span >= 300
+                        and run_miles >= self.movement_threshold):
+                    followed = True
+                    follow_kind = 'unbroken contact over %d fixes' % run_len
+                    separation_miles = max(separation_miles, run_miles)
 
             # --- persistence score ---
             now = utcnow()
@@ -2876,10 +2999,10 @@ class SnoopR(plugins.Plugin):
                     score += weights[index]
                     windows_hit += 1
             cluster_count, _ = grid_cluster_count([(f['lat'], f['lon']) for f in fixes])
-            # Only zones where the device was actually CLOSE count towards the score.
-            # Counting every GPS cell inflated the score for any AP you drove slowly past.
-            close_clusters, _ = grid_cluster_count([(f['lat'], f['lon']) for f in close_fixes])
-            sessions = len({f['session'] for f in fixes if f['session'] is not None})
+            # Only well-populated close-range zones count towards the score.
+            close_clusters = len(zones)
+            encounters = count_encounters([f['ts'] for f in fixes],
+                                          self.encounter_gap_minutes)
             score += 0.2 * max(0, windows_hit - 1)
             score += 0.1 * max(0, close_clusters - 1)
             score = min(1.0, score)
@@ -2889,17 +3012,28 @@ class SnoopR(plugins.Plugin):
             # range in more than one place, or in more than one session.
             reasons = []
             if followed:
-                reasons.append('tracked across %.1f mi at >= %d dBm'
-                               % (separation_miles, self.min_rssi_for_movement))
-            if (score >= self.persistence_threshold and close_clusters >= 2 and sessions >= 2):
-                reasons.append('persistence %.2f across %d close-range zones / %d sessions'
-                               % (score, close_clusters, sessions))
+                reasons.append('tracked across %.1f mi at >= %d dBm (%s)'
+                               % (separation_miles, self.min_rssi_for_movement,
+                                  follow_kind))
+            if (score >= self.persistence_threshold and close_clusters >= 2
+                    and encounters >= self.min_encounters):
+                reasons.append('persistence %.2f across %d close-range zones / %d encounters'
+                               % (score, close_clusters, encounters))
             if not self.require_movement_for_snooper and score >= self.persistence_threshold:
                 reasons.append('persistence %.2f' % score)
             if meta.get('is_randomized') and not self.flag_randomized_snoopers and not followed:
                 # Randomised BLE addresses rotate every ~15 min, so persistence alone is
                 # not evidence of anything.
                 reasons = []
+            if reasons and self._in_exempt_zone(zones):
+                # Everything happened inside a zone you told SnoopR to ignore (home, work).
+                reasons = []
+            if self.snooper_debug:
+                LOG.info('[SnoopR] eval %s/%s fixes=%d close=%d zones=%d sep=%.2fmi '
+                         'score=%.2f windows=%d encounters=%d -> %s',
+                         mac, device_type, len(fixes), len(close_fixes), len(zones),
+                         separation_miles, score, windows_hit, encounters,
+                         '; '.join(reasons) or 'clear')
             is_snooper = bool(reasons)
             reason_text = '; '.join(reasons)
 
@@ -2948,6 +3082,55 @@ class SnoopR(plugins.Plugin):
         except Exception as exc:  # noqa: BLE001
             LOG.error('[SnoopR] update_device_status failed for %s (%s): %s',
                       mac, device_type, exc)
+
+    def _looks_like_cached_rssi(self, close_fixes):
+        if not self.ignore_frozen_rssi or len(close_fixes) < 6:
+            return False
+        values = {f['rssi'] for f in close_fixes if f['rssi'] is not None}
+        if len(values) > 1:
+            return False
+        spread = polygon_diameter([(f['lat'], f['lon']) for f in close_fixes])
+        if spread < self.min_close_separation_m * 2:
+            return False  # sitting still: an unchanging reading is plausible
+        LOG.debug('[SnoopR] ignoring frozen RSSI %s across %.0f m -- looks like a stale '
+                  'cache entry rather than movement', values, spread)
+        return True
+
+    def _longest_contact_run(self, close_fixes):
+        """Longest chain of strong fixes with no gap larger than max_contact_gap_minutes.
+        Returns (miles_covered, fix_count, seconds)."""
+        best = (0.0, 0, 0.0)
+        if len(close_fixes) < 2:
+            return best
+        gap_limit = self.max_contact_gap_minutes * 60
+        start = 0
+        for index in range(1, len(close_fixes) + 1):
+            broken = (index == len(close_fixes) or
+                      (close_fixes[index]['ts']
+                       - close_fixes[index - 1]['ts']).total_seconds() > gap_limit)
+            if not broken:
+                continue
+            run = close_fixes[start:index]
+            if len(run) >= 2:
+                miles = polygon_diameter([(f['lat'], f['lon']) for f in run]) / METERS_PER_MILE
+                seconds = (run[-1]['ts'] - run[0]['ts']).total_seconds()
+                if miles > best[0]:
+                    best = (miles, len(run), seconds)
+            start = index
+        return best
+
+    def _in_exempt_zone(self, zones):
+        """True when every close-range zone sits inside a geofence listed in
+        snooper_exempt_zones -- your own home and office should not be evidence."""
+        if not self.snooper_exempt_zones or not zones:
+            return False
+        fences = [f for f in self.geofences if f.name in self.snooper_exempt_zones]
+        if not fences:
+            return False
+        for zone in zones:
+            if not any(f.contains(zone['lat'], zone['lon']) for f in fences):
+                return False
+        return True
 
     def evict_stale_state(self):
         cutoff = time.time() - 3600
@@ -3085,9 +3268,16 @@ class SnoopR(plugins.Plugin):
         if lat == '-' and not self.log_without_gps:
             return
 
+        now = utcnow()
         for ap in aps or []:
             mac = norm_mac(ap.get('mac'))
             if not mac or mac in self.whitelist_macs:
+                continue
+            # bettercap hands back its whole AP cache, including networks that are no
+            # longer in range, each still carrying the RSSI it had when last heard.
+            # Logging those against the CURRENT GPS position is what makes a stationary
+            # access point look like it followed you down the road.
+            if not self._ap_is_fresh(ap, now):
                 continue
             ssid = ap.get('hostname') or ''
             if ssid.casefold() in self.whitelist_ssids:
@@ -3129,6 +3319,30 @@ class SnoopR(plugins.Plugin):
                     altitude=self.last_gps['altitude'], session_id=self.session_id,
                     filtered_rssi=(round(client_kf.filter(client_rssi), 2)
                                    if client_rssi is not None else None)))
+
+    def _ap_is_fresh(self, ap, now):
+        """False when bettercap last heard this AP longer than ap_max_age ago."""
+        if self.ap_max_age <= 0:
+            return True
+        raw = ap.get('last_seen') or ap.get('LastSeen')
+        if not raw:
+            if not self._warned_no_ap_timestamps:
+                self._warned_no_ap_timestamps = True
+                LOG.warning('[SnoopR] bettercap AP entries carry no last_seen timestamp; '
+                            'cannot filter stale cache entries. Set ap_max_age = 0 to '
+                            'silence this, but expect movement false positives.')
+            return True
+        seen = parse_ts(raw)
+        if seen is None:
+            return True
+        age = (now - seen).total_seconds()
+        if age > self.ap_max_age:
+            self._stale_aps += 1
+            if self._stale_aps % 500 == 1:
+                LOG.debug('[SnoopR] skipped stale AP %s (%.0fs old); %d skipped so far',
+                          ap.get('mac'), age, self._stale_aps)
+            return False
+        return True
 
     # -----------------------------------------------------------------
     # Lifecycle
