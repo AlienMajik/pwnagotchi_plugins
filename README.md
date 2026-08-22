@@ -1213,7 +1213,7 @@ For educational and security testing only. Respect privacy and local laws. Use r
 18. **7.0.1** — `bluetooth_device` passed to bleak (both modern and legacy kwargs), aircraft feed path auto-probed for relocated handshakes, `base_dir` fallback, venv-aware dependency warning, `sse_enabled` toggle with automatic polling fallback.
 
     
-# SkyHigh 
+# SkyHigh Plugin
 
 SkyHigh v2.0.2
 Tracks nearby aircraft on a Pwnagotchi using the OpenSky Network. Shows a live
