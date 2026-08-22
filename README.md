@@ -804,6 +804,42 @@ ProbeNpwn v3.4.0 keeps everything that made 3.3.0 powerful and makes it **correc
 
 ## How to Get Started
 
+### Hardware Requirements
+
+#### 2.4 GHz (Standard)
+Works with virtually all common Pwnagotchi adapters:
+- Alfa AWUS036ACH / AWUS036ACM / AWUS036AC
+- Most Realtek RTL8812AU / RTL8811AU / RTL88xx based cards
+- Internal Raspberry Pi Wi-Fi (limited performance)
+
+#### 5 GHz
+Requires an adapter that supports 5 GHz + monitor mode + injection:
+- Alfa AWUS036ACH, AWUS036ACM, AWUS036AXM
+- Many RTL8812AU / RTL8814AU based cards
+- Some MediaTek and Intel cards (driver dependent)
+
+#### 6 GHz (Wi-Fi 6E)
+**6 GHz support is limited and requires specific hardware.**
+
+You need an adapter that supports:
+- 6 GHz band
+- Monitor mode
+- Packet injection
+
+Currently working / partially working options:
+- Certain MediaTek MT7921 / MT7922 based cards
+- Some Intel AX210 / AX211 setups (with proper drivers)
+- A small number of newer Wi-Fi 6E USB adapters
+
+**Important notes for 6 GHz:**
+- Most popular Pwnagotchi adapters (AWUS036ACH, AWUS036ACM, older Realtek cards, etc.) do **not** support 6 GHz.
+- Monitor mode + injection support on Raspberry Pi for 6 GHz is still incomplete or unstable on many cards.
+- Even if the card supports 6 GHz, the driver must properly expose monitor mode and injection capabilities.
+- Enabling `enable_6ghz = true` with unsupported hardware will simply do nothing (or cause channel errors).
+
+**Recommendation:**  
+Only enable 6 GHz if you have confirmed working hardware. For most users, sticking to 2.4 + 5 GHz is more reliable.
+
 ### Dependencies Needed
 - **Scapy**: Auto-installed by the plugin (prefers `sudo apt install python3-scapy`, falls back to `pip3 install --user scapy`). Required for all quiet attacks, PMF bypass, and advanced packet crafting.
 - **psutil** (optional but recommended): For battery/CPU monitoring and auto-pause. Install via `sudo apt install python3-psutil`.
