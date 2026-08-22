@@ -1311,8 +1311,8 @@ Config (`/etc/pwnagotchi/config.toml`):
 [main.plugins.skyhigh]
 enabled = true
 timer = 120                      # seconds between fetches
-latitude = 37.717683             # fallback when there's no GPS fix
-longitude = -122.439393
+latitude = 33            # fallback when there's no GPS fix
+longitude = -12
 radius = 50                      # miles
 units = "metric"                 # or "imperial"
 adsb_x_coord = 120
