@@ -1306,6 +1306,12 @@ Filters: all, snoopers, high persistence, anomalies, Wi-Fi, clients, Bluetooth, 
 Community-driven and evolving fast. Issues/PRs welcome on GitHub!
 
 ## Disclaimer
+SnoopR is for education and for testing equipment you own. It isn’t a security product.
+A flag is not evidence. It means a single-antenna receiver saw a signal pattern that matched a heuristic. It can be wrong in both directions — this entire release is a catalogue of cases where it was confidently wrong — and it should never be the basis for confronting someone, accusing anyone, or making a decision with real consequences.
+If you believe you are actually being followed or stalked, contact your local police or a stalking/domestic abuse support service. A hobby plugin is not the right tool for that situation.
+Scanning, logging and retaining data about third-party devices is regulated differently by jurisdiction, and reception of aircraft transmissions has its own rules by country — check what applies where you are. WiGLE and OpenSky each have terms of use worth reading before enabling them. Mesh mode transmits detection data over the network, so consider where it’s going and who can reach the port.
+Respect other people’s privacy, and use it responsibly.
+
 For educational and security testing only. Respect privacy and local laws. Use responsibly!
 
 ✅ What’s New in v7.0.0 / v7.0.1
