@@ -1,22 +1,22 @@
 """
-ProbeNpwn v3.4.0 – Ultimate handshake/PMKID capture plugin
+ProbeNpwn v3.4.1 – Ultimate handshake/PMKID capture plugin
 Author: AlienMajik
 License: GPL3
 
-New in 3.4.0 (fixes + enhancements over 3.3.0):
-- Fixed broken Dot11EltRSN construction (invalid kwargs) → reliable raw-bytes RSN IE helper.
-- Fixed inverted retry-queue priority (negative timestamps on min-heap).
-- Fixed AdaptiveTokenBucket always reporting ~100% success (now tracks attempts + successes).
-- Fixed locally-administered MAC generation (could produce multicast addresses).
-- Improved WPS (bully/reaver) command lines: now include channel, ESSID, better flags.
+New in 3.4.1:
+- Improved external tool detection (_check_tool).
+  Now correctly detects mdk4, hcxdumptool, bully, and reaver
+  even when they don't support --version cleanly.
+
+Previous (3.4.0):
+- Fixed broken Dot11EltRSN construction → reliable raw-bytes RSN IE helper.
+- Fixed inverted retry-queue priority.
+- Fixed AdaptiveTokenBucket always reporting ~100% success.
+- Fixed locally-administered MAC generation.
+- Improved WPS (bully/reaver) command lines.
 - More robust blacklist/cooldown TTL handling.
 - Cleaner quiet-association path and defensive packet sending.
-- Still fully compatible with jayofelony 2.9.5.4 – 2.9.5.8 (and current Trixie images).
-
-Previous (3.3.0):
-- Quiet association attacks (PMKID assoc, auth harvest, reassoc, RSN probe).
-- WPS PIN capture + save to /root/handshakespin/.
-- Personality respect for deauth/associate, adaptive rate limiting, state persistence, etc.
+- Fully compatible with jayofelony 2.9.5.4 – 2.9.5.8.
 """
 
 import logging
@@ -38,6 +38,7 @@ import multiprocessing
 from logging.handlers import RotatingFileHandler
 from typing import Optional, List, Dict, Any, Tuple, Set
 import queue
+from shutil import which
 
 # Optional imports
 try:
@@ -225,14 +226,14 @@ class AdaptiveTokenBucket(TokenBucket):
 # ----------------------------------------------------------------------
 class ProbeNpwn(plugins.Plugin):
     __author__ = 'AlienMajik'
-    __version__ = '3.4.0'
+    __version__ = '3.4.1'
     __license__ = 'GPL3'
-    __description__ = 'Ultimate handshake/PMKID capture – quiet association attacks, WPS PIN saving, fixed RSN/rate-limiter/retry (v3.4.0).'
+    __description__ = 'Ultimate handshake/PMKID capture – quiet association attacks, WPS PIN saving, fixed RSN/rate-limiter/retry + improved tool detection (v3.4.1).'
 
     def __init__(self):
         super().__init__()
         self.logger = logging.getLogger(__name__)
-        self.logger.debug("ProbeNpwn v3.4.0 initializing")
+        self.logger.debug("ProbeNpwn v3.4.1 initializing")
 
         self.config = {}
         self.agent = None
@@ -430,12 +431,44 @@ class ProbeNpwn(plugins.Plugin):
     # Helper: check if external tool exists
     # ------------------------------------------------------------------
     def _check_tool(self, name: str) -> bool:
+        """
+        More robust tool detection.
+        Many tools (bully, reaver, mdk4) do not cleanly support --version.
+        """
+        # Method 1: try --version
         try:
-            subprocess.run([name, '--version'], capture_output=True, timeout=5)
-            return True
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
-            return False
+            result = subprocess.run(
+                [name, '--version'],
+                capture_output=True,
+                timeout=4,
+                text=True
+            )
+            if result.returncode == 0 or name.lower() in (result.stdout + result.stderr).lower():
+                return True
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError, OSError):
+            pass
 
+        # Method 2: try common help/version flags
+        for flag in ['-V', '--help', '-h']:
+            try:
+                result = subprocess.run(
+                    [name, flag],
+                    capture_output=True,
+                    timeout=4,
+                    text=True
+                )
+                # If the command ran at all, the binary exists
+                return True
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+                return True
+            except (FileNotFoundError, OSError):
+                continue
+
+        # Method 3: final fallback – check PATH
+        try:
+            return which(name) is not None
+        except Exception:
+            return False
     # ------------------------------------------------------------------
     # Helper: get personality settings from agent
     # ------------------------------------------------------------------
@@ -707,7 +740,7 @@ class ProbeNpwn(plugins.Plugin):
     # on_loaded
     # ------------------------------------------------------------------
     def on_loaded(self):
-        self.logger.info("ProbeNpwn v3.3.0 loaded")
+        self.logger.info("ProbeNpwn v3.4.1 loaded")
         os.makedirs(os.path.dirname(DEFAULT_BLACKLIST_PATH), exist_ok=True)
         os.makedirs(os.path.dirname(DEFAULT_LOG_PATH), exist_ok=True)
         os.makedirs(os.path.dirname(DEFAULT_STATE_PATH), exist_ok=True)
@@ -857,11 +890,16 @@ class ProbeNpwn(plugins.Plugin):
         self.mac_randomization = cfg.get("mac_randomization", False)
 
         self.use_external_tools = cfg.get("use_external_tools", False)
-        self.external_tools['mdk4'] = self._check_tool('mdk4') and cfg.get("enable_mdk4", False)
-        self.external_tools['hcxdumptool'] = self._check_tool('hcxdumptool') and cfg.get("enable_hcxdumptool", False)
-        self.external_tools['bully'] = self._check_tool('bully') and cfg.get("enable_wps_attacks", False)
-        self.external_tools['reaver'] = self._check_tool('reaver') and cfg.get("enable_wps_attacks", False)
 
+        # Simple logic:
+        # - If use_external_tools is true → enable tools that are actually installed
+        # - WPS tools (bully/reaver) are controlled by the existing enable_wps flag
+        self.external_tools['aireplay'] = self._check_tool('aireplay-ng')
+        self.external_tools['mdk4'] = self._check_tool('mdk4') if self.use_external_tools else False
+        self.external_tools['hcxdumptool'] = self._check_tool('hcxdumptool') if self.use_external_tools else False
+        self.external_tools['bully'] = self._check_tool('bully') if cfg.get("enable_wps", False) else False
+        self.external_tools['reaver'] = self._check_tool('reaver') if cfg.get("enable_wps", False) else False
+        
         self.dry_run = cfg.get("dry_run", False)
         self.low_battery_threshold = cfg.get("low_battery_threshold", 15)
         self.high_cpu_threshold = cfg.get("high_cpu_threshold", 80)
@@ -2416,3 +2454,4 @@ class ProbeNpwn(plugins.Plugin):
 # ----------------------------------------------------------------------
 def __load_plugin__():
     return ProbeNpwn()
+    
