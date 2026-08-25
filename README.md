@@ -569,9 +569,16 @@ By using the Neurolyzer Plugin, you acknowledge and agree to this disclaimer. If
 ---
 
 # ProbeNpwn Plugin
-**Version:** 3.4.0
+**Version:** 3.4.1
 
-### Recent Update (v3.4.0)
+### Recent Update (v3.4.1)
+
+- Improved External Tool Detection
+Completely rewrote _check_tool(). The previous method only tried --version and failed on tools that do not support it cleanly (especially bully, reaver, and sometimes mdk4).
+The new detector tries --version, then -V / --help / -h, and finally falls back to checking whether the binary exists in PATH.
+As a result, mdk4, hcxdumptool, bully, and reaver are now correctly detected when installed, eliminating false “tool not available” warnings.
+
+### Previous Update (v3.4.0)
 
 - **Critical RSN IE Fix**
   Completely replaced the broken `Dot11EltRSN(...)` construction (invalid kwargs that failed across Scapy versions) with a reliable, portable raw-bytes helper `_build_rsn_ie()`. Quiet association attacks, WPA3 downgrade, and RSN probes now generate correct Information Elements every time.
@@ -725,7 +732,7 @@ state_path = "/root/handshakes/probenpwn_state.json"
 This plugin is provided strictly for **Educational purposes, Security research, and Authorized penetration testing**. It must only be used on networks and devices you own or have explicit written permission to test. Unauthorized use is illegal under laws such as the Computer Fraud and Abuse Act (CFAA) in the United States and equivalent legislation worldwide. The author and contributors are not responsible for any misuse or legal consequences.
 
 ## Overview
-ProbeNpwn is the **ultimate aggressive handshake/PMKID/WPS capture plugin** for Pwnagotchi — now at **v3.4.0**. Building on the complete rebuild in v3.3.0 (quiet association attacks, WPS PIN extraction, state persistence, MAC randomization, power awareness, and a full modern attack arsenal), version 3.4.0 focuses on **correctness, reliability, and long-term stability**. All major bugs that affected real-world performance have been fixed while preserving every feature and the same rich configuration surface.
+ProbeNpwn is the ultimate aggressive handshake/PMKID/WPS capture plugin for Pwnagotchi — now at v3.4.1. Building on the complete rebuild in v3.3.0 and the major reliability fixes in v3.4.0, version 3.4.1 focuses on correct external tool detection so that installed tools (bully, reaver, mdk4, hcxdumptool) are properly recognized.
 
 It remains the smartest, most stable, and most undetectable capture engine available — especially valuable when running with deauth disabled.
 
@@ -758,8 +765,20 @@ It remains the smartest, most stable, and most undetectable capture engine avail
   SAE + client capability sniffers + optional queued upload.
 - **Dry-Run Mode, External Tool Fallback, and Full Thread Safety**
 
-## What's New in ProbeNpwn v3.4.0?
-This is a focused reliability release that hardens the major new capabilities introduced in 3.3.0.
+## What's New in ProbeNpwn v3.4.1?
+This is a focused reliability release that hardens external tool handling on top of the major fixes introduced in 3.4.0.
+
+### Improved External Tool Detection
+What was fixed:
+
+The old _check_tool() method only ran tool --version. Many tools (especially bully and reaver) do not support this flag cleanly and return errors even when the binary is present, causing false “External tool is not available” warnings.
+How it works now:
+
+Tries --version
+Falls back to -V, --help, and -h
+Final fallback checks whether the binary exists in PATH via shutil.which
+
+As a result, installed tools are now correctly detected.
 
 ### 1. Correct RSN Information Elements
 **What was fixed:**  
