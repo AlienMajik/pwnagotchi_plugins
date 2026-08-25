@@ -621,7 +621,24 @@ Use the **bracketed config.toml format** below (required on 2.9.5.x images):
 ```toml
 [main.plugins.probenpwn]
 enabled = true
+
+# ============================================================
+# MODE
+# ============================================================
+# Available modes:
+#   tactical  → Balanced & controlled. Moderate attack rate, respects cooldowns.
+#               Good everyday default.
+#   maniac    → Maximum aggression. Enables flood attacks and higher intensity.
+#               Very noisy — use only when you want maximum pressure.
+#   stealth   → Lowest visibility. Prioritizes quiet association attacks,
+#               slower timing, better for PMF/WPA3 or when deauth is off.
+#   adaptive  → Automatically switches between tactical and maniac based on
+#               real-time success rate + AP/client density.
 mode = "adaptive"
+
+# ============================================================
+# UI POSITIONS (x,y coordinates on the display)
+# ============================================================
 attacks_x_coord = 110
 attacks_y_coord = 20
 success_x_coord = 110
@@ -652,6 +669,10 @@ ext_procs_x_coord = 120
 ext_procs_y_coord = 70
 battery_x_coord = 120
 battery_y_coord = 80
+
+# ============================================================
+# UI TOGGLES (turn individual elements on/off)
+# ============================================================
 show_attacks = true                  # Total attack count
 show_success = true                  # Success percentage
 show_handshakes = true               # Number of captured handshakes/PMKIDs
@@ -664,14 +685,32 @@ show_attack_rate = true              # Attacks per second
 show_top_targets = true              # Shortened MACs of most successful APs
 show_gps_indicator = true            # GPS lock status
 show_eta = true                      # Estimated time to clear remaining targets
-show_pmf_method = true              # Currently used PMF bypass method
-show_ext_procs = true               # Number of running external tools (bully/reaver etc.)
+show_pmf_method = false              # Currently used PMF bypass method
+show_ext_procs = false               # Number of running external tools (bully/reaver etc.)
 show_battery = false                 # Battery percentage + charging icon
-verbose = true
-enable_5ghz = true
-enable_6ghz = true
-max_retries = 5
-env_check_interval = 3
+
+# ============================================================
+# GENERAL / LOGGING
+# ============================================================
+verbose = true                       # Extra debug logging
+
+# ============================================================
+# BAND SUPPORT  ← IMPORTANT FOR 6 GHz
+# ============================================================
+enable_5ghz = true                   # Enable 5 GHz channels
+enable_6ghz = true                   # Enable 6 GHz channels (Wi-Fi 6E)
+
+# ★ Only set enable_6ghz = true if you have a real 6 GHz capable adapter
+#   that supports monitor mode + injection (MT7921/MT7922, some AX210, etc.).
+#   Most common Pwnagotchi cards (AWUS036ACH, AWUS036ACM, older Realtek) do NOT support 6 GHz.
+#   Enabling it with unsupported hardware does nothing useful and can waste channel dwell time.
+
+# ============================================================
+# SCALING / PERSONALITY BOUNDS
+# ============================================================
+max_retries = 5                      # How many times to retry a target
+env_check_interval = 3               # How often (in epochs) to recalculate mobility score
+
 min_recon_time = 2
 max_recon_time = 30
 min_ap_ttl = 30
@@ -684,43 +723,65 @@ min_assoc_prob = 0.9
 max_assoc_prob = 1
 min_min_rssi = -85
 max_min_rssi = -60
-min_throttle_a = 0.1
+min_throttle_a = 0.1                 # Association throttle
 max_throttle_a = 0.2
-min_throttle_d = 0.1
+min_throttle_d = 0.1                 # Deauth throttle
 max_throttle_d = 0.2
+
+# ============================================================
+# PMF BYPASS METHODS
+# ============================================================
 pmf_bypass_methods = ["bad_msg", "assoc_sleep", "rsn_corrupt", "frag"]
-use_external_tools = false
-enable_pmkid_attack = true
-enable_auth_harvest = true
-enable_reassociation = true
-enable_rsn_probe = true
-pin_save_path = "/root/handshakespin/"
-mac_randomization = true
-dry_run = false
-low_battery_threshold = 15
-high_cpu_threshold = 80
+
+# ============================================================
+# EXTERNAL TOOLS
+# ============================================================
+use_external_tools = false           # Use aireplay/mdk4/hcxdumptool as fallback
+
+# ============================================================
+# QUIET ASSOCIATION ATTACKS (no deauth needed)  ← HIGH VALUE
+# ============================================================
+enable_pmkid_attack = false           # Send Association Request with RSN IE to trigger PMKID
+enable_auth_harvest = false           # Send Auth frames (Open/Shared/FT)
+enable_reassociation = false          # Send Reassociation Request + RSN IE
+enable_rsn_probe = false              # Probe Request with SAE (WPA3) RSN IE
+
+# These four are the most important when deauth is turned off.
+
+# ============================================================
+# OTHER ATTACK TOGGLES
+# ============================================================
+enable_wpa3_downgrade = false         # Try to force WPA3 APs down to WPA2
+enable_ft_handshake = false           # Fast Transition (802.11r) related frames
+enable_sae_capture = false           # Background sniffer for SAE (WPA3) auth frames
+enable_tdls = false                  # Tunneled Direct Link Setup attacks
+enable_mesh = false                  # Mesh-related action frames
+enable_wps = true                    # Launch bully/reaver and save PINs
+enable_eapol_start = true            # EAPOL-Start injection (enterprise)
+enable_eapol_logoff = true           # EAPOL-Logoff injection
+enable_disassociation = true         # Disassociation frames
+enable_null_data = true              # Null data + PS-Poll style frames
+enable_csa = false                   # Channel Switch Announcement
+enable_beacon_flood = false          # Fake beacon spam (maniac mode only)
+enable_probe_response_flood = false  # Fake probe response spam
+enable_auth_flood = false            # Auth flood (maniac)
+enable_assoc_flood = false           # Association flood (maniac)
+enable_ps_poll = true                # PS-Poll frames
+enable_cf_end = false                # CF-End frames
+enable_mimo = false                  # MIMO/action frame tricks
+
+# ============================================================
+# MAC / POWER / DRY RUN
+# ============================================================
+mac_randomization = true             # Rotate locally-administered unicast MACs (recommended)
+dry_run = false                      # true = log actions only, no packets sent
+
+# ============================================================
+# UPLOAD / PATHS
+# ============================================================
 upload_url = "https://your-upload-endpoint.com"
 upload_interval = 3600
-enable_wpa3_downgrade = true
-enable_ft_handshake = true
-enable_sae_capture = false
-enable_tdls = false
-enable_mesh = false
-enable_wps = true
-enable_eapol_start = true
-enable_eapol_logoff = true
-enable_disassociation = true
-enable_null_data = true
-enable_csa = false
-enable_beacon_flood = false
-enable_probe_response_flood = false
-enable_auth_flood = false
-enable_assoc_flood = false
-enable_ps_poll = true
-enable_cf_end = false
-enable_mimo = false
-rate_limit_refill_rate = 0.5
-rate_limit_max_tokens = 10
+pin_save_path = "/root/handshakespin/"
 blacklist_path = "/root/handshakes/probenpwn_blacklist.json"
 log_path = "/root/handshakes/probenpwn_captures.jsonl"
 log_max_bytes = 10485760
