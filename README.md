@@ -1095,7 +1095,7 @@ sudo apt update && sudo apt install wireshark-common
 Manual installation recommended (advanced dependencies):
 
 ```bash
-cd /usr/local/share/pwnagotchi/custom-plugins/
+cd /etc/pwnagotchi/custom-plugins/
 sudo wget https://raw.githubusercontent.com/AlienMajik/pwnagotchi_plugins/main/snoopr.py
 ```
 
