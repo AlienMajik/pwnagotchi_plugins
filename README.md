@@ -1029,7 +1029,7 @@ Key enhancements and fixes over previous versions (and why they’re better):
 
 ```bash
 sudo apt update
-sudo apt install python3-bleak python3-cryptography python3-scipy
+sudo apt install python3-bleak python3-cryptography python3-scipy wireshark-common
 ```
 
 Recent images (2.9.5.4+) are built on the Trixie Raspberry Pi OS base, where Python is
